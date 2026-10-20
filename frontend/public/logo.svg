@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Top Piece Gradient (Soft Periwinkle / Violet) -->
+    <linearGradient id="topGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A2A7FF" />
+      <stop offset="100%" stop-color="#737BF8" />
+    </linearGradient>
+
+    <!-- Bottom Left Piece Gradient (Purple to Indigo) -->
+    <linearGradient id="leftGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#AA42E8" />
+      <stop offset="100%" stop-color="#5849F3" />
+    </linearGradient>
+
+    <!-- Bottom Right Piece Gradient (Royal Blue to Sky Blue) -->
+    <linearGradient id="rightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4654F7" />
+      <stop offset="100%" stop-color="#24A7F8" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Top Roof Piece (Hexagon Top Cap) -->
+  <path
+    d="M 243 47
+       Q 256 39 269 47
+       L 435 141
+       Q 446 148 440 160
+       Q 435 166 422 166
+       H 90
+       Q 77 166 72 160
+       Q 66 148 77 141
+       Z"
+    fill="url(#topGradient)"
+  />
+
+  <!-- 2. Bottom Left Piece (Hexagon Left Face) -->
+  <path
+    d="M 82 202
+       H 220
+       Q 235 202 235 217
+       V 428
+       Q 235 444 221 437
+       L 79 360
+       Q 66 353 66 338
+       V 218
+       Q 66 202 82 202
+       Z"
+    fill="url(#leftGradient)"
+  />
+
+  <!-- 3. Bottom Right Piece (Hexagon Right Face) -->
+  <path
+    d="M 292 202
+       H 430
+       Q 446 202 446 218
+       V 338
+       Q 446 353 433 360
+       L 291 437
+       Q 277 444 277 428
+       V 217
+       Q 277 202 292 202
+       Z"
+    fill="url(#rightGradient)"
+  />
+</svg>
