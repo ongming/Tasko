@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Mail, 
   Lock, 
@@ -7,9 +7,14 @@ import {
   EyeOff, 
   ArrowRight, 
   AlertCircle, 
-  X
+  CheckCircle2,
+  Loader2,
+  X,
+  MailCheck
 } from 'lucide-react'
 import Logo from '@/components/Logo'
+import { authService } from '@/services/authService'
+import { useAuthStore } from '@/stores/authStore'
 
 // Icon Google chuẩn 4 màu chính thức
 function GoogleIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -25,16 +30,75 @@ function GoogleIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const setAuth = useAuthStore((state) => state.setAuth)
+
+  // Cờ kiểm tra người dùng vừa kích hoạt email xong nhảy sang
+  const isVerifiedFromEmail = searchParams.get('verified') === 'true'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
-  const [showAlert, setShowAlert] = useState(true)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Trạng thái xử lý form
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isNotActivated, setIsNotActivated] = useState(false)
+
+  // Trạng thái gửi lại email nếu chưa kích hoạt
+  const [isResending, setIsResending] = useState(false)
+  const [resendMessage, setResendMessage] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    navigate('/workspace/board')
+    setErrorMessage(null)
+    setIsNotActivated(false)
+    setResendMessage(null)
+    setIsLoading(true)
+
+    try {
+      const result = await authService.login({
+        email: email.trim().toLowerCase(),
+        password,
+      })
+
+      // Lưu user và accessToken vào Zustand Store (In-Memory RAM)
+      setAuth(result.user, result.accessToken)
+
+      // Chuyển hướng ngay vào Không gian làm việc
+      navigate('/workspace/board')
+    } catch (err: any) {
+      // Trường hợp 403: Tài khoản chưa kích hoạt email
+      if (err.statusCode === 403 || err.message?.includes('chưa được kích hoạt')) {
+        setIsNotActivated(true)
+        setErrorMessage(err.message || 'Tài khoản của bạn chưa được kích hoạt! Vui lòng kiểm tra email để kích hoạt trước khi đăng nhập.')
+      } else {
+        setErrorMessage(err.message || 'Email hoặc mật khẩu không chính xác!')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Hàm gửi lại email kích hoạt
+  const handleResendActivation = async () => {
+    if (!email) {
+      setResendMessage('Vui lòng nhập địa chỉ email của bạn ở trên trước khi bấm gửi lại.')
+      return
+    }
+
+    setIsResending(true)
+    setResendMessage(null)
+
+    try {
+      const res = await authService.resendVerification(email.trim().toLowerCase())
+      setResendMessage(res.message || 'Đã gửi lại email kích hoạt! Vui lòng kiểm tra hộp thư.')
+    } catch (err: any) {
+      setResendMessage(err.message || 'Không thể gửi lại email lúc này. Vui lòng thử lại sau.')
+    } finally {
+      setIsResending(false)
+    }
   }
 
   return (
@@ -60,27 +124,67 @@ export function LoginPage() {
             Đăng nhập vào tài khoản để tiếp tục cộng tác cùng đội ngũ.
           </p>
 
-          {/* Cảnh báo SSO */}
-          {showAlert && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-100/90 flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-rose-900 leading-tight">
-                    Chế độ đăng nhập tập trung (SSO) đang bật
-                  </h4>
-                  <p className="text-[11px] text-rose-700 leading-snug mt-0.5">
-                    Vui lòng nhập email doanh nghiệp hoặc chọn đăng nhập nhanh qua Google bên dưới.
-                  </p>
+          {/* Banner xanh: Khi vừa kích hoạt email thành công từ link */}
+          {isVerifiedFromEmail && (
+            <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Tài khoản của bạn đã được kích hoạt thành công! Hãy đăng nhập để bắt đầu.</span>
+            </div>
+          )}
+
+          {/* Khung báo lỗi nếu có */}
+          {errorMessage && (
+            <div className={`mb-5 p-3.5 rounded-xl flex flex-col gap-2 text-xs leading-relaxed animate-in fade-in duration-200 ${
+              isNotActivated 
+                ? 'bg-amber-50 border border-amber-200 text-amber-800' 
+                : 'bg-rose-50 border border-rose-200/80 text-rose-700'
+            }`}>
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${isNotActivated ? 'text-amber-600' : 'text-rose-600'}`} />
+                  <span>{errorMessage}</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAlert(false)}
-                className="text-rose-400 hover:text-rose-700 transition-colors p-0.5 rounded shrink-0 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+
+              {/* Nút gửi lại email nếu tài khoản chưa kích hoạt */}
+              {isNotActivated && (
+                <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                  <span className="text-[11px] text-amber-700">Chưa nhận được email?</span>
+                  <button
+                    type="button"
+                    disabled={isResending}
+                    onClick={handleResendActivation}
+                    className="font-semibold text-amber-900 hover:underline disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer text-xs"
+                  >
+                    {isResending ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Đang gửi...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MailCheck className="w-3.5 h-3.5" />
+                        <span>Gửi lại email kích hoạt</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Thông báo gửi lại email thành công */}
+          {resendMessage && (
+            <div className="mb-5 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-700 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>{resendMessage}</span>
             </div>
           )}
 
@@ -140,9 +244,6 @@ export function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Tối thiểu 8 ký tự và chứa ít nhất một chữ số.
-              </p>
             </div>
 
             {/* Ghi nhớ */}
@@ -154,17 +255,27 @@ export function LoginPage() {
                 className="w-4 h-4 rounded border-slate-300 text-[#0c66e4] focus:ring-[#0c66e4] accent-[#0c66e4]"
               />
               <span className="text-xs font-medium text-slate-700">
-                Ghi nhớ đăng nhập trong 30 ngày
+                Ghi nhớ đăng nhập
               </span>
             </label>
 
             {/* Nút Đăng nhập */}
             <button
               type="submit"
-              className="w-full mt-1 bg-[#0c66e4] hover:bg-[#0052cc] active:bg-[#0747a6] text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors group cursor-pointer"
+              disabled={isLoading}
+              className="w-full mt-1 bg-[#0c66e4] hover:bg-[#0052cc] active:bg-[#0747a6] disabled:opacity-60 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors group cursor-pointer"
             >
-              <span>Đăng nhập</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang đăng nhập...</span>
+                </>
+              ) : (
+                <>
+                  <span>Đăng nhập</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </>
+              )}
             </button>
           </form>
 

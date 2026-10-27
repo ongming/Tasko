@@ -31,6 +31,9 @@ desktop.ini
 *.swp
 *.swo
 
+# Agent skills
+.agent/
+
 # Temporary files
 *.tmp
 *.temp

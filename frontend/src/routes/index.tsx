@@ -4,11 +4,13 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 // Layouts
 import MainLayout from '@/layouts/MainLayout'
 import WorkspaceLayout from '@/layouts/WorkspaceLayout'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 // Public Pages
 import LandingPage from '@/pages/LandingPage'
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage'
 
 // Workspace Pages
 import BoardView from '@/pages/workspace/BoardView'
@@ -47,6 +49,10 @@ export const router = createBrowserRouter([
     element: <RegisterPage />,
   },
   {
+    path: '/verify-email',
+    element: <VerifyEmailPage />,
+  },
+  {
     path: '/signup',
     element: <Navigate to="/register" replace />,
   },
@@ -59,10 +65,14 @@ export const router = createBrowserRouter([
     element: <Navigate to="/login" replace />,
   },
 
-  // 3. Phân hệ Workspace (Layout có Sidebar & Topbar cố định)
+  // 3. Phân hệ Workspace (Layout có Sidebar & Topbar cố định - Đòi hỏi Đăng nhập)
   {
     path: '/workspace',
-    element: <WorkspaceLayout />,
+    element: (
+      <ProtectedRoute>
+        <WorkspaceLayout />
+      </ProtectedRoute>
+    ),
     children: [
       // Khi gõ đúng /workspace thì tự chuyển tiếp vào /workspace/board
       {
