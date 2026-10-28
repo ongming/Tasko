@@ -1,16 +1,7 @@
 import { useAuthStore } from '@/stores/authStore'
+import { ApiError } from '@/types/api'
 
-export class ApiError extends Error {
-  statusCode: number
-  data: any
-
-  constructor(message: string, statusCode: number, data?: any) {
-    super(message)
-    this.name = 'ApiError'
-    this.statusCode = statusCode
-    this.data = data
-  }
-}
+export { ApiError }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'
 
@@ -119,7 +110,8 @@ async function request<T = any>(endpoint: string, options: RequestOptions = {}):
   // Nếu request thất bại
   if (!response.ok) {
     const errorMessage = responseData?.message || response.statusText || 'Đã có lỗi xảy ra!'
-    throw new ApiError(errorMessage, response.status, responseData?.data ?? null)
+    const errorCode = responseData?.code || responseData?.error
+    throw new ApiError(errorMessage, response.status, errorCode, responseData?.data ?? null)
   }
 
   return responseData?.data !== undefined ? responseData.data : responseData

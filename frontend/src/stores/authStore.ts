@@ -1,11 +1,7 @@
 import { create } from 'zustand'
+import type { User } from '@/types/auth'
 
-export interface User {
-  id: string
-  email: string
-  full_name: string
-  avatar_url: string | null
-}
+export type { User }
 
 export interface AuthState {
   user: User | null

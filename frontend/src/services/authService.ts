@@ -1,52 +1,66 @@
 import { api } from '@/lib/api'
-import type { User } from '@/stores/authStore'
+import type {
+  User,
+  LoginPayload,
+  RegisterPayload,
+  GoogleLoginPayload,
+  LoginResponse,
+  RegisterResponse,
+  VerifyEmailResponse,
+  SimpleMessageResponse,
+} from '@/types/auth'
 
-export interface RegisterDto {
-  email: string
-  password: string
-  full_name: string
+export type {
+  LoginPayload,
+  RegisterPayload,
+  GoogleLoginPayload,
+  LoginResponse,
+  RegisterResponse,
+  VerifyEmailResponse,
 }
 
-export interface LoginDto {
-  email: string
-  password: string
-}
-
-export interface RegisterResponse {
-  id: string
-  email: string
-  full_name: string
-  message: string
-}
-
-export interface LoginResponse {
-  accessToken: string
-  user: User
-}
+// Giữ lại alias tương thích nếu có code cũ tham chiếu
+export type LoginDto = LoginPayload
+export type RegisterDto = RegisterPayload
 
 export const authService = {
   /**
    * Đăng ký tài khoản mới
    */
-  register: (data: RegisterDto) =>
-    api.post<RegisterResponse>('/auth/register', data, { skipAuth: true }),
+  register: (payload: RegisterPayload) =>
+    api.post<RegisterResponse>('/auth/register', payload, { skipAuth: true }),
 
   /**
    * Đăng nhập (trả về Access Token và gài Cookie Refresh Token)
    */
-  login: (data: LoginDto) =>
-    api.post<LoginResponse>('/auth/login', data, { skipAuth: true }),
+  login: (payload: LoginPayload) =>
+    api.post<LoginResponse>('/auth/login', payload, { skipAuth: true }),
+
+  /**
+   * Đăng nhập / Đăng ký qua Google (Hỗ trợ cả Credential và Access Token)
+   */
+  googleLogin: (payload: GoogleLoginPayload) =>
+    api.post<LoginResponse>('/auth/google', payload, { skipAuth: true }),
+
+  /**
+   * Xác thực mã kích hoạt email
+   */
+  verifyEmail: (token: string) =>
+    api.get<VerifyEmailResponse>(`/auth/verify-email?token=${encodeURIComponent(token)}`, {
+      skipAuth: true,
+      headers: { Accept: 'application/json' },
+    }),
 
   /**
    * Gửi lại email kích hoạt
    */
   resendVerification: (email: string) =>
-    api.post<{ message: string }>('/auth/resend-verification', { email }, { skipAuth: true }),
+    api.post<SimpleMessageResponse>('/auth/resend-verification', { email }, { skipAuth: true }),
 
   /**
-   * Đăng xuất
+   * Đăng xuất (xóa session trong DB và clear cookie)
    */
-  logout: () => api.post<{ message: string }>('/auth/logout'),
+  logout: () => api.post<SimpleMessageResponse>('/auth/logout'),
 
   /**
    * Lấy thông tin tài khoản hiện tại

@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
@@ -32,6 +33,8 @@ export interface AuthTokensResult {
 
 @Injectable()
 export class AuthService {
+  private readonly googleClient: OAuth2Client;
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -45,7 +48,10 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
-  ) {}
+  ) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    this.googleClient = new OAuth2Client(clientId);
+  }
 
   /**
    * Hàm tiện ích: Băm Token bằng thuật toán SHA-256
@@ -218,6 +224,92 @@ export class AuthService {
     }
 
     // Cấp cặp Token và tạo Session phiên đăng nhập
+    return this.createSessionAndTokens(user);
+  }
+
+  /**
+   * 2.1. ĐĂNG NHẬP / ĐĂNG KÝ BẰNG GOOGLE (Hỗ trợ cả ID Token và Access Token)
+   */
+  async googleLogin(params: { credential?: string; accessToken?: string }): Promise<AuthTokensResult> {
+    const { credential, accessToken } = params;
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+
+    let email: string | undefined;
+    let name: string | undefined;
+    let picture: string | undefined;
+
+    // Cách 1: Xác thực qua Google ID Token (Credential)
+    if (credential) {
+      try {
+        const ticket = await this.googleClient.verifyIdToken({
+          idToken: credential,
+          audience: clientId,
+        });
+        const payload = ticket.getPayload();
+        email = payload?.email;
+        name = payload?.name;
+        picture = payload?.picture;
+      } catch {
+        throw new UnauthorizedException('Mã xác thực Google không hợp lệ hoặc đã hết hạn!');
+      }
+    } 
+    // Cách 2: Xác thực qua Google Access Token (Từ popup chuẩn của nút custom)
+    else if (accessToken) {
+      try {
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+          throw new UnauthorizedException('Không thể xác thực với Google!');
+        }
+        const data: any = await response.json();
+        email = data.email;
+        name = data.name;
+        picture = data.picture;
+      } catch {
+        throw new UnauthorizedException('Không thể lấy thông tin người dùng từ Google!');
+      }
+    } else {
+      throw new BadRequestException('Vui lòng cung cấp mã xác thực từ Google!');
+    }
+
+    if (!email) {
+      throw new BadRequestException('Không thể lấy thông tin email từ tài khoản Google!');
+    }
+
+    // 1. Tìm User theo email trong CSDL
+    let user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // Tạo mật khẩu ngẫu nhiên cho tài khoản đăng ký qua Google
+      const randomPassword = randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      user = this.userRepository.create({
+        email,
+        full_name: name || 'Người dùng Google',
+        password_hash: passwordHash,
+        avatar_url: picture || null,
+        is_active: true, // Google đã xác minh email, tài khoản kích hoạt ngay lập tức
+      });
+      user = await this.userRepository.save(user);
+    } else {
+      // Người dùng đã có tài khoản: kích hoạt nếu chưa và cập nhật avatar nếu chưa có
+      let needsUpdate = false;
+      if (!user.is_active) {
+        user.is_active = true;
+        needsUpdate = true;
+      }
+      if (!user.avatar_url && picture) {
+        user.avatar_url = picture;
+        needsUpdate = true;
+      }
+      if (needsUpdate) {
+        user = await this.userRepository.save(user);
+      }
+    }
+
+    // 2. Tạo Session và cấp cặp Token JWT đồng bộ
     return this.createSessionAndTokens(user);
   }
 

@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
+import { GoogleLoginDto } from './dto/google-login.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -109,6 +110,27 @@ export class AuthController {
     this.setRefreshTokenCookie(res, result.refreshToken);
 
     // Trả về Access Token và thông tin User cho Frontend
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
+  }
+
+  /**
+   * 2.1. ĐĂNG NHẬP / ĐĂNG KÝ BẰNG GOOGLE (OAuth 2.0 Credential)
+   * POST /api/v1/auth/google
+   */
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async googleLogin(
+    @Body() googleLoginDto: GoogleLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.googleLogin(googleLoginDto);
+
+    // Gài Refresh Token vào Cookie
+    this.setRefreshTokenCookie(res, result.refreshToken);
+
     return {
       accessToken: result.accessToken,
       user: result.user,

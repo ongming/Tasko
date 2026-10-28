@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import WorkspaceLayout from '@/layouts/WorkspaceLayout'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import GuestRoute from '@/components/auth/GuestRoute'
 
 // Public Pages
 import LandingPage from '@/pages/LandingPage'
@@ -39,14 +40,22 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // 2. Authentication (Đăng nhập & Đăng ký)
+  // 2. Authentication (Đăng nhập & Đăng ký - Ngăn người dùng đã login vào lại)
   {
     path: '/login',
-    element: <LoginPage />,
+    element: (
+      <GuestRoute>
+        <LoginPage />
+      </GuestRoute>
+    ),
   },
   {
     path: '/register',
-    element: <RegisterPage />,
+    element: (
+      <GuestRoute>
+        <RegisterPage />
+      </GuestRoute>
+    ),
   },
   {
     path: '/verify-email',
