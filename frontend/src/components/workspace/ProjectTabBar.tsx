@@ -15,12 +15,20 @@ import { ProjectViewType } from '@/types/workspace'
 // All possible view types available in the project
 export const ALL_VIEW_TYPES: ProjectViewType[] = [
   { 
-    id: 'board', 
+    id: 'control', 
     label: 'Control Board', 
+    path: '/workspace/control', 
+    icon: Sliders, 
+    isCore: true,
+    description: 'Bảng điều khiển tổng quan dự án (Summary), chỉ số và hoạt động gần đây'
+  },
+  { 
+    id: 'board', 
+    label: 'Bảng Kanban', 
     path: '/workspace/board', 
     icon: Kanban, 
     isCore: true,
-    description: 'Bảng điều khiển công việc 4 cột trạng thái: Backlog, In Progress, Review, Done'
+    description: 'Bảng công việc 4 cột trạng thái: Backlog, In Progress, Review, Done'
   },
   { 
     id: 'backlog', 
@@ -54,14 +62,6 @@ export const ALL_VIEW_TYPES: ProjectViewType[] = [
     isCore: false,
     description: 'Biểu đồ tiến độ chi tiết và mối quan hệ phụ thuộc giữa các công việc'
   },
-  { 
-    id: 'control', 
-    label: 'Báo cáo & Đo lường', 
-    path: '/workspace/control', 
-    icon: Sliders, 
-    isCore: false,
-    description: 'Báo cáo chỉ số Agile: Velocity, Cycle Time, tốc độ hoàn thành Sprint'
-  },
 ]
 
 export function ProjectTabBar() {
@@ -75,7 +75,7 @@ export function ProjectTabBar() {
     // Check if the current URL matches an optional view
     const currentPath = location.pathname
     const matchedView = ALL_VIEW_TYPES.find(v => v.path === currentPath)
-    const defaults = ['board', 'backlog']
+    const defaults = ['control', 'board', 'backlog']
     if (matchedView && !defaults.includes(matchedView.id)) {
       return [...defaults, matchedView.id]
     }
@@ -124,7 +124,7 @@ export function ProjectTabBar() {
 
   return (
     <div className="relative">
-      <nav className="flex items-center gap-1 sm:gap-2 border-b border-slate-200/80 overflow-x-auto scrollbar-none pb-px">
+      <nav className="px-4 sm:px-6 flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto scrollbar-none">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon
           const isActive = location.pathname === tab.path || (tab.id === 'board' && (location.pathname === '/workspace' || location.pathname === '/workspace/'))
@@ -133,9 +133,9 @@ export function ProjectTabBar() {
             <div key={tab.id} className="relative group/tab flex items-center">
               <Link
                 to={tab.path}
-                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all rounded-t-lg ${
+                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${
                   isActive
-                    ? 'border-indigo-600 text-indigo-600 font-semibold bg-indigo-50/40'
+                    ? 'border-indigo-600 text-indigo-600 font-semibold '
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}
               >

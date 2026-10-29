@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from './user.entity.js';
 
@@ -13,7 +14,8 @@ export class EmailVerification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Mã băm SHA-256 của token kích hoạt gửi qua email
+  // Mã băm SHA-256 của token kích hoạt gửi qua email (đánh index độc bản để tra cứu tức thì)
+  @Index({ unique: true })
   @Column({ type: 'varchar', length: 255 })
   token_hash: string;
 
@@ -26,6 +28,7 @@ export class EmailVerification {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Index()
   @Column({ type: 'uuid' })
   user_id: string;
 

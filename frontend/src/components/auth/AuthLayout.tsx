@@ -47,7 +47,7 @@ export function AuthLayout({
               {footerPrompt}{' '}
               <Link
                 to={footerLinkTo}
-                className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
               >
                 {footerLinkText}
               </Link>

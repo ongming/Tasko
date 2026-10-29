@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import bcrypt from 'bcrypt';
@@ -45,6 +45,7 @@ export class AuthService {
     @InjectRepository(EmailVerification)
     private readonly emailVerificationRepository: Repository<EmailVerification>,
 
+    private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
@@ -62,6 +63,7 @@ export class AuthService {
 
   /**
    * 1. ĐĂNG KÝ TÀI KHOẢN MỚI (Tạo tài khoản chưa kích hoạt & Gửi email)
+   * Sử dụng Database Transaction để đảm bảo tính trọn vẹn (Atomic)
    */
   async register(
     registerDto: RegisterDto,
@@ -78,17 +80,6 @@ export class AuthService {
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Tạo đối tượng User với is_active = false (chưa kích hoạt email)
-    const newUser = this.userRepository.create({
-      email,
-      password_hash,
-      full_name,
-      avatar_url: null,
-      is_active: false,
-    });
-
-    const savedUser = await this.userRepository.save(newUser);
-
     // Tạo Token kích hoạt ngẫu nhiên an toàn (32 bytes hex)
     const rawVerificationToken = randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(rawVerificationToken);
@@ -97,12 +88,26 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    const verification = this.emailVerificationRepository.create({
-      token_hash: tokenHash,
-      expires_at: expiresAt,
-      user: savedUser,
+    // Bọc trong TypeORM Transaction để tạo User và EmailVerification đồng thời
+    const savedUser = await this.dataSource.transaction(async (manager) => {
+      const newUser = manager.create(User, {
+        email,
+        password_hash,
+        full_name,
+        avatar_url: null,
+        is_active: false,
+      });
+      const user = await manager.save(newUser);
+
+      const verification = manager.create(EmailVerification, {
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        user,
+      });
+      await manager.save(verification);
+
+      return user;
     });
-    await this.emailVerificationRepository.save(verification);
 
     // Gửi email kích hoạt (hoặc in ra terminal trong môi trường dev)
     await this.mailService.sendVerificationEmail(
@@ -163,7 +168,10 @@ export class AuthService {
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      throw new NotFoundException('Không tìm thấy tài khoản với địa chỉ email này!');
+      // Chống User Enumeration: không ném 404 để tránh lộ danh sách email đã đăng ký
+      return {
+        message: 'Nếu địa chỉ email tồn tại trong hệ thống, liên kết kích hoạt mới đã được gửi.',
+      };
     }
 
     if (user.is_active) {
@@ -246,10 +254,14 @@ export class AuthService {
           audience: clientId,
         });
         const payload = ticket.getPayload();
+        if (!payload?.email_verified) {
+          throw new UnauthorizedException('Email tài khoản Google này chưa được xác minh chính chủ!');
+        }
         email = payload?.email;
         name = payload?.name;
         picture = payload?.picture;
-      } catch {
+      } catch (err: any) {
+        if (err instanceof UnauthorizedException) throw err;
         throw new UnauthorizedException('Mã xác thực Google không hợp lệ hoặc đã hết hạn!');
       }
     } 
@@ -263,10 +275,14 @@ export class AuthService {
           throw new UnauthorizedException('Không thể xác thực với Google!');
         }
         const data: any = await response.json();
+        if (!data?.email_verified) {
+          throw new UnauthorizedException('Email tài khoản Google này chưa được xác minh chính chủ!');
+        }
         email = data.email;
         name = data.name;
         picture = data.picture;
-      } catch {
+      } catch (err: any) {
+        if (err instanceof UnauthorizedException) throw err;
         throw new UnauthorizedException('Không thể lấy thông tin người dùng từ Google!');
       }
     } else {

@@ -1,42 +1,70 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowUpRight } from 'lucide-react'
+import { useOverview } from '../../hooks/useOverview'
+import {
+  OverviewHeader,
+  ExecutiveStatsRibbon,
+  MyTasksTracker,
+  ActiveProjectsGrid,
+  WeeklyVelocityChart,
+  TeamPresenceWidget,
+  ActivityTimelineStream,
+  QuickCreateTaskModal,
+} from '../../components/overview'
 
 export function OverviewPage() {
+  const {
+    stats,
+    projects,
+    velocity,
+    teamMembers,
+    activities,
+    activeTab,
+    tabCounts,
+    filteredTasks,
+    isCreateModalOpen,
+    setActiveTab,
+    handleToggleTask,
+    handleCreateTask,
+    openCreateModal,
+    closeCreateModal,
+  } = useOverview()
+
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Tổng quan không gian làm việc
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Chào mừng bạn trở lại, Quang Minh! Đây là hoạt động nổi bật hôm nay.
-          </p>
-        </div>
-        <Link
-          to="/workspace/board"
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs"
-        >
-          <span>Xem Board công việc</span>
-          <ArrowUpRight className="w-4 h-4" />
-        </Link>
+    <div className="w-full flex flex-col gap-6 max-w-[1600px] mx-auto p-4 sm:p-6 pb-12">
+      {/* 1. Header & Quick Actions */}
+      <OverviewHeader onOpenCreateTask={openCreateModal} />
+
+      {/* 2. 4 Executive Stats KPI Ribbon */}
+      <ExecutiveStatsRibbon stats={stats} />
+
+      {/* 3. Main Dashboard 12-Column Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (7/12) */}
+        <section aria-label="Nhiệm vụ và dự án" className="lg:col-span-7 flex flex-col gap-6">
+          <MyTasksTracker
+            tasks={filteredTasks}
+            activeTab={activeTab}
+            tabCounts={tabCounts}
+            onTabChange={setActiveTab}
+            onToggleTask={handleToggleTask}
+          />
+          <ActiveProjectsGrid projects={projects} />
+        </section>
+
+        {/* Right Column (5/12) */}
+        <section aria-label="Năng suất và thành viên" className="lg:col-span-5 flex flex-col gap-6">
+          <WeeklyVelocityChart velocity={velocity} />
+          <TeamPresenceWidget members={teamMembers} />
+          <ActivityTimelineStream activities={activities} />
+        </section>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-medium text-slate-500">Dự án đang kích hoạt</span>
-          <p className="text-2xl font-bold text-slate-900 mt-1">3 dự án</p>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-medium text-slate-500">Công việc cần xử lý hôm nay</span>
-          <p className="text-2xl font-bold text-indigo-600 mt-1">6 việc</p>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-medium text-slate-500">Thành viên đang online</span>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">9 / 12 người</p>
-        </div>
-      </div>
+      {/* 4. Quick Task Modal */}
+      <QuickCreateTaskModal
+        isOpen={isCreateModalOpen}
+        onClose={closeCreateModal}
+        onSubmit={handleCreateTask}
+      />
     </div>
   )
 }

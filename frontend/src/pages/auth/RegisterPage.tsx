@@ -43,7 +43,7 @@ export function RegisterPage() {
         footerLinkTo="/login"
       >
         <div className="text-center py-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-5 shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-5 shadow-xs">
             <Send className="w-8 h-8" />
           </div>
           <p className="text-sm font-semibold text-slate-800 break-all mb-2">{email}</p>
@@ -59,7 +59,7 @@ export function RegisterPage() {
               type="button"
               disabled={isResending}
               onClick={() => handleResend(email)}
-              className="font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="font-semibold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
               <span>{isResending ? 'Đang gửi lại...' : 'Gửi lại email kích hoạt'}</span>
@@ -140,15 +140,15 @@ export function RegisterPage() {
             checked={agreeTerms}
             disabled={isLoading}
             onChange={(e) => setAgreeTerms(e.target.checked)}
-            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600 mt-0.5 cursor-pointer"
+            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 mt-0.5 cursor-pointer"
           />
           <label htmlFor="register-terms" className="text-xs text-slate-600 leading-relaxed cursor-pointer select-none">
             Tôi đồng ý với{' '}
-            <a href="#terms" className="font-semibold text-blue-600 hover:underline">
+            <a href="#terms" className="font-semibold text-indigo-600 hover:underline">
               Điều khoản dịch vụ
             </a>{' '}
             và{' '}
-            <a href="#privacy" className="font-semibold text-blue-600 hover:underline">
+            <a href="#privacy" className="font-semibold text-indigo-600 hover:underline">
               Chính sách bảo mật
             </a>{' '}
             của Tasko.
@@ -158,7 +158,7 @@ export function RegisterPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors group cursor-pointer"
+          className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors group cursor-pointer"
         >
           {isLoading ? (
             <>

@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 // Layouts
 import MainLayout from '@/layouts/MainLayout'
 import WorkspaceLayout from '@/layouts/WorkspaceLayout'
+import ProjectLayout from '@/layouts/ProjectLayout'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import GuestRoute from '@/components/auth/GuestRoute'
 
@@ -14,6 +15,7 @@ import RegisterPage from '@/pages/auth/RegisterPage'
 import VerifyEmailPage from '@/pages/auth/VerifyEmailPage'
 
 // Workspace Pages
+import KanbanBoardView from '@/pages/workspace/KanbanBoardView'
 import BoardView from '@/pages/workspace/BoardView'
 import BacklogView from '@/pages/workspace/BacklogView'
 import TimelineView from '@/pages/workspace/TimelineView'
@@ -88,30 +90,39 @@ export const router = createBrowserRouter([
         index: true,
         element: <Navigate to="board" replace />,
       },
-      // Các chế độ xem công việc của dự án
+      // Phân hệ chế độ xem dự án (Project Layout: Header cố định khi cuộn + Dynamic Tabs)
       {
-        path: 'board',
-        element: <BoardView />,
-      },
-      {
-        path: 'backlog',
-        element: <BacklogView />,
-      },
-      {
-        path: 'timeline',
-        element: <TimelineView />,
-      },
-      {
-        path: 'calendar',
-        element: <CalendarView />,
-      },
-      {
-        path: 'gantt',
-        element: <GanttView />,
-      },
-      {
-        path: 'control',
-        element: <ControlBoardView />,
+        element: <ProjectLayout />,
+        children: [
+          {
+            path: 'board',
+            element: <KanbanBoardView />,
+          },
+          {
+            path: 'kanban',
+            element: <KanbanBoardView />,
+          },
+          {
+            path: 'control',
+            element: <ControlBoardView />,
+          },
+          {
+            path: 'backlog',
+            element: <BacklogView />,
+          },
+          {
+            path: 'timeline',
+            element: <TimelineView />,
+          },
+          {
+            path: 'calendar',
+            element: <CalendarView />,
+          },
+          {
+            path: 'gantt',
+            element: <GanttView />,
+          },
+        ],
       },
 
       // Các trang quản lý trên thanh Sidebar

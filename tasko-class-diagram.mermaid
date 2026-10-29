@@ -1,0 +1,257 @@
+classDiagram
+    class User {
+        +UUID id
+        +String email
+        +String password_hash
+        +String full_name
+        +String avatar_url
+        +Boolean is_active
+        +Boolean email_verified
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class Session {
+        +UUID id
+        +UUID user_id
+        +String refresh_token
+        +DateTime expires_at
+        +DateTime created_at
+    }
+
+    class VerificationCode {
+        +UUID id
+        +UUID user_id
+        +String code
+        +String type
+        +DateTime expires_at
+        +DateTime created_at
+    }
+
+    class Role {
+        +UUID id
+        +String name
+        +String description
+    }
+
+    class Permission {
+        +UUID id
+        +String code
+        +String description
+    }
+
+    class RolePermission {
+        +UUID role_id
+        +UUID permission_id
+    }
+
+    class Workspace {
+        +UUID id
+        +String name
+        +String slug
+        +String logo_url
+        +UUID owner_id
+        +DateTime created_at
+        +DateTime updated_at
+        +DateTime deleted_at
+    }
+
+    class WorkspaceMember {
+        +UUID id
+        +UUID workspace_id
+        +UUID user_id
+        +UUID role_id
+        +DateTime joined_at
+    }
+
+    class Project {
+        +UUID id
+        +UUID workspace_id
+        +String name
+        +String key
+        +Integer task_counter
+        +String description
+        +String icon_url
+        +JSON settings
+        +DateTime created_at
+        +DateTime updated_at
+        +DateTime deleted_at
+    }
+
+    class ProjectMember {
+        +UUID id
+        +UUID project_id
+        +UUID user_id
+        +UUID role_id
+        +DateTime joined_at
+    }
+
+    class Sprint {
+        +UUID id
+        +UUID project_id
+        +String name
+        +String goal
+        +DateTime start_date
+        +DateTime end_date
+        +String status
+    }
+
+    class Status {
+        +UUID id
+        +UUID project_id
+        +String name
+        +String category
+        +String color
+        +String position
+        +Boolean is_default
+    }
+
+    class CustomField {
+        +UUID id
+        +UUID project_id
+        +String name
+        +String field_type
+        +JSON options
+        +Boolean is_required
+        +Integer position
+    }
+
+    class CustomFieldValue {
+        +UUID id
+        +UUID task_id
+        +UUID custom_field_id
+        +String value
+    }
+
+    class Task {
+        +UUID id
+        +UUID project_id
+        +Integer task_number
+        +String task_key
+        +String title
+        +String description
+        +String priority
+        +String type
+        +UUID status_id
+        +UUID sprint_id
+        +UUID parent_id
+        +UUID reporter_id
+        +Date due_date
+        +Date start_date
+        +Integer story_points
+        +String position
+        +JSON custom_fields
+        +DateTime created_at
+        +DateTime updated_at
+        +DateTime deleted_at
+    }
+
+    class TaskAssignee {
+        +UUID task_id
+        +UUID user_id
+        +DateTime assigned_at
+    }
+
+    class Comment {
+        +UUID id
+        +UUID task_id
+        +UUID user_id
+        +String content
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class Attachment {
+        +UUID id
+        +UUID task_id
+        +UUID user_id
+        +String file_name
+        +String file_url
+        +Integer file_size
+        +String mime_type
+        +DateTime created_at
+    }
+
+    class TaskLink {
+        +UUID id
+        +UUID source_task_id
+        +UUID target_task_id
+        +String link_type
+    }
+
+    class Label {
+        +UUID id
+        +UUID project_id
+        +String name
+        +String color
+    }
+
+    class TaskLabel {
+        +UUID task_id
+        +UUID label_id
+    }
+
+    class ActivityLog {
+        +UUID id
+        +UUID task_id
+        +UUID user_id
+        +String action
+        +String field_name
+        +String old_value
+        +String new_value
+        +DateTime created_at
+    }
+
+    class Notification {
+        +UUID id
+        +UUID user_id
+        +String type
+        +String title
+        +String message
+        +JSON data
+        +Boolean is_read
+        +DateTime created_at
+    }
+
+    User "1" --> "*" Session : has
+    User "1" --> "*" VerificationCode : has
+    User "1" --> "*" Workspace : owns
+    User "1" --> "*" WorkspaceMember : belongs_to
+    User "1" --> "*" ProjectMember : belongs_to
+    User "1" --> "*" Task : reports
+    User "1" --> "*" TaskAssignee : assigned
+    User "1" --> "*" Comment : writes
+    User "1" --> "*" Attachment : uploads
+    User "1" --> "*" ActivityLog : triggers
+    User "1" --> "*" Notification : receives
+
+    Workspace "1" --> "*" WorkspaceMember : contains
+    Workspace "1" --> "*" Project : contains
+
+    Role "1" --> "*" WorkspaceMember : defines
+    Role "1" --> "*" ProjectMember : defines
+    Role "1" --> "*" RolePermission : has
+    Permission "1" --> "*" RolePermission : contains
+
+    Project "1" --> "*" ProjectMember : contains
+    Project "1" --> "*" Sprint : manages
+    Project "1" --> "*" Status : configures
+    Project "1" --> "*" CustomField : defines
+    Project "1" --> "*" Label : owns
+    Project "1" --> "*" Task : owns
+
+    Status "1" --> "*" Task : groups
+    Sprint "0..1" --> "*" Task : plans
+    Task "0..1" --> "*" Task : subtasks
+
+    CustomField "1" --> "*" CustomFieldValue : defines
+    Task "1" --> "*" CustomFieldValue : has
+
+    Task "1" --> "*" TaskAssignee : has
+    Task "1" --> "*" Comment : contains
+    Task "1" --> "*" Attachment : contains
+    Task "1" --> "*" TaskLink : sources
+    Task "1" --> "*" TaskLink : targets
+    Task "1" --> "*" TaskLabel : tagged
+    Label "1" --> "*" TaskLabel : applied_to
+    Task "1" --> "*" ActivityLog : records

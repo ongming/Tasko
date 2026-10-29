@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from './user.entity.js';
 
@@ -27,6 +28,7 @@ export class Session {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Index()
   @Column({ type: 'uuid' })
   user_id: string;
 

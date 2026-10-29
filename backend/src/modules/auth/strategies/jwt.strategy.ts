@@ -21,10 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // Không bỏ qua token hết hạn (hết hạn là chặn ngay)
       ignoreExpiration: false,
       // Khóa bí mật dùng để xác thực chữ ký của Access Token
-      secretOrKey: configService.get<string>(
-        'JWT_ACCESS_SECRET',
-        'tasko_access_secret_fallback',
-      ),
+      secretOrKey: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
     });
   }
 

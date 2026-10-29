@@ -1,3 +1,5 @@
+Project rules in this file override any agent persona.
+Stack: NestJS, TypeORM, PostgreSQL, React (Vite). Do not introduce Prisma or Next.js-specific APIs.
 # Project Management System (Jira/Trello-like, Scrum/Kanban)
 
 ## Overview
