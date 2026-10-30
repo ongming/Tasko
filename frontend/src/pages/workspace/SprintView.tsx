@@ -1,8 +1,10 @@
 import React from 'react'
-import { Play } from 'lucide-react'
+import { Plus, Flame } from 'lucide-react'
 import ProjectTabBar from '@/components/workspace/ProjectTabBar'
 
 export function SprintView() {
+  const hasActiveSprint = false
+
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto">
       {/* Project Header Navigation */}
@@ -10,18 +12,18 @@ export function SprintView() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Website Redesign
+              Quản lý Sprint
             </h1>
             <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-xs font-semibold">
-              WR-2024
+              SPRINT
             </span>
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs cursor-pointer"
           >
-            <Play className="w-4 h-4 fill-white" />
-            <span>Bắt đầu Sprint 2</span>
+            <Plus className="w-4 h-4" />
+            <span>Tạo Sprint mới</span>
           </button>
         </div>
 
@@ -30,51 +32,24 @@ export function SprintView() {
       </div>
 
       {/* Sprint Active Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col gap-5">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/50">
-                Sprint 1 - Đang diễn ra
-              </span>
-              <span className="text-xs text-slate-400 font-medium">01/05 - 15/05 (Còn 3 ngày)</span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-900 mt-1">Hoàn thiện kiến trúc & Thiết kế UX</h2>
+      {!hasActiveSprint ? (
+        <div className="bg-white p-12 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+            <Flame className="w-6 h-6" />
           </div>
-          <div className="flex items-center gap-6 text-sm">
-            <div className="text-right">
-              <span className="text-xs text-slate-400 block font-medium">Tiến độ Sprint</span>
-              <span className="text-base font-bold text-indigo-600">68% hoàn thành</span>
-            </div>
-          </div>
+          <h2 className="text-sm font-bold text-slate-800">Chưa có Sprint nào đang diễn ra</h2>
+          <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
+            Đi tới tab Backlog để lập kế hoạch, phân bổ các User Story và bắt đầu chu kỳ Sprint đầu tiên.
+          </p>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tạo Sprint đầu tiên</span>
+          </button>
         </div>
-
-        {/* Progress bar */}
-        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
-          <div className="bg-emerald-500 h-full w-[45%]" title="Done (45%)" />
-          <div className="bg-indigo-600 h-full w-[23%]" title="In Progress (23%)" />
-          <div className="bg-amber-400 h-full w-[10%]" title="Review (10%)" />
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100 text-xs">
-          <div>
-            <span className="text-slate-400 block">Tổng Story Points</span>
-            <span className="font-bold text-slate-800 text-sm">42 SP</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Đã hoàn thành</span>
-            <span className="font-bold text-emerald-600 text-sm">28 SP</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Đang thực hiện</span>
-            <span className="font-bold text-indigo-600 text-sm">10 SP</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Điểm rủi ro</span>
-            <span className="font-bold text-amber-600 text-sm">0 cảnh báo</span>
-          </div>
-        </div>
-      </div>
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Folder, CheckSquare, Flame, Users, TrendingUp, AlertTriangle } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 import type { OverviewStats } from '../../types/overview'
 
 interface ExecutiveStatsRibbonProps {
@@ -7,13 +8,17 @@ interface ExecutiveStatsRibbonProps {
 }
 
 export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stats }) => {
+  const { user } = useAuthStore()
+
+  const userInitials = user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'
+
   return (
     <section aria-label="Chỉ số điều hành" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1: Dự án đang kích hoạt */}
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between hover:shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+            <span className="text-xs text-slate-600 font-medium">
               Dự án đang kích hoạt
             </span>
             <span className="text-2xl font-bold text-slate-900 mt-1">
@@ -26,7 +31,7 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
           </div>
         </div>
         <div className="mt-4 pt-2 border-t border-slate-100 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium border border-emerald-100">
+          <span className="inline-flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full font-medium border border-slate-200/60">
             <TrendingUp className="w-3.5 h-3.5" />
             {stats.activeProjects.change}
           </span>
@@ -40,7 +45,7 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between hover:shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+            <span className="text-xs text-slate-600 font-medium">
               Công việc cần làm hôm nay
             </span>
             <span className="text-2xl font-bold text-slate-900 mt-1">
@@ -53,9 +58,11 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
           </div>
         </div>
         <div className="mt-4 pt-2 border-t border-slate-100 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full font-medium border border-amber-200/60">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {stats.tasksToday.highPriorityCount} việc ưu tiên cao
+          <span className="inline-flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full font-medium border border-slate-200/60">
+            <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
+            {stats.tasksToday.highPriorityCount > 0
+              ? `${stats.tasksToday.highPriorityCount} việc ưu tiên cao`
+              : '0 việc ưu tiên cao'}
           </span>
           <span className="text-xs text-slate-500 font-medium">
             {stats.tasksToday.deadline}
@@ -67,7 +74,7 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between hover:shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+            <span className="text-xs text-slate-600 font-medium">
               Tiến độ {stats.sprintProgress.sprintName}
             </span>
             <span className="text-2xl font-bold text-slate-900 mt-1">
@@ -97,7 +104,7 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between hover:shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+            <span className="text-xs text-slate-600 font-medium">
               Thành viên online
             </span>
             <span className="text-2xl font-bold text-slate-900 mt-1">
@@ -111,19 +118,33 @@ export const ExecutiveStatsRibbon: React.FC<ExecutiveStatsRibbonProps> = ({ stat
         </div>
         <div className="mt-4 pt-2 border-t border-slate-100 flex items-center justify-between">
           <div className="flex -space-x-2 overflow-hidden items-center">
-            {stats.onlineMembers.avatars.map((av) => (
+            {stats.onlineMembers.avatars.length > 0 ? (
+              <>
+                {stats.onlineMembers.avatars.map((av) => (
+                  <div
+                    key={av.id}
+                    className={`relative inline-flex items-center justify-center w-6 h-6 rounded-full ${av.bg} text-white text-[10px] font-semibold ring-2 ring-white`}
+                    title={av.name}
+                  >
+                    {av.initials}
+                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white" />
+                  </div>
+                ))}
+                {stats.onlineMembers.total > stats.onlineMembers.avatars.length && (
+                  <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">
+                    +{stats.onlineMembers.total - stats.onlineMembers.avatars.length}
+                  </div>
+                )}
+              </>
+            ) : (
               <div
-                key={av.id}
-                className={`relative inline-flex items-center justify-center w-6 h-6 rounded-full ${av.bg} text-white text-[10px] font-semibold ring-2 ring-white`}
-                title={av.name}
+                className="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-semibold ring-2 ring-white"
+                title={user?.full_name || 'Bạn'}
               >
-                {av.initials}
+                {userInitials}
                 <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white" />
               </div>
-            ))}
-            <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">
-              +{stats.onlineMembers.total - stats.onlineMembers.avatars.length}
-            </div>
+            )}
           </div>
           <span className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

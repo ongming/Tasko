@@ -1,35 +1,53 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 
-// Layouts
+// Layouts (Tải trực tiếp để đảm bảo layout shell cố định không bị giật lag)
 import MainLayout from '@/layouts/MainLayout'
 import WorkspaceLayout from '@/layouts/WorkspaceLayout'
 import ProjectLayout from '@/layouts/ProjectLayout'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import GuestRoute from '@/components/auth/GuestRoute'
 
-// Public Pages
-import LandingPage from '@/pages/LandingPage'
-import LoginPage from '@/pages/auth/LoginPage'
-import RegisterPage from '@/pages/auth/RegisterPage'
-import VerifyEmailPage from '@/pages/auth/VerifyEmailPage'
+// Fallback skeleton loader tinh gọn chuẩn Linear / Impeccable
+const PageLoadingFallback = () => (
+  <div className="w-full h-full min-h-[360px] flex-1 flex items-center justify-center p-8 animate-in fade-in duration-150">
+    <div className="flex flex-col items-center gap-2.5">
+      <div className="w-7 h-7 rounded-full border-2 border-indigo-100 border-t-indigo-600 animate-spin" />
+      <span className="text-xs font-medium text-slate-400">Đang tải trang...</span>
+    </div>
+  </div>
+)
 
-// Workspace Pages
-import KanbanBoardView from '@/pages/workspace/KanbanBoardView'
-import BoardView from '@/pages/workspace/BoardView'
-import BacklogView from '@/pages/workspace/BacklogView'
-import TimelineView from '@/pages/workspace/TimelineView'
-import CalendarView from '@/pages/workspace/CalendarView'
-import GanttView from '@/pages/workspace/GanttView'
-import ControlBoardView from '@/pages/workspace/ControlBoardView'
-import OverviewPage from '@/pages/workspace/OverviewPage'
-import ProjectsPage from '@/pages/workspace/ProjectsPage'
-import MembersPage from '@/pages/workspace/MembersPage'
-import SettingsPage from '@/pages/workspace/SettingsPage'
+const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType<any>>) => (
+  <Suspense fallback={<PageLoadingFallback />}>
+    <Component />
+  </Suspense>
+)
+
+// Public Pages (Lazy Loaded Chunks)
+const LandingPage = lazy(() => import('@/pages/LandingPage'))
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
+const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'))
+
+// Workspace Project Pages (Lazy Loaded Chunks)
+const KanbanBoardView = lazy(() => import('@/pages/workspace/KanbanBoardView'))
+const BacklogView = lazy(() => import('@/pages/workspace/BacklogView'))
+const TimelineView = lazy(() => import('@/pages/workspace/TimelineView'))
+const CalendarView = lazy(() => import('@/pages/workspace/CalendarView'))
+const GanttView = lazy(() => import('@/pages/workspace/GanttView'))
+const ControlBoardView = lazy(() => import('@/pages/workspace/ControlBoardView'))
+
+// Workspace Management Pages (Lazy Loaded Chunks)
+const OverviewPage = lazy(() => import('@/pages/workspace/OverviewPage'))
+const ProjectsPage = lazy(() => import('@/pages/workspace/ProjectsPage'))
+const CreateProjectPage = lazy(() => import('@/pages/workspace/CreateProjectPage'))
+const MembersPage = lazy(() => import('@/pages/workspace/MembersPage'))
+const SettingsPage = lazy(() => import('@/pages/workspace/SettingsPage'))
 
 /**
  * Cấu hình Router hiện đại (Data Router) theo chuẩn React Router v6.4+ / v7
- * Sử dụng createBrowserRouter nhận vào cây mảng Object (Route Objects)
+ * Đã áp dụng Route-based Code Splitting (React.lazy + Suspense)
  */
 export const router = createBrowserRouter([
   // 1. Phân hệ Public (Landing Page có Header & Footer ngoài)
@@ -37,7 +55,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: (
       <MainLayout>
-        <LandingPage />
+        {withSuspense(LandingPage)}
       </MainLayout>
     ),
   },
@@ -47,7 +65,7 @@ export const router = createBrowserRouter([
     path: '/login',
     element: (
       <GuestRoute>
-        <LoginPage />
+        {withSuspense(LoginPage)}
       </GuestRoute>
     ),
   },
@@ -55,13 +73,13 @@ export const router = createBrowserRouter([
     path: '/register',
     element: (
       <GuestRoute>
-        <RegisterPage />
+        {withSuspense(RegisterPage)}
       </GuestRoute>
     ),
   },
   {
     path: '/verify-email',
-    element: <VerifyEmailPage />,
+    element: withSuspense(VerifyEmailPage),
   },
   {
     path: '/signup',
@@ -85,10 +103,10 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      // Khi gõ đúng /workspace thì tự chuyển tiếp vào /workspace/board
+      // Khi gõ đúng /workspace thì tự chuyển tiếp vào trang Tổng quan /overview
       {
         index: true,
-        element: <Navigate to="board" replace />,
+        element: <Navigate to="overview" replace />,
       },
       // Phân hệ chế độ xem dự án (Project Layout: Header cố định khi cuộn + Dynamic Tabs)
       {
@@ -96,31 +114,31 @@ export const router = createBrowserRouter([
         children: [
           {
             path: 'board',
-            element: <KanbanBoardView />,
+            element: withSuspense(KanbanBoardView),
           },
           {
             path: 'kanban',
-            element: <KanbanBoardView />,
+            element: withSuspense(KanbanBoardView),
           },
           {
             path: 'control',
-            element: <ControlBoardView />,
+            element: withSuspense(ControlBoardView),
           },
           {
             path: 'backlog',
-            element: <BacklogView />,
+            element: withSuspense(BacklogView),
           },
           {
             path: 'timeline',
-            element: <TimelineView />,
+            element: withSuspense(TimelineView),
           },
           {
             path: 'calendar',
-            element: <CalendarView />,
+            element: withSuspense(CalendarView),
           },
           {
             path: 'gantt',
-            element: <GanttView />,
+            element: withSuspense(GanttView),
           },
         ],
       },
@@ -128,19 +146,23 @@ export const router = createBrowserRouter([
       // Các trang quản lý trên thanh Sidebar
       {
         path: 'overview',
-        element: <OverviewPage />,
+        element: withSuspense(OverviewPage),
       },
       {
         path: 'projects',
-        element: <ProjectsPage />,
+        element: withSuspense(ProjectsPage),
+      },
+      {
+        path: 'projects/new',
+        element: withSuspense(CreateProjectPage),
       },
       {
         path: 'members',
-        element: <MembersPage />,
+        element: withSuspense(MembersPage),
       },
       {
         path: 'settings',
-        element: <SettingsPage />,
+        element: withSuspense(SettingsPage),
       },
 
       // Redirect tương thích
@@ -155,16 +177,13 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 3. Catch-all: Bất kỳ URL nào không khớp sẽ chuyển về trang chủ
+  // 4. Catch-all: Bất kỳ URL nào không khớp sẽ chuyển về trang chủ
   {
     path: '*',
     element: <Navigate to="/" replace />,
   },
 ])
 
-/**
- * Component AppRoutes cung cấp Router cho toàn bộ ứng dụng
- */
 export function AppRoutes() {
   return <RouterProvider router={router} />
 }

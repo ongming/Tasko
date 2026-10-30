@@ -14,7 +14,7 @@ export const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onSubmit,
 }) => {
   const [title, setTitle] = useState('')
-  const [project, setProject] = useState('Website Redesign')
+  const [project, setProject] = useState('Dự án cá nhân')
   const [priority, setPriority] = useState<TaskPriority>('medium')
 
   if (!isOpen) return null
@@ -82,9 +82,8 @@ export const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 onChange={(e) => setProject(e.target.value)}
                 className="w-full h-9 px-3 bg-slate-50 text-slate-900 text-sm rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-indigo-600 transition-all"
               >
-                <option value="Website Redesign">Website Redesign (WR)</option>
-                <option value="Mobile App">Mobile App Flutter (MA)</option>
-                <option value="Backend API">Backend API NestJS (BE)</option>
+                <option value="Dự án cá nhân">Dự án cá nhân</option>
+                <option value="Dự án 1">Dự án 1</option>
               </select>
             </div>
 

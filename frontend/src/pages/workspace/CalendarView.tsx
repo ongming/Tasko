@@ -42,24 +42,9 @@ export function CalendarView() {
         <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 min-h-[500px]">
           {dates.map((d) => (
             <div key={d} className="p-2 min-h-[90px] flex flex-col justify-between hover:bg-slate-50/50 transition-colors">
-              <span className={`text-xs font-semibold ${d === 15 ? 'w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center' : 'text-slate-500'}`}>
+              <span className="text-xs font-semibold text-slate-500">
                 {d}
               </span>
-              {d === 12 && (
-                <div className="bg-purple-50 text-purple-700 text-[11px] p-1 rounded font-medium truncate border border-purple-200/50">
-                  WR-101 Nghiên cứu
-                </div>
-              )}
-              {d === 15 && (
-                <div className="bg-indigo-50 text-indigo-700 text-[11px] p-1 rounded font-medium truncate border border-indigo-200/50">
-                  WR-102 Thiết kế UI
-                </div>
-              )}
-              {d === 18 && (
-                <div className="bg-rose-50 text-rose-700 text-[11px] p-1 rounded font-medium truncate border border-rose-200/50">
-                  WR-103 Nội dung
-                </div>
-              )}
             </div>
           ))}
         </div>

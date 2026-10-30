@@ -33,3 +33,23 @@ export interface WorkspaceMember {
   initials: string;
   color: string;
 }
+
+export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+
+export interface CreateWorkspacePayload {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface WorkspaceResponse {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  role: WorkspaceRole;
+  ownerId: string;
+  memberCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}

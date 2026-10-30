@@ -22,28 +22,13 @@ export function BacklogView() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'my' | 'active'>('all')
 
   // Sprint 1 issues (Active Sprint)
-  const sprint1Issues: Task[] = [
-    { id: 'WR-101', title: 'Nghiên cứu đối thủ cạnh tranh & khảo sát người dùng', type: 'story', points: 5, status: 'In Progress', statusColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200/50', assignees: [{ name: 'NA', bg: 'bg-indigo-600' }], tag: 'Research', dueDate: '12 thg 5' },
-    { id: 'WR-102', title: 'Thiết kế giao diện trang chủ và hệ thống Design System', type: 'story', points: 8, status: 'Backlog', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'LC', bg: 'bg-amber-500' }], tag: 'Design', dueDate: '15 thg 5' },
-    { id: 'WR-104', title: 'Phát triển API xác thực đăng nhập JWT & RBAC', type: 'task', points: 5, status: 'In Progress', statusColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200/50', assignees: [{ name: 'NA', bg: 'bg-indigo-600' }], tag: 'Backend', dueDate: '10 thg 5' },
-    { id: 'WR-107', title: 'Sửa lỗi vỡ layout responsive trên màn hình mobile', type: 'bug', points: 3, status: 'Review', statusColor: 'bg-amber-50 text-amber-700 border border-amber-200/50', assignees: [{ name: 'TB', bg: 'bg-blue-500' }], tag: 'Frontend', dueDate: '11 thg 5' },
-    { id: 'WR-109', title: 'Tạo wireframe kiến trúc luồng dữ liệu ban đầu', type: 'task', points: 5, status: 'Done', statusColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50', assignees: [{ name: 'LC', bg: 'bg-amber-500' }], tag: 'Design', dueDate: '08 thg 5' },
-  ]
+  const sprint1Issues: Task[] = []
 
   // Sprint 2 issues (Planned Sprint)
-  const sprint2Issues: Task[] = [
-    { id: 'WR-105', title: 'Tích hợp cổng thanh toán trực tuyến MoMo và Stripe', type: 'story', points: 8, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'HQ', bg: 'bg-cyan-600' }], tag: 'Backend', dueDate: '14 thg 5' },
-    { id: 'WR-106', title: 'Tối ưu hoá SEO On-Page và cấu hình Sitemap tự động', type: 'task', points: 5, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'MN', bg: 'bg-purple-600' }], tag: 'SEO', dueDate: '17 thg 5' },
-    { id: 'WR-108', title: 'Đánh giá hiệu năng và tải cơ sở dữ liệu với 10,000 users', type: 'task', points: 5, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'NA', bg: 'bg-indigo-600' }], tag: 'DevOps', dueDate: '13 thg 5' },
-  ]
+  const sprint2Issues: Task[] = []
 
   // Backlog issues (Unassigned product backlog)
-  const backlogIssues: Task[] = [
-    { id: 'WR-103', title: 'Viết nội dung truyền thông tiếp thị & cẩm nang onboarding', type: 'story', points: 3, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'PD', bg: 'bg-teal-500' }], tag: 'Content', dueDate: '18 thg 5' },
-    { id: 'WR-111', title: 'Xây dựng thông báo đẩy thời gian thực qua WebSocket', type: 'story', points: 8, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'TB', bg: 'bg-blue-500' }], tag: 'Backend', dueDate: '20 thg 5' },
-    { id: 'WR-112', title: 'Hỗ trợ xuất báo cáo tiến độ dự án ra file PDF/Excel', type: 'task', points: 5, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'VT', bg: 'bg-slate-700' }], tag: 'Reporting', dueDate: '22 thg 5' },
-    { id: 'WR-113', title: 'Tích hợp đăng nhập nhanh qua Google OAuth2', type: 'story', points: 5, status: 'To Do', statusColor: 'bg-slate-100 text-slate-700 border border-slate-200', assignees: [{ name: 'NA', bg: 'bg-indigo-600' }], tag: 'Security', dueDate: '25 thg 5' },
-  ]
+  const backlogIssues: Task[] = []
 
   const renderIssueIcon = (type?: string) => {
     switch (type) {
@@ -184,7 +169,7 @@ export function BacklogView() {
                   Đang diễn ra
                 </span>
                 <span className="text-xs text-slate-400 font-medium">
-                  01 thg 5 - 15 thg 5 • {sprint1Issues.length} công việc
+                  {sprint1Issues.length} công việc
                 </span>
               </div>
             </div>
@@ -192,9 +177,9 @@ export function BacklogView() {
             {/* Thống kê Story Points (To do / In progress / Done) & Nút hoàn thành */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 text-xs font-bold font-mono">
-                <span className="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700" title="Điểm chờ làm (To Do)">5</span>
-                <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700" title="Điểm đang làm (In Progress)">10</span>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800" title="Điểm hoàn thành (Done)">11</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700" title="Điểm chờ làm (To Do)">0</span>
+                <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700" title="Điểm đang làm (In Progress)">0</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800" title="Điểm hoàn thành (Done)">0</span>
               </div>
               
               <button
@@ -217,7 +202,13 @@ export function BacklogView() {
           {/* Danh sách công việc Sprint 1 */}
           {isSprint1Expanded && (
             <div>
-              {sprint1Issues.map(renderIssueRow)}
+              {sprint1Issues.length === 0 ? (
+                <div className="py-6 px-4 text-center text-xs text-slate-400">
+                  Chưa có công việc nào trong Sprint 1. Nhấn nút bên dưới để tạo công việc đầu tiên.
+                </div>
+              ) : (
+                sprint1Issues.map(renderIssueRow)
+              )}
               
               {/* Tạo việc nhanh ở đáy Sprint */}
               <button
@@ -250,13 +241,13 @@ export function BacklogView() {
                   Kế hoạch
                 </span>
                 <span className="text-xs text-slate-400 font-medium">
-                  16 thg 5 - 30 thg 5 • {sprint2Issues.length} công việc
+                  {sprint2Issues.length} công việc
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold font-mono">18 SP</span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold font-mono">0 SP</span>
               <button
                 type="button"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
@@ -276,7 +267,13 @@ export function BacklogView() {
 
           {isSprint2Expanded && (
             <div>
-              {sprint2Issues.map(renderIssueRow)}
+              {sprint2Issues.length === 0 ? (
+                <div className="py-6 px-4 text-center text-xs text-slate-400">
+                  Chưa có công việc nào trong Sprint kế hoạch.
+                </div>
+              ) : (
+                sprint2Issues.map(renderIssueRow)
+              )}
               
               <button
                 type="button"
@@ -321,7 +318,13 @@ export function BacklogView() {
 
           {isBacklogExpanded && (
             <div>
-              {backlogIssues.map(renderIssueRow)}
+              {backlogIssues.length === 0 ? (
+                <div className="py-8 px-4 text-center text-xs text-slate-400">
+                  Danh sách Backlog đang trống. Bắt đầu thêm các User Stories, Tasks hoặc Bugs đầu tiên!
+                </div>
+              ) : (
+                backlogIssues.map(renderIssueRow)
+              )}
 
               {/* Quick Inline Add Task */}
               <button

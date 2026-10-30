@@ -37,3 +37,7 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+
+# Graphify Knowledge Graph Cache
+graphify-out/cache/

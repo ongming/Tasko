@@ -30,44 +30,7 @@ export function TimelineView() {
   const [isFavorite, setIsFavorite] = useState<boolean>(true)
   const [scale, setScale] = useState<'weeks' | 'months' | 'quarters'>('months')
 
-  const timelineItems: TimelineEpic[] = [
-    {
-      epic: 'Giai đoạn 1: Khảo sát & Thiết kế kiến trúc',
-      color: 'bg-purple-600',
-      badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
-      startCol: '10%',
-      widthCol: '35%',
-      progress: 85,
-      tasks: [
-        { id: 'WR-101', name: 'Nghiên cứu đối thủ cạnh tranh', dates: '01/05 - 12/05', start: '10%', width: '15%', color: 'bg-purple-500' },
-        { id: 'WR-102', name: 'Thiết kế Design System trang chủ', dates: '05/05 - 20/05', start: '18%', width: '22%', color: 'bg-indigo-500' },
-      ]
-    },
-    {
-      epic: 'Giai đoạn 2: Phát triển Core Backend & API',
-      color: 'bg-blue-600',
-      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-      startCol: '25%',
-      widthCol: '50%',
-      progress: 60,
-      tasks: [
-        { id: 'WR-104', name: 'Phát triển API JWT Authentication & RBAC', dates: '10/05 - 22/05', start: '28%', width: '25%', color: 'bg-blue-500' },
-        { id: 'WR-105', name: 'Tích hợp thanh toán MoMo & Stripe', dates: '18/05 - 05/06', start: '45%', width: '25%', color: 'bg-cyan-500' },
-      ]
-    },
-    {
-      epic: 'Giai đoạn 3: Kiểm thử, Tối ưu & Ra mắt',
-      color: 'bg-emerald-600',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      startCol: '55%',
-      widthCol: '40%',
-      progress: 20,
-      tasks: [
-        { id: 'WR-106', name: 'Tối ưu SEO & Performance Core Web Vitals', dates: '28/05 - 15/06', start: '58%', width: '22%', color: 'bg-amber-500' },
-        { id: 'WR-108', name: 'Kiểm thử tải & triển khai CI/CD Production', dates: '05/06 - 25/06', start: '70%', width: '25%', color: 'bg-emerald-500' },
-      ]
-    }
-  ]
+  const timelineItems: TimelineEpic[] = []
 
   const months = ['Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7']
 
@@ -176,50 +139,59 @@ export function TimelineView() {
         </div>
 
         {/* Timeline Items */}
-        <div className="divide-y divide-slate-100">
-          {timelineItems.map((item, idx) => (
-            <div key={idx} className="flex flex-col">
-              {/* Epic Parent Bar */}
-              <div className="grid grid-cols-12 items-center py-3 px-4 bg-slate-50/40 hover:bg-slate-50 transition-colors">
-                <div className="col-span-4 border-r border-slate-200 pr-4 flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded ${item.color} shrink-0`} />
-                  <span className="text-xs font-bold text-slate-900 truncate">{item.epic}</span>
-                  <span className="text-[10px] font-bold text-indigo-600 ml-auto shrink-0">{item.progress}%</span>
-                </div>
-                <div className="col-span-8 pl-4 relative h-7 flex items-center">
-                  <div 
-                    className={`absolute h-5.5 rounded-md ${item.color} opacity-90 shadow-2xs text-white text-[10px] font-bold px-2 flex items-center justify-between overflow-hidden`}
-                    style={{ left: item.startCol, width: item.widthCol }}
-                  >
-                    <span className="truncate">{item.epic}</span>
-                    <span>{item.progress}%</span>
+        {timelineItems.length === 0 ? (
+          <div className="py-12 px-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-slate-700">Chưa có Epic hoặc công việc nào trên Lộ trình (Timeline)</p>
+            <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
+              Nhấn nút &ldquo;Thêm Epic / Mốc&rdquo; để thiết lập các giai đoạn phát triển cho dự án của bạn.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {timelineItems.map((item, idx) => (
+              <div key={idx} className="flex flex-col">
+                {/* Epic Parent Bar */}
+                <div className="grid grid-cols-12 items-center py-3 px-4 bg-slate-50/40 hover:bg-slate-50 transition-colors">
+                  <div className="col-span-4 border-r border-slate-200 pr-4 flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded ${item.color} shrink-0`} />
+                    <span className="text-xs font-bold text-slate-900 truncate">{item.epic}</span>
+                    <span className="text-[10px] font-bold text-indigo-600 ml-auto shrink-0">{item.progress}%</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Sub-tasks in this Epic */}
-              {item.tasks.map((task) => (
-                <div key={task.id} className="grid grid-cols-12 items-center py-2 px-4 hover:bg-slate-50/70 transition-colors">
-                  <div className="col-span-4 border-r border-slate-200 pr-4 pl-6 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[11px] font-semibold text-slate-400">{task.id}</span>
-                      <span className="text-slate-700 truncate font-medium text-[11px]">{task.name}</span>
-                    </div>
-                  </div>
-                  <div className="col-span-8 pl-4 relative h-6 flex items-center">
+                  <div className="col-span-8 pl-4 relative h-7 flex items-center">
                     <div 
-                      className={`absolute h-4 rounded-md ${task.color} text-white text-[9px] font-bold px-2 flex items-center truncate shadow-2xs`}
-                      style={{ left: task.start, width: task.width }}
-                      title={`${task.name} (${task.dates})`}
+                      className={`absolute h-5.5 rounded-md ${item.color} opacity-90 shadow-2xs text-white text-[10px] font-bold px-2 flex items-center justify-between overflow-hidden`}
+                      style={{ left: item.startCol, width: item.widthCol }}
                     >
-                      {task.name}
+                      <span className="truncate">{item.epic}</span>
+                      <span>{item.progress}%</span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ))}
-        </div>
+
+                {/* Sub-tasks in this Epic */}
+                {item.tasks.map((task) => (
+                  <div key={task.id} className="grid grid-cols-12 items-center py-2 px-4 hover:bg-slate-50/70 transition-colors">
+                    <div className="col-span-4 border-r border-slate-200 pr-4 pl-6 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-[11px] font-semibold text-slate-400">{task.id}</span>
+                        <span className="text-slate-700 truncate font-medium text-[11px]">{task.name}</span>
+                      </div>
+                    </div>
+                    <div className="col-span-8 pl-4 relative h-6 flex items-center">
+                      <div 
+                        className={`absolute h-4 rounded-md ${task.color} text-white text-[9px] font-bold px-2 flex items-center truncate shadow-2xs`}
+                        style={{ left: task.start, width: task.width }}
+                        title={`${task.name} (${task.dates})`}
+                      >
+                        {task.name}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

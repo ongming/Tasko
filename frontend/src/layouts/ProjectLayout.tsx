@@ -2,14 +2,18 @@ import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Star, Share2 } from 'lucide-react'
 import ProjectTabBar from '@/components/workspace/ProjectTabBar'
+import { useAuthStore } from '@/stores/authStore'
 
 export function ProjectLayout() {
-  const [isFavorite, setIsFavorite] = useState(true)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const { user } = useAuthStore()
+
+  const userInitials = user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'
 
   return (
     <div className="flex flex-col h-full w-full">
       {/* 1. Header dự án cố định trên đầu (Sticky / Fixed when scrolling) */}
-      <div className=" shrink-0   pb-2  flex flex-col gap-3">
+      <div className="shrink-0 pb-2 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-4 p-4 sm:p-6 sm:pb-0">
           {/* Tên dự án, icon yêu thích, mã dự án */}
           <div className="flex items-center gap-3">
@@ -31,24 +35,26 @@ export function ProjectLayout() {
                 }`} 
               />
             </button>
-            <span className="px-2.5 py-1 rounded-md bg-slate-200/70 text-slate-700 font-mono text-xs font-semibold tracking-wider">
+            <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-xs font-semibold tracking-wider">
               WR-2024
             </span>
           </div>
 
-          {/* Danh sách thành viên & nút Chia sẻ */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center -space-x-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs" title="Nguyễn An">NA</div>
-              <div className="w-8 h-8 rounded-full bg-blue-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs" title="Trần Bình">TB</div>
-              <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs" title="Lê Cúc">LC</div>
-              <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center ring-2 ring-white shadow-xs">+5</div>
+          {/* Danh sách thành viên & nút Chia sẻ (Chuẩn Linear secondary action) */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center -space-x-1.5">
+              <div
+                className="w-7 h-7 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-2xs"
+                title={user?.full_name || 'Bạn'}
+              >
+                {userInitials}
+              </div>
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200/90 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-all cursor-pointer"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3.5 h-3.5 text-slate-500" />
               <span>Chia sẻ</span>
             </button>
           </div>

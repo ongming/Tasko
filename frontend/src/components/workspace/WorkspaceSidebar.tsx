@@ -1,17 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
-  FolderKanban, 
-  CheckSquare, 
-  Settings, 
+  Star,
   Plus, 
   ChevronsUpDown, 
   Check,
-  Sliders
+  Building2,
+  FolderPlus,
+  ChevronRight,
+  X,
+  Search,
+  ListFilter,
+  AlignLeft
 } from 'lucide-react'
-import type { NavItem, Project } from '@/types/workspace'
+import type { Project } from '@/types/workspace'
+import { workspaceService } from '@/services/workspaceService'
+import CreateWorkspaceModal from '@/components/workspace/CreateWorkspaceModal'
+
+export interface StarredItem {
+  id: string
+  name: string
+  subtitle: string
+  initial: string
+  color: string
+  path: string
+}
 
 export interface WorkspaceItem {
   id: string
@@ -22,43 +37,8 @@ export interface WorkspaceItem {
   projects: Project[]
 }
 
-const WORKSPACES_DATA: WorkspaceItem[] = [
-  {
-    id: 'ws-marketing',
-    name: 'Marketing Team',
-    subtitle: 'Tasko Agile',
-    initial: 'M',
-    color: 'bg-indigo-600',
-    projects: [
-      { id: 'website-redesign', name: 'Website Redesign', count: 18, color: 'bg-indigo-600' },
-      { id: 'mobile-app', name: 'Mobile App', count: 9, color: 'bg-emerald-500' },
-      { id: 'marketing-campaign', name: 'Marketing Campaign', count: 5, color: 'bg-amber-500' },
-    ],
-  },
-  {
-    id: 'ws-tech',
-    name: 'Kỹ thuật & Công nghệ',
-    subtitle: 'Sprint Scrum',
-    initial: 'K',
-    color: 'bg-blue-600',
-    projects: [
-      { id: 'backend-core', name: 'Backend API NestJS', count: 12, color: 'bg-blue-600' },
-      { id: 'frontend-react', name: 'Frontend React 19', count: 8, color: 'bg-cyan-500' },
-      { id: 'devops-infra', name: 'DevOps & CI/CD', count: 3, color: 'bg-purple-500' },
-    ],
-  },
-  {
-    id: 'ws-product',
-    name: 'Phát triển Sản phẩm',
-    subtitle: 'Kanban Flow',
-    initial: 'P',
-    color: 'bg-violet-600',
-    projects: [
-      { id: 'design-system', name: 'Design System & UI', count: 14, color: 'bg-violet-600' },
-      { id: 'user-research', name: 'Nghiên cứu Người dùng', count: 4, color: 'bg-rose-500' },
-    ],
-  },
-]
+// User mới tạo account: Mặc định chưa có Workspace nào
+const INITIAL_WORKSPACES: WorkspaceItem[] = []
 
 export interface WorkspaceSidebarProps {
   isMobileOpen: boolean;
@@ -67,17 +47,106 @@ export interface WorkspaceSidebarProps {
 
 export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSidebarProps) {
   const location = useLocation()
+  const navigate = useNavigate()
 
-  // Quản lý Không gian làm việc đang chọn và Dự án đang chọn
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('ws-marketing')
-  const [currentProject, setCurrentProject] = useState<string>('website-redesign')
+  // Danh sách Workspaces và trạng thái chọn
+  const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>(INITIAL_WORKSPACES)
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
+  const [currentProject, setCurrentProject] = useState<string | null>(null)
   const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false)
+  const [isCreateWorkspaceModalOpen, setIsCreateWorkspaceModalOpen] = useState(false)
   const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 220 })
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const currentWorkspace =
-    WORKSPACES_DATA.find((w) => w.id === selectedWorkspaceId) || WORKSPACES_DATA[0]
+  // Trạng thái Popup "Đã đánh dấu sao" (Jira Flyout Popup)
+  const [isStarredOpen, setIsStarredOpen] = useState(false)
+  const [starredCoords, setStarredCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [starredSearch, setStarredSearch] = useState('')
+  const [starredItems, setStarredItems] = useState<StarredItem[]>([])
+  const starredButtonRef = useRef<HTMLButtonElement>(null)
+  const starredPopupRef = useRef<HTMLDivElement>(null)
+
+  // Tải danh sách Workspaces từ Backend Database
+  const reloadWorkspaces = async () => {
+    try {
+      const workspacesList = await workspaceService.getMyWorkspaces()
+      if (workspacesList) {
+        const items: WorkspaceItem[] = workspacesList.map((ws) => ({
+          id: ws.id,
+          name: ws.name,
+          subtitle: ws.role === 'OWNER' ? 'Chủ sở hữu' : 'Thành viên',
+          initial: ws.name.slice(0, 2).toUpperCase(),
+          color: 'bg-indigo-600',
+          projects: [],
+        }))
+        setWorkspaces(items)
+        if (items.length > 0 && !selectedWorkspaceId) {
+          setSelectedWorkspaceId(items[0].id)
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi nếu chưa đăng nhập
+    }
+  }
+
+  useEffect(() => {
+    reloadWorkspaces()
+  }, [])
+
+  // Đồng bộ khi có workspace mới được tạo từ màn hình khác
+  useEffect(() => {
+    const handleWorkspaceUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent
+      reloadWorkspaces()
+      if (customEvent.detail?.id) {
+        setSelectedWorkspaceId(customEvent.detail.id)
+      }
+    }
+    window.addEventListener('workspace-updated', handleWorkspaceUpdated)
+    return () => window.removeEventListener('workspace-updated', handleWorkspaceUpdated)
+  }, [])
+
+  // Xử lý tạo workspace mới từ Sidebar
+  const handleCreateWorkspaceFromSidebar = async (data: { workspaceName: string; workspaceSlug: string }) => {
+    const created = await workspaceService.create({
+      name: data.workspaceName,
+      slug: data.workspaceSlug,
+    })
+    await reloadWorkspaces()
+    setSelectedWorkspaceId(created.id)
+    setIsCreateWorkspaceModalOpen(false)
+    window.dispatchEvent(new CustomEvent('workspace-updated', { detail: created }))
+  }
+
+  const currentWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId) || workspaces[0] || null
+
+  // Mở popup Đã đánh dấu sao và tính toạ độ neo bên phải nút
+  const toggleStarredPopup = () => {
+    if (!isStarredOpen && starredButtonRef.current) {
+      const rect = starredButtonRef.current.getBoundingClientRect()
+      const popupWidth = 330
+      const popupHeight = 310
+      let left = rect.right + 8
+      if (left + popupWidth > window.innerWidth) {
+        left = Math.max(16, window.innerWidth - popupWidth - 16)
+      }
+      let top = Math.max(16, rect.top - 6)
+      if (top + popupHeight > window.innerHeight) {
+        top = Math.max(16, window.innerHeight - popupHeight - 16)
+      }
+      setStarredCoords({ top, left })
+    }
+    setIsStarredOpen((prev) => !prev)
+  }
+
+  const handleRemoveStarred = (id: string) => {
+    setStarredItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const filteredStarredItems = starredItems.filter((item) =>
+    item.name.toLowerCase().includes(starredSearch.toLowerCase().trim())
+  )
 
   // Mở dropdown và tính toán toạ độ vị trí trên màn hình
   const toggleWorkspaceDropdown = () => {
@@ -92,10 +161,11 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
     setIsWorkspaceDropdownOpen((prev) => !prev)
   }
 
-  // Đóng dropdown khi click ra ngoài hoặc khi cuộn
+  // Đóng dropdown và popup khi click ra ngoài hoặc khi cuộn
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node
+      // Click ngoài Workspace Dropdown
       if (
         dropdownRef.current && 
         !dropdownRef.current.contains(target) &&
@@ -104,13 +174,28 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
       ) {
         setIsWorkspaceDropdownOpen(false)
       }
+
+      // Click ngoài Starred Popup
+      if (
+        starredPopupRef.current &&
+        !starredPopupRef.current.contains(target) &&
+        starredButtonRef.current &&
+        !starredButtonRef.current.contains(target)
+      ) {
+        setIsStarredOpen(false)
+      }
     }
 
-    function handleScroll() {
+    function handleScroll(event: Event) {
+      // Cho phép cuộn bên trong popup
+      if (starredPopupRef.current?.contains(event.target as Node)) {
+        return
+      }
       setIsWorkspaceDropdownOpen(false)
+      setIsStarredOpen(false)
     }
 
-    if (isWorkspaceDropdownOpen) {
+    if (isWorkspaceDropdownOpen || isStarredOpen) {
       document.addEventListener('mousedown', handleClickOutside)
       window.addEventListener('scroll', handleScroll, true)
     }
@@ -119,25 +204,19 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
       document.removeEventListener('mousedown', handleClickOutside)
       window.removeEventListener('scroll', handleScroll, true)
     }
-  }, [isWorkspaceDropdownOpen])
+  }, [isWorkspaceDropdownOpen, isStarredOpen])
 
   // Chuyển đổi workspace -> tự động chọn dự án đầu tiên của workspace đó
   const handleSelectWorkspace = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId)
-    const targetWs = WORKSPACES_DATA.find((w) => w.id === workspaceId)
+    const targetWs = workspaces.find((w) => w.id === workspaceId)
     if (targetWs && targetWs.projects.length > 0) {
       setCurrentProject(targetWs.projects[0].id)
+    } else {
+      setCurrentProject(null)
     }
     setIsWorkspaceDropdownOpen(false)
   }
-
-  const navItems: NavItem[] = [
-    { label: 'Tổng quan', path: '/workspace/overview', icon: LayoutDashboard },
-    { label: 'Dự án', path: '/workspace/projects', icon: FolderKanban },
-    { label: 'Bảng Kanban', path: '/workspace/board', icon: CheckSquare },
-    { label: 'Control Board', path: '/workspace/control', icon: Sliders },
-    { label: 'Cài đặt', path: '/workspace/settings', icon: Settings },
-  ]
 
   return (
     <>
@@ -158,52 +237,66 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex flex-col gap-3 overflow-y-auto px-3 flex-1">
-          {/* Primary Nav Menu */}
+          {/* Primary Nav Menu: Tổng quan & Đã đánh dấu sao */}
           <nav className="flex flex-col gap-1 pt-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive =
-                location.pathname === item.path ||
-                (item.path === '/workspace/board' &&
-                  (location.pathname === '/workspace' || location.pathname === '/workspace/'))
+            <NavLink
+              to="/workspace/overview"
+              onClick={() => {
+                setIsStarredOpen(false)
+                setIsMobileOpen?.(false)
+              }}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                }`
+              }
+            >
+              <LayoutDashboard className="w-4 h-4 shrink-0 text-slate-500" />
+              <span>Tổng quan</span>
+            </NavLink>
 
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setIsMobileOpen?.(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </NavLink>
-              )
-            })}
+            <button
+              ref={starredButtonRef}
+              type="button"
+              onClick={toggleStarredPopup}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                isStarredOpen
+                  ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+              }`}
+              title="Mục đã đánh dấu sao"
+              aria-expanded={isStarredOpen}
+            >
+              <div className="flex items-center gap-2.5">
+                <Star className={`w-4 h-4 shrink-0 ${isStarredOpen ? 'text-amber-500 fill-amber-400' : 'text-slate-500'}`} />
+                <span>Đã đánh dấu sao</span>
+              </div>
+              <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${isStarredOpen ? 'rotate-90' : ''}`} />
+            </button>
           </nav>
 
-          {/* Divider */}
-          <div className="h-px bg-slate-200/60 mx-1" />
-
-          {/* Projects Section: DỰ ÁN CỦA TÔI */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between px-2 pt-0.5">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          {/* DỰ ÁN CỦA TÔI & BỘ CHỌN WORKSPACE */}
+          <div className="pt-2 border-t border-slate-200/60 flex flex-col gap-2">
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Dự án của tôi
               </span>
-              <button 
-                type="button" 
-                className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100 cursor-pointer"
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/workspace/projects/new')
+                  setIsMobileOpen?.(false)
+                }}
+                className="text-slate-400 hover:text-indigo-600 transition-colors p-0.5 rounded cursor-pointer"
                 title="Tạo dự án mới"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* BỘ CHỌN WORKSPACE (Dời xuống dưới 'Dự án của tôi') */}
+            {/* BỘ CHỌN WORKSPACE */}
             <div>
               <button 
                 ref={buttonRef}
@@ -214,19 +307,35 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
                 aria-label="Đổi không gian làm việc"
                 aria-expanded={isWorkspaceDropdownOpen}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg ${currentWorkspace.color} text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0`}>
-                    {currentWorkspace.initial}
+                {currentWorkspace ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-7 h-7 rounded-lg ${currentWorkspace.color} text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0`}>
+                      {currentWorkspace.initial}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                        {currentWorkspace.name}
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-400 truncate">
+                        {currentWorkspace.subtitle}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                      {currentWorkspace.name}
-                    </span>
-                    <span className="text-[10px] font-medium text-slate-400 truncate">
-                      {currentWorkspace.subtitle}
-                    </span>
+                ) : (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-semibold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">
+                        Chưa có Không gian
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-400 truncate">
+                        Nhấn để tạo mới
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0 ml-1" />
               </button>
 
@@ -245,72 +354,117 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Không gian làm việc
                   </div>
-                  <div className="max-h-60 overflow-y-auto py-0.5">
-                    {WORKSPACES_DATA.map((ws) => {
-                      const isSelected = ws.id === currentWorkspace.id
-                      return (
+                  
+                  {workspaces.length === 0 ? (
+                    <div className="px-3 py-3 text-center">
+                      <p className="text-xs text-slate-500">Chưa có không gian làm việc nào</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsWorkspaceDropdownOpen(false)
+                          setIsCreateWorkspaceModalOpen(true)
+                        }}
+                        className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tạo không gian làm việc</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-60 overflow-y-auto py-0.5">
+                        {workspaces.map((ws) => {
+                          const isSelected = currentWorkspace && ws.id === currentWorkspace.id
+                          return (
+                            <button
+                              key={ws.id}
+                              type="button"
+                              onClick={() => handleSelectWorkspace(ws.id)}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
+                                isSelected ? 'bg-indigo-50/80 text-indigo-700 font-semibold' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-6 h-6 rounded-md ${ws.color} text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-2xs`}>
+                                  {ws.initial}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs truncate">{ws.name}</span>
+                                  <span className="text-[10px] text-slate-400 truncate">{ws.subtitle}</span>
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 ml-1" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Nút Tạo thêm Workspace khi đã có danh sách */}
+                      <div className="border-t border-slate-100 p-1.5 mt-1 bg-slate-50/50">
                         <button
-                          key={ws.id}
                           type="button"
-                          onClick={() => handleSelectWorkspace(ws.id)}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
-                            isSelected ? 'bg-indigo-50/80 text-indigo-700 font-semibold' : 'hover:bg-slate-50 text-slate-700'
-                          }`}
+                          onClick={() => {
+                            setIsWorkspaceDropdownOpen(false)
+                            setIsCreateWorkspaceModalOpen(true)
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors cursor-pointer"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-6 h-6 rounded-md ${ws.color} text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-2xs`}>
-                              {ws.initial}
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs truncate">{ws.name}</span>
-                              <span className="text-[10px] text-slate-400 truncate">{ws.subtitle}</span>
-                            </div>
-                          </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 ml-1" />}
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Tạo không gian làm việc mới</span>
                         </button>
-                      )
-                    })}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>,
                 document.body
               )}
             </div>
 
-            {/* DANH SÁCH CÁC DỰ ÁN TƯƠNG ỨNG VỚI WORKSPACE ĐÃ CHỌN */}
-            <div className="flex flex-col gap-0.5 mt-1">
-              {currentWorkspace.projects.map((p) => {
-                const isSelected = currentProject === p.id
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setCurrentProject(p.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left cursor-pointer ${
-                      isSelected
-                        ? 'bg-indigo-50/80 text-indigo-700 font-medium'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${p.color}`} />
-                      <span className="truncate text-xs">{p.name}</span>
-                    </div>
-                    {p.count !== undefined && (
-                      <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
-                        isSelected 
-                          ? 'bg-indigo-100 text-indigo-700' 
-                          : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {p.count}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+            {/* DANH SÁCH CÁC DỰ ÁN */}
+            {currentWorkspace && currentWorkspace.projects.length > 0 ? (
+              <div className="flex flex-col gap-0.5 mt-1">
+                {currentWorkspace.projects.map((p) => {
+                  const isSelected = currentProject === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCurrentProject(p.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-50/80 text-indigo-700 font-medium'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${p.color}`} />
+                        <span className="truncate text-xs">{p.name}</span>
+                      </div>
+                      {p.count !== undefined && (
+                        <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
+                          isSelected 
+                            ? 'bg-indigo-100 text-indigo-700' 
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {p.count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="py-2.5 px-3 text-center rounded-lg bg-slate-50 border border-slate-100 my-1">
+                <p className="text-[11px] text-slate-400">Chưa có dự án nào</p>
+              </div>
+            )}
 
             <button 
               type="button"
+              onClick={() => {
+                navigate('/workspace/projects/new')
+                setIsMobileOpen?.(false)
+              }}
               className="mt-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50/60 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -319,6 +473,137 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
           </div>
         </div>
       </aside>
+
+      {/* Starred Flyout Popup (Chuẩn Jira Popover) */}
+      {isStarredOpen &&
+        createPortal(
+          <div
+            ref={starredPopupRef}
+            style={{
+              position: 'fixed',
+              top: `${starredCoords.top}px`,
+              left: `${starredCoords.left}px`,
+            }}
+            className="w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Header: Title + Close Button */}
+            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+              <span className="text-sm font-bold text-slate-800">Đã đánh dấu sao</span>
+              <button
+                type="button"
+                onClick={() => setIsStarredOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Đóng"
+                aria-label="Đóng cửa sổ"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search & Filter Bar */}
+            <div className="px-3 pb-2.5">
+              <div className="relative flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={starredSearch}
+                  onChange={(e) => setStarredSearch(e.target.value)}
+                  placeholder="Tìm kiếm mục đã gắn sao..."
+                  className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  className="p-0.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  title="Bộ lọc"
+                >
+                  <ListFilter className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Starred Items List / Empty State */}
+            <div className="max-h-64 overflow-y-auto px-2 pb-2">
+              {filteredStarredItems.length === 0 ? (
+                <div className="py-7 px-3 text-center flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-2 shadow-2xs">
+                    <Star className="w-5 h-5 fill-amber-400 text-amber-500" />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-700">
+                    {starredSearch ? 'Không tìm thấy mục phù hợp' : 'Chưa có mục nào được gắn sao'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-[220px]">
+                    {starredSearch 
+                      ? 'Thử tìm với từ khóa khác' 
+                      : 'Bấm vào biểu tượng ngôi sao ⭐ trên dự án hoặc công việc để ghim vào đây.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {filteredStarredItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer"
+                      onClick={() => {
+                        navigate(item.path)
+                        setIsStarredOpen(false)
+                        setIsMobileOpen?.(false)
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-7 h-7 rounded-lg ${item.color} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
+                          {item.initial}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                            {item.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">
+                            {item.subtitle}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveStarred(item.id)
+                        }}
+                        className="p-1 text-amber-500 hover:text-slate-300 transition-colors cursor-pointer shrink-0"
+                        title="Bỏ đánh dấu sao"
+                      >
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer: View All Link */}
+            <div className="border-t border-slate-100 p-2.5 bg-slate-50/50 flex items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/workspace/projects')
+                  setIsStarredOpen(false)
+                  setIsMobileOpen?.(false)
+                }}
+                className="w-full flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-indigo-600 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100/70 text-left cursor-pointer"
+              >
+                <AlignLeft className="w-3.5 h-3.5 text-slate-400" />
+                <span>Xem tất cả danh sách dự án</span>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Modal Tạo Workspace mở từ Sidebar */}
+      <CreateWorkspaceModal
+        isOpen={isCreateWorkspaceModalOpen}
+        onClose={() => setIsCreateWorkspaceModalOpen(false)}
+        onSubmit={handleCreateWorkspaceFromSidebar}
+      />
     </>
   )
 }

@@ -1,41 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-/* Hỗ trợ nạp file font nội bộ nếu bạn bỏ file vào public/fonts/ */
-@font-face {
-  font-family: 'Charlie Sans';
-  src: url('/fonts/CharlieSans-Regular.woff2') format('woff2'),
-       url('/fonts/CharlieSans-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Charlie Sans';
-  src: url('/fonts/CharlieSans-Bold.woff2') format('woff2'),
-       url('/fonts/CharlieSans-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Cấu hình font-family mặc định cho Tailwind CSS v4 */
+/* Cấu hình font-family mặc định chuẩn Inter & System Sans cho Tailwind CSS v4 */
 @theme {
-  --font-sans: 'Charlie Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
-/* Áp dụng Charlie Sans cho toàn bộ hệ thống */
+/* Áp dụng Inter cho toàn bộ hệ thống */
 :root {
-  font-family: 'Charlie Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
 body {
-  font-family: 'Charlie Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f8faff;
-  color: #1e293b;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background-color: #ffffff;
+  color: #0f172a;
   overflow-x: hidden;
   margin: 0;
   padding: 0;
+  caret-color: #4f46e5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Impeccable Craft Floor: Browser Surfaces & Themed Details */
+::selection {
+  background-color: rgba(99, 102, 241, 0.22);
+  color: #312e81;
+}
+
+/* Focus Ring: Chuẩn trợ năng và tương phản cao */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
+
+/* Thanh cuộn siêu mỏng tinh tế thay cho scrollbar xám thô mặc định */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tabular numbers cho bảng số liệu, IDs và chỉ số đếm */
+.tabular-nums, .font-mono {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Slogan chữ viết tay (Better Team Bigger Goals) */
