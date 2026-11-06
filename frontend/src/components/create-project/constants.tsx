@@ -10,7 +10,7 @@ import {
   Truck,
   Headphones,
 } from 'lucide-react'
-import type { AgileCardConfig, BusinessDomain, MethodDetails, AgileMethod } from './types'
+import type { AgileCardConfig, BusinessDomain, MethodDetails, AgileMethod } from '@/types/createProject'
 
 export const AGILE_METHODS: AgileCardConfig[] = [
   {
@@ -120,9 +120,9 @@ export const METHOD_DETAILS: Record<AgileMethod, MethodDetails> = {
       { label: 'Hoàn thành', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     ],
     issueTypes: [
-      { label: 'Tác vụ', color: 'bg-blue-100 text-blue-700' },
-      { label: 'Cải tiến', color: 'bg-emerald-100 text-emerald-700' },
-      { label: 'Lỗi (Bug)', color: 'bg-rose-100 text-rose-700' },
+      { label: 'Module', color: 'bg-purple-100 text-purple-700' },
+      { label: 'Task', color: 'bg-blue-100 text-blue-700' },
+      { label: 'Bug', color: 'bg-rose-100 text-rose-700' },
     ],
   },
   scrum: {
@@ -139,8 +139,7 @@ export const METHOD_DETAILS: Record<AgileMethod, MethodDetails> = {
       { label: 'Hoàn thành', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     ],
     issueTypes: [
-      { label: 'Epic', color: 'bg-purple-100 text-purple-700' },
-      { label: 'Story', color: 'bg-emerald-100 text-emerald-700' },
+      { label: 'Module', color: 'bg-purple-100 text-purple-700' },
       { label: 'Task', color: 'bg-blue-100 text-blue-700' },
       { label: 'Bug', color: 'bg-rose-100 text-rose-700' },
     ],
@@ -159,9 +158,9 @@ export const METHOD_DETAILS: Record<AgileMethod, MethodDetails> = {
       { label: 'Đã giao', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
     ],
     issueTypes: [
-      { label: 'Yêu cầu', color: 'bg-indigo-100 text-indigo-700' },
-      { label: 'Tác vụ', color: 'bg-blue-100 text-blue-700' },
-      { label: 'Khẩn cấp', color: 'bg-rose-100 text-rose-700' },
+      { label: 'Module', color: 'bg-purple-100 text-purple-700' },
+      { label: 'Task', color: 'bg-blue-100 text-blue-700' },
+      { label: 'Bug', color: 'bg-rose-100 text-rose-700' },
     ],
   },
 }

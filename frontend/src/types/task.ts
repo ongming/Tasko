@@ -11,7 +11,7 @@ export interface Task {
   dueDate: string;
   isDone?: boolean;
   assignees: Assignee[];
-  type?: 'story' | 'task' | 'bug';
+  type?: 'module' | 'task' | 'bug';
   points?: number;
   status?: string;
   statusColor?: string;

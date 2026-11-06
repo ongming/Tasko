@@ -1,6 +1,6 @@
 import React from 'react'
 import { Repeat, ArrowRight } from 'lucide-react'
-import type { AgileCardConfig } from './types'
+import type { AgileCardConfig } from '@/types/createProject'
 
 interface MethodCardProps {
   method: AgileCardConfig
@@ -22,7 +22,7 @@ export const MethodCard: React.FC<MethodCardProps> = ({ method, onSelect }) => {
       onClick={onSelect}
       onKeyDown={handleKeyDown}
       aria-label={`Chọn phương pháp quản lý ${method.title}: ${method.featureText}`}
-      className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-400 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group select-none text-left"
+      className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group select-none text-left"
     >
       {/* Artwork Banner trực quan chuẩn Jira */}
       <div className="w-full h-44 bg-slate-50/70 border-b border-slate-100 p-4 flex items-center justify-center relative overflow-hidden select-none">

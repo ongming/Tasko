@@ -5,7 +5,7 @@ import {
   ChevronDown, 
   ChevronRight, 
   Search, 
-  Bookmark, 
+  Package, 
   CheckSquare, 
   Bug, 
   GripVertical,
@@ -32,10 +32,10 @@ export function BacklogView() {
 
   const renderIssueIcon = (type?: string) => {
     switch (type) {
-      case 'story':
+      case 'module':
         return (
-          <span title="User Story" className="p-0.5 rounded bg-emerald-50 text-emerald-600 shrink-0">
-            <Bookmark className="w-3.5 h-3.5 fill-emerald-500" />
+          <span title="Module chức năng" className="p-0.5 rounded bg-purple-50 text-purple-600 shrink-0">
+            <Package className="w-3.5 h-3.5" />
           </span>
         )
       case 'bug':
@@ -320,7 +320,7 @@ export function BacklogView() {
             <div>
               {backlogIssues.length === 0 ? (
                 <div className="py-8 px-4 text-center text-xs text-slate-400">
-                  Danh sách Backlog đang trống. Bắt đầu thêm các User Stories, Tasks hoặc Bugs đầu tiên!
+                  Danh sách Backlog đang trống. Bắt đầu thêm các Modules, Tasks hoặc Bugs đầu tiên!
                 </div>
               ) : (
                 backlogIssues.map(renderIssueRow)

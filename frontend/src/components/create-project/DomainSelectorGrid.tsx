@@ -1,6 +1,6 @@
 import React from 'react'
 import { Check } from 'lucide-react'
-import type { BusinessDomain } from './types'
+import type { BusinessDomain } from '@/types/createProject'
 
 interface DomainSelectorGridProps {
   domains: BusinessDomain[]
