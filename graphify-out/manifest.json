@@ -792,15 +792,15 @@
     "semantic_hash": ""
   },
   ".github/workflows/backend-ci.yml": {
-    "mtime": 1794478195.9021153,
-    "seen": 1794482814.4468472,
-    "ast_hash": "639d1a653fed39ced2c2889a5bb6107e",
+    "mtime": 1794487696.6353838,
+    "seen": 1794487850.8895106,
+    "ast_hash": "c4697c958f6d49a86b108bcd416d68cc",
     "semantic_hash": ""
   },
   ".github/workflows/frontend-ci.yml": {
-    "mtime": 1794486099.5687268,
-    "seen": 1794486125.5642283,
-    "ast_hash": "09adb1dd7d64b53e323bf19a7809d45b",
+    "mtime": 1794487691.076762,
+    "seen": 1794487850.8895211,
+    "ast_hash": "771c51ead0249f39e165e9b19282f88b",
     "semantic_hash": ""
   },
   "backend/src/modules/workspaces/workspaces.controller.spec.ts": {
@@ -810,15 +810,15 @@
     "semantic_hash": ""
   },
   "backend/src/modules/workspaces/workspaces.service.spec.ts": {
-    "mtime": 1794485835.005584,
-    "seen": 1794486125.5643532,
-    "ast_hash": "e2a858aac146769b5e482fd40c9b5cc9",
+    "mtime": 1794488777.0896552,
+    "seen": 1794488985.2234747,
+    "ast_hash": "d3049543cc177ba193280d7e015326db",
     "semantic_hash": ""
   },
   "frontend/src/components/workspace/CreateWorkspaceModal.spec.tsx": {
-    "mtime": 1794486004.163469,
-    "seen": 1794486125.5644593,
-    "ast_hash": "7ce428870aaab3cfa19dfcf87561423a",
+    "mtime": 1794488856.5018613,
+    "seen": 1794488985.2236316,
+    "ast_hash": "39d2cb8cff6512564c347b8edb698816",
     "semantic_hash": ""
   },
   "frontend/src/services/workspaceService.spec.ts": {
@@ -837,6 +837,24 @@
     "mtime": 1794485946.8250766,
     "seen": 1794486125.5646038,
     "ast_hash": "1fc6bc219742f9ac932aec89e8acb140",
+    "semantic_hash": ""
+  },
+  "backend/src/modules/auth/auth.service.spec.ts": {
+    "mtime": 1794490049.4833944,
+    "seen": 1794490294.550985,
+    "ast_hash": "c410ed9261f216ff0a9c65a9a87219f8",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/auth/LoginPage.spec.tsx": {
+    "mtime": 1794490203.7078116,
+    "seen": 1794490294.5512123,
+    "ast_hash": "a082fde6a3fd6605d9941a54c9fba757",
+    "semantic_hash": ""
+  },
+  "frontend/src/services/authService.spec.ts": {
+    "mtime": 1794490149.9421663,
+    "seen": 1794490294.5512815,
+    "ast_hash": "52d4b02424089f5a5af73bb0bc19b4ed",
     "semantic_hash": ""
   },
   "backend/package-lock.json": {

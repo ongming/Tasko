@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ConflictException } from '@nestjs/common';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WorkspacesService } from './workspaces.service.js';
 import { Workspace } from './entities/workspace.entity.js';
@@ -71,7 +73,7 @@ describe('WorkspacesService - Create Workspace', () => {
     expect(service).toBeDefined();
   });
 
-  describe('create()', () => {
+  describe('create() - Luồng cơ bản', () => {
     const userId = 'user-123';
     const createDto: CreateWorkspaceDto = {
       name: '  Tasko Workspace  ',
@@ -80,7 +82,6 @@ describe('WorkspacesService - Create Workspace', () => {
     };
 
     it('nên ném ra ConflictException khi slug đã tồn tại trong hệ thống', async () => {
-      // Giả lập slug đã tồn tại
       vi.mocked(workspaceRepo.findOne!).mockResolvedValue({
         id: 'existing-id',
         slug: 'tasko-team',
@@ -90,7 +91,6 @@ describe('WorkspacesService - Create Workspace', () => {
       expect(workspaceRepo.findOne).toHaveBeenCalledWith({
         where: { slug: 'tasko-team' },
       });
-      // Không được mở transaction nếu slug đã trùng
       expect(dataSourceMock.createQueryRunner).not.toHaveBeenCalled();
     });
 
@@ -99,12 +99,10 @@ describe('WorkspacesService - Create Workspace', () => {
 
       const result = await service.create(userId, createDto);
 
-      // 1. Kiểm tra mở transaction
       expect(dataSourceMock.createQueryRunner).toHaveBeenCalled();
       expect(queryRunnerMock.connect).toHaveBeenCalled();
       expect(queryRunnerMock.startTransaction).toHaveBeenCalled();
 
-      // 2. Kiểm tra tạo workspace với dữ liệu chuẩn hóa (trim)
       expect(queryRunnerMock.manager.create).toHaveBeenCalledWith(Workspace, {
         name: 'Tasko Workspace',
         slug: 'tasko-team',
@@ -112,18 +110,15 @@ describe('WorkspacesService - Create Workspace', () => {
         owner_id: userId,
       });
 
-      // 3. Kiểm tra gán quyền OWNER cho Creator
       expect(queryRunnerMock.manager.create).toHaveBeenCalledWith(WorkspaceMember, {
         workspace_id: 'ws-mock-id',
         user_id: userId,
         role: WorkspaceRole.OWNER,
       });
 
-      // 4. Kiểm tra commit và release transaction
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
       expect(queryRunnerMock.release).toHaveBeenCalled();
 
-      // 5. Kiểm tra kết quả trả về đúng chuẩn WorkspaceResponseDto
       expect(result).toMatchObject({
         id: 'ws-mock-id',
         name: 'Tasko Workspace',
@@ -145,6 +140,154 @@ describe('WorkspacesService - Create Workspace', () => {
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
       expect(queryRunnerMock.release).toHaveBeenCalled();
       expect(queryRunnerMock.commitTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create() - Tình huống cực đoan & Lỗ hổng bảo mật', () => {
+    const userId = 'user-attacker-999';
+
+    it('Tình huống Race Condition: Bị trùng khóa UNIQUE ở mức DB (Postgres 23505) -> Phải rollback sạch sẽ', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+      const uniqueViolationError = new Error('duplicate key value violates unique constraint "UQ_workspace_slug"');
+      queryRunnerMock.manager.save.mockRejectedValueOnce(uniqueViolationError);
+
+      await expect(
+        service.create(userId, { name: 'Race Team', slug: 'race-team' }),
+      ).rejects.toThrow('duplicate key value violates unique constraint');
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+      expect(queryRunnerMock.commitTransaction).not.toHaveBeenCalled();
+    });
+
+    it('Tình huống lỗi nửa chừng: Lưu Workspace xong nhưng lưu Member thất bại -> Phải hủy luôn Workspace, không để mồ côi', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+      // Lần save thứ 1 (Workspace) thành công, lần save thứ 2 (Member) văng lỗi
+      queryRunnerMock.manager.save
+        .mockResolvedValueOnce({ id: 'ws-mock-id', name: 'Broken WS' })
+        .mockRejectedValueOnce(new Error('Cannot insert member constraint error'));
+
+      await expect(
+        service.create(userId, { name: 'Broken WS', slug: 'broken-ws' }),
+      ).rejects.toThrow('Cannot insert member constraint error');
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+    });
+
+    it('Chuẩn hóa dữ liệu: Description chỉ chứa khoảng trắng "   " hoặc undefined phải lưu thành null', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+
+      await service.create(userId, {
+        name: 'Space Test',
+        slug: 'space-test',
+        description: '    ',
+      });
+
+      expect(queryRunnerMock.manager.create).toHaveBeenCalledWith(
+        Workspace,
+        expect.objectContaining({
+          description: null,
+        }),
+      );
+    });
+
+    it('Chuẩn hóa dữ liệu: Slug viết hoa lộn xộn "My-NEW-Workspace" phải tự động hạ về chữ thường "my-new-workspace"', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+
+      await service.create(userId, {
+        name: 'Mixed Case',
+        slug: '  My-NEW-Workspace  ',
+      });
+
+      expect(queryRunnerMock.manager.create).toHaveBeenCalledWith(
+        Workspace,
+        expect.objectContaining({
+          slug: 'my-new-workspace',
+        }),
+      );
+    });
+  });
+
+  describe('CreateWorkspaceDto - Kiểm thử Validation & Ký tự độc hại', () => {
+    const toDto = (raw: any) => plainToInstance(CreateWorkspaceDto, raw);
+
+    it('Hợp lệ: DTO chuẩn đầy đủ dữ liệu phải vượt qua validation 100%', async () => {
+      const dto = toDto({
+        name: 'Công ty Công nghệ Việt',
+        slug: 'cong-ty-cong-nghe-viet',
+        description: 'Mô tả hợp lệ ngắn gọn',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('Độc hại: Chặn slug chứa ký tự lạ, path traversal, dấu cách, ký tự hoa', async () => {
+      const maliciousSlugs = [
+        '../root-admin',
+        'tasko/admin',
+        'tasko#evil',
+        'tasko@team',
+        'tasko team',
+        'TASKO-TEAM',
+        '-tasko-team',
+        'tasko-team-',
+        'tasko--team',
+        'tasko?query=1',
+        '<script>',
+      ];
+
+      for (const badSlug of maliciousSlugs) {
+        const dto = toDto({
+          name: 'Valid Name',
+          slug: badSlug,
+        });
+        const errors = await validate(dto);
+        expect(errors.length).toBeGreaterThan(0);
+        expect(errors[0]?.property).toBe('slug');
+      }
+    });
+
+    it('Cực đoan: Chặn Tên vượt quá 100 ký tự (Buffer Overrun)', async () => {
+      const dto = toDto({
+        name: 'A'.repeat(101),
+        slug: 'valid-slug',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'name')).toBe(true);
+    });
+
+    it('Cực đoan: Chặn Slug vượt quá 50 ký tự', async () => {
+      const dto = toDto({
+        name: 'Valid Name',
+        slug: 'a'.repeat(51),
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'slug')).toBe(true);
+    });
+
+    it('Cực đoan: Chặn Mô tả vượt quá 500 ký tự', async () => {
+      const dto = toDto({
+        name: 'Valid Name',
+        slug: 'valid-slug',
+        description: 'D'.repeat(501),
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'description')).toBe(true);
+    });
+
+    it('Rỗng: Chặn trường hợp name hoặc slug rỗng', async () => {
+      const dto = toDto({
+        name: '',
+        slug: '',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some((e) => e.property === 'name')).toBe(true);
+      expect(errors.some((e) => e.property === 'slug')).toBe(true);
     });
   });
 });
