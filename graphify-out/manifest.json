@@ -192,9 +192,9 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1793184964.5213387,
-    "seen": 1793347509.9984164,
-    "ast_hash": "5f888efde9a83e346fe88d7ea0363bb8",
+    "mtime": 1794485935.7206132,
+    "seen": 1794486125.5643723,
+    "ast_hash": "2fcc8fdf8e069bb889cc611fc4024307",
     "semantic_hash": ""
   },
   "frontend/src/App.tsx": {
@@ -546,9 +546,9 @@
     "semantic_hash": ""
   },
   "frontend/tsconfig.app.json": {
-    "mtime": 1792673209.4570777,
-    "seen": 1793347509.9986966,
-    "ast_hash": "40aa08c30b71532eb47b38c67d8eebfc",
+    "mtime": 1794486058.4625874,
+    "seen": 1794486125.5645936,
+    "ast_hash": "705093a002b854d215e7bb069a9b0682",
     "semantic_hash": ""
   },
   "frontend/tsconfig.json": {
@@ -798,9 +798,45 @@
     "semantic_hash": ""
   },
   ".github/workflows/frontend-ci.yml": {
-    "mtime": 1794478218.206119,
-    "seen": 1794482814.4468608,
-    "ast_hash": "7da06c2ef693ec87095bc14d494ea943",
+    "mtime": 1794486099.5687268,
+    "seen": 1794486125.5642283,
+    "ast_hash": "09adb1dd7d64b53e323bf19a7809d45b",
+    "semantic_hash": ""
+  },
+  "backend/src/modules/workspaces/workspaces.controller.spec.ts": {
+    "mtime": 1794485871.843571,
+    "seen": 1794486125.5643442,
+    "ast_hash": "96890f884b57416d07aef3857dc27deb",
+    "semantic_hash": ""
+  },
+  "backend/src/modules/workspaces/workspaces.service.spec.ts": {
+    "mtime": 1794485835.005584,
+    "seen": 1794486125.5643532,
+    "ast_hash": "e2a858aac146769b5e482fd40c9b5cc9",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/workspace/CreateWorkspaceModal.spec.tsx": {
+    "mtime": 1794486004.163469,
+    "seen": 1794486125.5644593,
+    "ast_hash": "7ce428870aaab3cfa19dfcf87561423a",
+    "semantic_hash": ""
+  },
+  "frontend/src/services/workspaceService.spec.ts": {
+    "mtime": 1794485972.5872931,
+    "seen": 1794486125.5645642,
+    "ast_hash": "fe8729980deefae53f7189571c764ebd",
+    "semantic_hash": ""
+  },
+  "frontend/src/test/setup.ts": {
+    "mtime": 1794486052.8743262,
+    "seen": 1794486125.564572,
+    "ast_hash": "2c271435e60d9aeb6cd3a5e1e122a5c0",
+    "semantic_hash": ""
+  },
+  "frontend/vitest.config.ts": {
+    "mtime": 1794485946.8250766,
+    "seen": 1794486125.5646038,
+    "ast_hash": "1fc6bc219742f9ac932aec89e8acb140",
     "semantic_hash": ""
   },
   "backend/package-lock.json": {
@@ -810,9 +846,9 @@
     "semantic_hash": ""
   },
   "frontend/package-lock.json": {
-    "mtime": 1793184964.5633812,
-    "seen": 1793347509.9987466,
-    "ast_hash": "4f49dcfa738cbf3eb9bbbf52f47a6697",
+    "mtime": 1794485791.977152,
+    "seen": 1794486125.5646396,
+    "ast_hash": "b5ff7ed461b1ea4c6d9cb2668b7c55e4",
     "semantic_hash": ""
   }
 }

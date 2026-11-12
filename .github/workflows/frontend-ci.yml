@@ -42,7 +42,9 @@ jobs:
         run: npm ci
 
       # Lint step omitted: frontend/package.json does not define a "lint" script.
-      # Test step omitted: frontend/package.json does not define a "test" script.
+
+      - name: Run unit tests
+        run: npm run test
 
       - name: Build frontend
         run: npm run build

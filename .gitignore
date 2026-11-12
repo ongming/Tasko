@@ -41,3 +41,7 @@ desktop.ini
 
 # Graphify Knowledge Graph Cache
 graphify-out/cache/
+
+# Internal Test Suite Documentation
+TESTS.md
+
