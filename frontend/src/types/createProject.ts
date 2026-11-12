@@ -23,6 +23,19 @@ export interface BusinessDomain {
   defaultPrefix: string
 }
 
+export interface WorkflowStage {
+  id: string
+  label: string
+  color: string
+}
+
+export interface CustomWorkType {
+  id: string
+  label: string
+  iconKey: string
+  color: string
+}
+
 export interface MethodDetails {
   features: string[]
   workflow: { label: string; color: string }[]

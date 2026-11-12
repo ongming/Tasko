@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, Sparkles, ArrowLeft, ChevronRight } from 'lucide-react'
+import { X, Sparkles, ChevronRight } from 'lucide-react'
 import { useCreateProject } from '@/hooks/useCreateProject'
 import {
   AGILE_METHODS,
@@ -14,9 +14,11 @@ import {
 
 /**
  * Pure Presentational View: Trang Tạo Dự Án (CreateProjectPage)
- * Luồng 3 bước (3-Step Wizard Flow) chuẩn mực Jira Cloud & Linear:
+ * Single-Page Multi-Step Wizard chuẩn mực Jira Cloud & Linear:
+ * - 1 Page duy nhất quản lý toàn bộ luồng tạo dự án thông qua state trong useCreateProject.
+ * - Điều hướng linh hoạt 100% bằng Breadcrumb tương tác trên Top Bar.
  * - Bước 1: Chọn mẫu phương pháp quản lý (Kanban, Scrum, Scrumban)
- * - Bước 2: Xem chi tiết mẫu (Nút "Sử dụng mẫu này" ngay dưới cột trái) & chọn mô hình ngành
+ * - Bước 2: Xem chi tiết mẫu & chọn mô hình ngành nghề
  * - Bước 3: Thiết lập chuyên sâu Tên dự án, Key, Màu sắc & Bấm Tạo dự án
  */
 export const CreateProjectPage: React.FC = () => {
@@ -33,15 +35,18 @@ export const CreateProjectPage: React.FC = () => {
     isAiModalOpen,
     aiUploadedFile,
     aiPrompt,
+    workflow,
+    workTypes,
+    isAdvancedOpen,
   } = state
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-y-auto select-none animate-in fade-in duration-150">
       
-      {/* 1. TOP BAR CỐ ĐỊNH: Nút X góc trái + Breadcrumb ở giữa + Nút Tạo bằng AI ở góc phải */}
+      {/* 1. TOP BAR CỐ ĐỊNH: Nút X góc trái + Breadcrumb tương tác nhảy bước + Nút Tạo bằng AI */}
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-6 sm:px-10 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
         
-        {/* Góc trên bên trái: Nút X để đóng & Breadcrumb linh hoạt theo Bước */}
+        {/* Góc trên bên trái: Nút X để đóng & Breadcrumb tương tác cho phép click nhảy trực tiếp về bước mong muốn */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -53,18 +58,21 @@ export const CreateProjectPage: React.FC = () => {
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-1.5 text-xs">
+          <nav aria-label="Breadcrumb điều hướng bước" className="flex items-center gap-1.5 text-xs">
+            {/* Chặng 1: Mẫu dự án */}
             <button
               type="button"
               onClick={actions.backToStepOne}
               className={`transition-colors cursor-pointer focus:outline-none ${
                 step > 1
-                  ? 'text-slate-500 hover:text-slate-900 font-medium'
-                  : 'text-slate-400 font-normal'
+                  ? 'text-slate-500 hover:text-indigo-600 hover:underline font-medium'
+                  : 'font-semibold text-slate-900'
               }`}
             >
               Mẫu dự án (Project templates)
             </button>
+
+            {/* Chặng 2: Phương pháp & Lĩnh vực */}
             {selectedMethod && (
               <>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
@@ -73,16 +81,29 @@ export const CreateProjectPage: React.FC = () => {
                   onClick={actions.backToStepTwo}
                   className={`transition-colors cursor-pointer focus:outline-none ${
                     step === 3
-                      ? 'text-slate-500 hover:text-slate-900 font-medium'
+                      ? 'text-slate-500 hover:text-indigo-600 hover:underline font-medium'
                       : 'font-semibold text-slate-900'
                   }`}
+                  title="Quay lại tùy chỉnh phương pháp này"
                 >
                   {selectedMethod.title}
                 </button>
+
                 <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                <span className={step === 3 ? 'text-slate-500' : 'text-slate-700 font-medium'}>
+                <button
+                  type="button"
+                  onClick={step === 3 ? actions.backToStepTwo : undefined}
+                  className={`transition-colors focus:outline-none ${
+                    step === 3
+                      ? 'text-slate-500 hover:text-indigo-600 hover:underline cursor-pointer font-medium'
+                      : 'text-slate-700 font-medium cursor-default'
+                  }`}
+                  title={step === 3 ? "Quay lại chọn mô hình" : undefined}
+                >
                   {selectedDomain.name}
-                </span>
+                </button>
+
+                {/* Chặng 3: Thiết lập dự án */}
                 {step === 3 && (
                   <>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
@@ -93,7 +114,7 @@ export const CreateProjectPage: React.FC = () => {
                 )}
               </>
             )}
-          </div>
+          </nav>
         </div>
 
         {/* Góc trên bên phải: Nút Tạo bằng AI sắc nét, tinh tế chuẩn Impeccable */}
@@ -150,19 +171,8 @@ export const CreateProjectPage: React.FC = () => {
             ======================================================== */}
         {step === 2 && selectedMethod && (
           <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-2 duration-200">
-            {/* Thanh điều hướng bước */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <button
-                type="button"
-                onClick={actions.backToStepOne}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 text-xs font-semibold transition-all cursor-pointer group active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                title="Quay lại danh sách mẫu"
-                aria-label="Quay lại danh sách mẫu dự án"
-              >
-                <ArrowLeft className="w-4 h-4 text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Quay lại chọn mẫu khác</span>
-              </button>
-
+            {/* Chỉ báo bước tinh gọn (Điều hướng đã được tích hợp 100% trên Breadcrumb) */}
+            <div className="flex items-center justify-end pb-2 border-b border-slate-100/80">
               <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
                 <span>Bước 2 / 3</span>
                 <span className="text-slate-300">•</span>
@@ -204,9 +214,20 @@ export const CreateProjectPage: React.FC = () => {
             projectColor={projectColor}
             error={error}
             isSubmitting={isSubmitting}
+            workflow={workflow}
+            workTypes={workTypes}
             onProjectNameChange={actions.handleNameChange}
             onProjectKeyChange={actions.setProjectKey}
             onProjectColorChange={actions.setProjectColor}
+            onUpdateWorkflowLabel={actions.updateWorkflowLabel}
+            onAddWorkflowStage={actions.addWorkflowStage}
+            onRemoveWorkflowStage={actions.removeWorkflowStage}
+            onUpdateWorkTypeLabel={actions.updateWorkTypeLabel}
+            onUpdateWorkTypeIcon={actions.updateWorkTypeIcon}
+            onAddWorkType={actions.addWorkType}
+            onRemoveWorkType={actions.removeWorkType}
+            onResetConfiguration={actions.resetConfiguration}
+            onOpenAiModal={() => actions.setIsAiModalOpen(true)}
             onBack={actions.backToStepTwo}
             onSubmit={actions.handleCreateSubmit}
           />

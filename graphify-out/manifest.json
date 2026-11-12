@@ -720,15 +720,15 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/workspace/CreateProjectPage.tsx": {
-    "mtime": 1793962017.4616663,
-    "seen": 1793962048.3496134,
-    "ast_hash": "c800b0f9582790c3cd35aa688827ac83",
+    "mtime": 1794475733.353997,
+    "seen": 1794475772.0738764,
+    "ast_hash": "ba226bb8e1aeed702f5a25a7ff750226",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/AiCreateModal.tsx": {
-    "mtime": 1793366769.8082771,
-    "seen": 1793366841.730297,
-    "ast_hash": "fac1b0fd2a17b3e1aad4ee72d5888c6c",
+    "mtime": 1794474188.1973634,
+    "seen": 1794474370.3689487,
+    "ast_hash": "bc10adeb7bd16d32931dd32102cb137c",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/DomainSelectorGrid.tsx": {
@@ -738,26 +738,26 @@
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/MethodCard.tsx": {
-    "mtime": 1793953979.372246,
-    "seen": 1793954050.966385,
-    "ast_hash": "cb6b8fba4531d155a004f36864f47611",
+    "mtime": 1794473598.130529,
+    "seen": 1794474370.3689554,
+    "ast_hash": "c6d4b24577eafa14e1c1952091178f46",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/MethodDetailsSidebar.tsx": {
-    "mtime": 1793965515.9187808,
-    "seen": 1793965601.863429,
-    "ast_hash": "84bfecc7ade6c780cac3ddc4b6e993c0",
+    "mtime": 1794473853.862439,
+    "seen": 1794474370.3689582,
+    "ast_hash": "8d60a73edab81d16f9f94a7eb66bceb5",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/ProjectConfigForm.tsx": {
-    "mtime": 1793366754.4105978,
-    "seen": 1793366841.730308,
-    "ast_hash": "b175af2d8da0be8d33fdf7101579fc47",
+    "mtime": 1794473719.0071635,
+    "seen": 1794474370.3689606,
+    "ast_hash": "cb0a652e835035fa47ddca215979aebd",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/constants.tsx": {
-    "mtime": 1793965497.309819,
-    "seen": 1793965601.8634381,
+    "mtime": 1794464298.7648206,
+    "seen": 1794472400.0527263,
     "ast_hash": "1c6ac357397069af152887f3d5fea5c9",
     "semantic_hash": ""
   },
@@ -768,27 +768,39 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useCreateProject.ts": {
-    "mtime": 1793954475.8349793,
-    "seen": 1793954548.1267538,
-    "ast_hash": "ab55f53a4eeff002ba9437fa2b96ebf4",
+    "mtime": 1794475517.5758696,
+    "seen": 1794475772.0737936,
+    "ast_hash": "5413d3b6f792ec2b13364ec88f0211be",
     "semantic_hash": ""
   },
   "frontend/src/types/createProject.ts": {
-    "mtime": 1793953944.3558068,
-    "seen": 1793954050.9665594,
-    "ast_hash": "2412796884beba4ee9e305250ff5497a",
+    "mtime": 1794467175.0813344,
+    "seen": 1794472400.05289,
+    "ast_hash": "27ad4f7a26087a82a7db133aa8702a1b",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/ProjectFinalSetupStep.tsx": {
-    "mtime": 1793954496.2683089,
-    "seen": 1793954548.1266925,
-    "ast_hash": "2e37bb904090be3a485ea47bcf4a4d49",
+    "mtime": 1794482748.9213557,
+    "seen": 1794482814.4470766,
+    "ast_hash": "c221dca46b09ab991728541eeb877246",
     "semantic_hash": ""
   },
   "graphify-out/converted/BAO_CAO_TIEN_DO_TUAN_9_6fc60c10.md": {
     "mtime": 1793963622.944216,
     "seen": 1793963629.6886177,
     "ast_hash": "1564159932234812295f58314ee189a2",
+    "semantic_hash": ""
+  },
+  ".github/workflows/backend-ci.yml": {
+    "mtime": 1794478195.9021153,
+    "seen": 1794482814.4468472,
+    "ast_hash": "639d1a653fed39ced2c2889a5bb6107e",
+    "semantic_hash": ""
+  },
+  ".github/workflows/frontend-ci.yml": {
+    "mtime": 1794478218.206119,
+    "seen": 1794482814.4468608,
+    "ast_hash": "7da06c2ef693ec87095bc14d494ea943",
     "semantic_hash": ""
   },
   "backend/package-lock.json": {

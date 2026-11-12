@@ -38,7 +38,7 @@ export const ProjectConfigForm: React.FC<ProjectConfigFormProps> = ({
   onCancel,
 }) => {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col gap-5 text-left">
+    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col gap-5 text-left">
       <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
         <FolderPlus className="w-4 h-4 text-indigo-600" />
         <h3 className="text-sm font-bold text-slate-900">
