@@ -10,10 +10,10 @@ export const projectKeys = {
 /**
  * Hook truy vấn danh sách dự án với cache tự động 5 phút
  */
-export function useProjects() {
+export function useProjects(workspaceId?: string) {
   return useQuery({
-    queryKey: projectKeys.all,
-    queryFn: projectService.getProjects,
+    queryKey: workspaceId ? [...projectKeys.all, workspaceId] : projectKeys.all,
+    queryFn: () => projectService.getProjects(workspaceId),
     staleTime: 1000 * 60 * 5,
   })
 }

@@ -18,7 +18,7 @@ import { AuthService } from './auth.service.js';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
-import { MailService } from '../mail/mail.service.js';
+import { IMailService, MAIL_SERVICE } from '../mail/interfaces/mail-service.interface.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
@@ -30,7 +30,7 @@ describe('AuthService', () => {
   let dataSourceMock: Partial<DataSource>;
   let jwtServiceMock: Partial<JwtService>;
   let configServiceMock: Partial<ConfigService>;
-  let mailServiceMock: Partial<MailService>;
+  let mailServiceMock: Partial<IMailService>;
   let managerMock: any;
 
   beforeEach(async () => {
@@ -93,7 +93,7 @@ describe('AuthService', () => {
         { provide: DataSource, useValue: dataSourceMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
-        { provide: MailService, useValue: mailServiceMock },
+        { provide: MAIL_SERVICE, useValue: mailServiceMock },
       ],
     }).compile();
 

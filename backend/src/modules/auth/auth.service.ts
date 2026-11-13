@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   UnauthorizedException,
   ConflictException,
   ForbiddenException,
@@ -16,7 +17,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
-import { MailService } from '../mail/mail.service.js';
+import type { IMailService } from '../mail/interfaces/mail-service.interface.js';
+import { MAIL_SERVICE } from '../mail/interfaces/mail-service.interface.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 
@@ -48,7 +50,9 @@ export class AuthService {
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly mailService: MailService,
+
+    @Inject(MAIL_SERVICE)
+    private readonly mailService: IMailService,
   ) {
     const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     this.googleClient = new OAuth2Client(clientId);

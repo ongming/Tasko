@@ -37,6 +37,17 @@ approaches. Prefer the simplest solution that fits the existing code.
 - Throw Nest exceptions (NotFoundException, ForbiddenException...), never
   return error objects manually.
 
+## Architecture & Dependency Inversion (Interface Scalability)
+- **Third-Party & Swappable Integrations BẮT BUỘC dùng Interface (DIP)**:
+  - Mọi dịch vụ tích hợp bên thứ ba hoặc có khả năng thay đổi nhà cung cấp (Email, Cloud Storage, OAuth/SSO, Payment, Push Notification, AI Model) BẮT BUỘC phải tách Interface contract và Injection Token.
+  - Cấu trúc thư mục: `src/modules/<module>/interfaces/<name>-service.interface.ts`.
+  - Khai báo Token: `export const MAIL_SERVICE = 'MAIL_SERVICE';` và Interface: `export interface IMailService { ... }`.
+  - Đăng ký Provider trong Module: `{ provide: MAIL_SERVICE, useExisting: MailService }` (hoặc `useClass`) và `exports: [MAIL_SERVICE]`.
+  - Tiêm phụ thuộc: `@Inject(MAIL_SERVICE) private readonly mailService: IMailService`.
+  - Luôn sử dụng `import type { I...Service }` khi import interface làm kiểu dữ liệu trong constructor của NestJS (tránh lỗi TS1272 của `emitDecoratorMetadata`).
+- **Tránh Over-engineering (YAGNI / Ponytail Principle)**:
+  - KHÔNG tạo interface hình thức cho các CRUD Domain Service nội bộ thông thường (`IWorkspaceService`, `ITaskService`...) nếu cả đời dự án chỉ có đúng 1 class thực thi và không có nhu cầu cắm rút provider. Chỉ dùng khi thực sự có 2 implementation trở lên hoặc ranh giới bên thứ 3.
+
 ## Auth & permissions
 - JWT auth via JwtAuthGuard. Authorization via RolesGuard (RBAC).
 - Roles: Guest, User, Member, Owner (project), Workspace Admin, Admin, Viewer.

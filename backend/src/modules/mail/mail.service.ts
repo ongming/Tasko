@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { Transporter } from 'nodemailer';
+import type { IMailService } from './interfaces/mail-service.interface.js';
 
 @Injectable()
-export class MailService {
+export class MailService implements IMailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter | null = null;
 

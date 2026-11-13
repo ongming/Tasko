@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { projectService } from '@/services/projectService'
+import { workspaceService } from '@/services/workspaceService'
 import {
   BUSINESS_DOMAINS,
   METHOD_DETAILS,
@@ -79,6 +80,23 @@ const DEFAULT_WORK_TYPES: CustomWorkType[] = [
  */
 export function useCreateProject(): { state: CreateProjectState; actions: CreateProjectActions } {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Lấy workspaceId từ URL query param (?workspaceId=...) hoặc tải danh sách workspace của user
+  const [workspaceId, setWorkspaceId] = useState<string>(searchParams.get('workspaceId') || '')
+
+  useEffect(() => {
+    if (!workspaceId) {
+      workspaceService
+        .getMyWorkspaces()
+        .then((workspaces) => {
+          if (workspaces && workspaces.length > 0) {
+            setWorkspaceId(workspaces[0].id)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [workspaceId])
 
   // 1. Quản lý phân bước (Step Management)
   const [step, setStep] = useState<CreateProjectStep>(1)
@@ -266,14 +284,20 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
         return
       }
 
+      if (!workspaceId) {
+        setError('Chưa xác định được không gian làm việc. Vui lòng thử lại hoặc chọn một Workspace.')
+        return
+      }
+
       try {
         setIsSubmitting(true)
         setError('')
 
         const newProject = await projectService.createProject({
           name: projectName.trim(),
-          key: projectKey.trim() || 'PROJ',
+          key: (projectKey.trim() || 'PROJ').toUpperCase(),
           color: projectColor,
+          workspaceId,
         })
 
         if (newProject?.id) {
@@ -299,7 +323,7 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
         setIsSubmitting(false)
       }
     },
-    [projectName, projectKey, projectColor, navigate],
+    [projectName, projectKey, projectColor, workspaceId, navigate],
   )
 
   // Xử lý nộp yêu cầu khởi tạo AI

@@ -4,40 +4,27 @@ import type { Project } from '@/types/workspace'
 export interface CreateProjectPayload {
   name: string
   key: string
+  workspaceId: string
   color?: string
+  description?: string
 }
 
 export const projectService = {
   /**
-   * Lấy danh sách tất cả dự án trong Workspace
+   * Lấy danh sách tất cả dự án trong một Workspace (hoặc toàn bộ dự án của user)
    */
-  getProjects: async (): Promise<Project[]> => {
-    try {
-      const response = await api.get<{ data: Project[] }>('/projects')
-      return response.data || []
-    } catch {
-      // Fallback khi backend chưa mở rộng endpoint projects
-      return []
-    }
-  },
+  getProjects: (workspaceId?: string) =>
+    api.get<Project[]>(workspaceId ? `/projects?workspaceId=${encodeURIComponent(workspaceId)}` : '/projects'),
 
   /**
    * Lấy chi tiết 1 dự án theo ID
    */
-  getProjectById: async (id: string): Promise<Project | null> => {
-    try {
-      const response = await api.get<{ data: Project }>(`/projects/${id}`)
-      return response.data
-    } catch {
-      return null
-    }
-  },
+  getProjectById: (id: string) =>
+    api.get<Project>(`/projects/${encodeURIComponent(id)}`),
 
   /**
-   * Tạo dự án mới
+   * Khởi tạo dự án mới
    */
-  createProject: async (payload: CreateProjectPayload): Promise<Project> => {
-    const response = await api.post<{ data: Project }>('/projects', payload)
-    return response.data
-  },
+  createProject: (payload: CreateProjectPayload) =>
+    api.post<Project>('/projects', payload),
 }

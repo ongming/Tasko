@@ -8,6 +8,7 @@ import { databaseConfig } from './config/database.config.js';
 import { jwtConfig } from './config/jwt.config.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module.js';
+import { ProjectsModule } from './modules/projects/projects.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -40,6 +41,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     // 4. Phân hệ Quản lý Không gian làm việc (Workspaces)
     WorkspacesModule,
+
+    // 5. Phân hệ Quản lý Dự án (Projects)
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
