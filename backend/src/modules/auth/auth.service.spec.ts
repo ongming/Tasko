@@ -18,15 +18,20 @@ import { AuthService } from './auth.service.js';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
+import { PasswordResetToken } from './entities/password-reset-token.entity.js';
 import { IMailService, MAIL_SERVICE } from '../mail/interfaces/mail-service.interface.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
+import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
 
 describe('AuthService', () => {
   let service: AuthService;
   let userRepo: Partial<Repository<User>>;
   let sessionRepo: Partial<Repository<Session>>;
   let emailVerificationRepo: Partial<Repository<EmailVerification>>;
+  let passwordResetTokenRepo: Partial<Repository<PasswordResetToken>>;
   let dataSourceMock: Partial<DataSource>;
   let jwtServiceMock: Partial<JwtService>;
   let configServiceMock: Partial<ConfigService>;
@@ -65,6 +70,13 @@ describe('AuthService', () => {
       delete: vi.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    passwordResetTokenRepo = {
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'mock-reset-token-id' } as PasswordResetToken)),
+      save: vi.fn(async (record: any) => ({ ...record, id: record.id || 'mock-reset-token-id' })),
+      delete: vi.fn().mockResolvedValue({ affected: 1 }),
+    };
+
     dataSourceMock = {
       transaction: vi.fn(async (cb: (manager: any) => Promise<any>) => cb(managerMock)),
     };
@@ -82,6 +94,7 @@ describe('AuthService', () => {
 
     mailServiceMock = {
       sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+      sendPasswordResetOtpEmail: vi.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -90,6 +103,7 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(Session), useValue: sessionRepo },
         { provide: getRepositoryToken(EmailVerification), useValue: emailVerificationRepo },
+        { provide: getRepositoryToken(PasswordResetToken), useValue: passwordResetTokenRepo },
         { provide: DataSource, useValue: dataSourceMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
@@ -546,5 +560,144 @@ describe('AuthService', () => {
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
+
+    it('rejects invalid ForgotPasswordDto and accepts valid one', async () => {
+      const invalidDto = plainToInstance(ForgotPasswordDto, { email: 'invalid-email' });
+      const errors = await validate(invalidDto);
+      expect(errors.length).toBeGreaterThan(0);
+
+      const validDto = plainToInstance(ForgotPasswordDto, { email: 'valid@example.com' });
+      const validErrors = await validate(validDto);
+      expect(validErrors.length).toBe(0);
+    });
+
+    it('validates VerifyOtpDto', async () => {
+      const invalidDto = plainToInstance(VerifyOtpDto, { email: 'invalid', otp: '123' });
+      const errors = await validate(invalidDto);
+      expect(errors.length).toBeGreaterThan(0);
+
+      const validDto = plainToInstance(VerifyOtpDto, { email: 'valid@example.com', otp: '123456' });
+      const validErrors = await validate(validDto);
+      expect(validErrors.length).toBe(0);
+    });
+
+    it('validates ResetPasswordDto', async () => {
+      const invalidDto = plainToInstance(ResetPasswordDto, { email: 'invalid', otp: '12', newPassword: '123' });
+      const errors = await validate(invalidDto);
+      expect(errors.length).toBeGreaterThan(0);
+
+      const validDto = plainToInstance(ResetPasswordDto, { email: 'valid@example.com', otp: '123456', newPassword: 'securePassword123' });
+      const validErrors = await validate(validDto);
+      expect(validErrors.length).toBe(0);
+    });
+  });
+
+  // ==========================================
+  // 7. FORGOT PASSWORD / OTP / RESET PASSWORD
+  // ==========================================
+  describe('forgotPassword', () => {
+    it('returns generic message without error if user does not exist (anti-enumeration)', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue(null);
+
+      const result = await service.forgotPassword('nonexistent@example.com');
+      expect(result.message).toContain('Nếu địa chỉ email tồn tại');
+      expect(mailServiceMock.sendPasswordResetOtpEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns generic message if user exists but inactive', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: 'u1', email: 'test@example.com', is_active: false } as User);
+
+      const result = await service.forgotPassword('test@example.com');
+      expect(result.message).toContain('Nếu địa chỉ email tồn tại');
+      expect(mailServiceMock.sendPasswordResetOtpEmail).not.toHaveBeenCalled();
+    });
+
+    it('deletes old tokens, creates new OTP record and sends email if user active', async () => {
+      const mockUser = { id: 'u1', email: 'test@example.com', full_name: 'Test User', is_active: true } as User;
+      vi.mocked(userRepo.findOne!).mockResolvedValue(mockUser);
+
+      const result = await service.forgotPassword('test@example.com');
+      expect(result.message).toContain('Nếu địa chỉ email tồn tại');
+      expect(passwordResetTokenRepo.delete).toHaveBeenCalledWith({ user_id: 'u1' });
+      expect(passwordResetTokenRepo.save).toHaveBeenCalled();
+      expect(mailServiceMock.sendPasswordResetOtpEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        mockUser.full_name,
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('verifyOtp', () => {
+    it('throws BadRequestException if user does not exist', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue(null);
+      await expect(service.verifyOtp('none@example.com', '123456')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException if token not found or already used', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: 'u1', email: 'test@example.com' } as User);
+      vi.mocked(passwordResetTokenRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.verifyOtp('test@example.com', '123456')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException if token has expired', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: 'u1', email: 'test@example.com' } as User);
+      const expiredDate = new Date();
+      expiredDate.setMinutes(expiredDate.getMinutes() - 1);
+      vi.mocked(passwordResetTokenRepo.findOne!).mockResolvedValue({
+        id: 'token-1',
+        expires_at: expiredDate,
+        is_used: false,
+      } as PasswordResetToken);
+
+      await expect(service.verifyOtp('test@example.com', '123456')).rejects.toThrow(BadRequestException);
+    });
+
+    it('returns valid: true on valid OTP', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: 'u1', email: 'test@example.com' } as User);
+      const futureDate = new Date();
+      futureDate.setMinutes(futureDate.getMinutes() + 10);
+      vi.mocked(passwordResetTokenRepo.findOne!).mockResolvedValue({
+        id: 'token-1',
+        expires_at: futureDate,
+        is_used: false,
+      } as PasswordResetToken);
+
+      const result = await service.verifyOtp('test@example.com', '123456');
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('throws BadRequestException if token is invalid or expired', async () => {
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: 'u1', email: 'test@example.com' } as User);
+      vi.mocked(passwordResetTokenRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.resetPassword('test@example.com', '123456', 'NewPassword123!')).rejects.toThrow(BadRequestException);
+    });
+
+    it('resets password, marks token used and deletes sessions', async () => {
+      const mockUser = { id: 'u1', email: 'test@example.com', password_hash: 'old_hash' } as User;
+      vi.mocked(userRepo.findOne!).mockResolvedValue(mockUser);
+
+      const futureDate = new Date();
+      futureDate.setMinutes(futureDate.getMinutes() + 10);
+      const mockToken = {
+        id: 'token-1',
+        expires_at: futureDate,
+        is_used: false,
+      } as PasswordResetToken;
+      vi.mocked(passwordResetTokenRepo.findOne!).mockResolvedValue(mockToken);
+
+      const result = await service.resetPassword('test@example.com', '123456', 'NewPassword123!');
+
+      expect(userRepo.save).toHaveBeenCalled();
+      expect(mockToken.is_used).toBe(true);
+      expect(passwordResetTokenRepo.save).toHaveBeenCalledWith(mockToken);
+      expect(sessionRepo.delete).toHaveBeenCalledWith({ user: { id: 'u1' } });
+      expect(result.message).toContain('thành công');
+    });
+  });
   });
 });
