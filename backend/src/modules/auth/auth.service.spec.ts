@@ -699,5 +699,4 @@ describe('AuthService', () => {
       expect(result.message).toContain('thành công');
     });
   });
-  });
 });
