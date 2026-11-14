@@ -6,9 +6,11 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { databaseConfig } from './config/database.config.js';
 import { jwtConfig } from './config/jwt.config.js';
+import { cloudinaryConfig } from './config/cloudinary.config.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module.js';
 import { ProjectsModule } from './modules/projects/projects.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -18,7 +20,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [databaseConfig, jwtConfig],
+      load: [databaseConfig, jwtConfig, cloudinaryConfig],
     }),
 
     // 2. Cấu hình kết nối PostgreSQL qua TypeORM (đọc từ file config riêng biệt)
@@ -44,6 +46,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     // 5. Phân hệ Quản lý Dự án (Projects)
     ProjectsModule,
+
+    // 6. Phân hệ Quản lý Người dùng & Hồ sơ cá nhân (Users)
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -5,7 +5,24 @@ export interface User {
   id: string
   email: string
   full_name: string
+  fullName?: string
   avatar_url: string | null
+  avatarUrl?: string | null
+  is_active?: boolean
+  emailVerified?: boolean
+  isVerified?: boolean
+  hasPassword?: boolean
+  created_at?: string | Date
+  createdAt?: string | Date
+}
+
+export interface UpdateProfilePayload {
+  fullName: string
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
 }
 
 /**

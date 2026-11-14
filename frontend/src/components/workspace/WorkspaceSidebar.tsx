@@ -13,11 +13,13 @@ import {
   X,
   Search,
   ListFilter,
-  AlignLeft
+  AlignLeft,
+  Settings,
 } from 'lucide-react'
 import type { Project } from '@/types/workspace'
 import { workspaceService } from '@/services/workspaceService'
 import { projectService } from '@/services/projectService'
+import { useAuthStore } from '@/stores/authStore'
 import CreateWorkspaceModal from '@/components/workspace/CreateWorkspaceModal'
 
 export interface StarredItem {
@@ -49,6 +51,7 @@ export interface WorkspaceSidebarProps {
 export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
 
   // Danh sách Workspaces và trạng thái chọn
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>(INITIAL_WORKSPACES)
@@ -507,6 +510,45 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
               <span>Tạo dự án mới</span>
             </button>
           </div>
+        </div>
+
+        {/* Footer: Thông tin User & Đường dẫn Cài đặt */}
+        <div className="pt-2 px-3 border-t border-slate-200/60 mt-auto">
+          <NavLink
+            to="/workspace/settings"
+            onClick={() => setIsMobileOpen?.(false)}
+            className={({ isActive }) =>
+              `w-full flex items-center justify-between p-2 rounded-xl border transition-all text-left group cursor-pointer ${
+                isActive
+                  ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 shadow-2xs'
+                  : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200/70 text-slate-700'
+              }`
+            }
+            title="Cài đặt & Hồ sơ cá nhân"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              {user?.avatar_url || user?.avatarUrl ? (
+                <img
+                  src={user.avatar_url || user.avatarUrl || ''}
+                  alt={user.full_name || user.fullName || 'User'}
+                  className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-200 shadow-2xs shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs">
+                  {user?.full_name || user?.fullName ? (user.full_name || user.fullName)!.slice(0, 2).toUpperCase() : 'U'}
+                </div>
+              )}
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold truncate group-hover:text-indigo-600 transition-colors">
+                  {user?.full_name || user?.fullName || 'Người dùng'}
+                </span>
+                <span className="text-[10px] text-slate-400 truncate">
+                  Cài đặt & Hồ sơ
+                </span>
+              </div>
+            </div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+          </NavLink>
         </div>
       </aside>
 

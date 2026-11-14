@@ -151,19 +151,19 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
             aria-expanded={isDropdownOpen}
             aria-label="Menu tài khoản cá nhân"
           >
-            {user?.avatar_url ? (
+            {user?.avatar_url || user?.avatarUrl ? (
               <img
-                src={user.avatar_url}
-                alt={user.full_name}
+                src={user.avatar_url || user.avatarUrl || ''}
+                alt={user.full_name || user.fullName || 'User'}
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-xs"
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs">
-                {getInitials(user?.full_name)}
+                {getInitials(user?.full_name || user?.fullName)}
               </div>
             )}
             <span className="hidden sm:inline text-xs font-semibold text-slate-700 max-w-[120px] truncate">
-              {user?.full_name || 'Người dùng'}
+              {user?.full_name || user?.fullName || 'Người dùng'}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
           </button>
@@ -174,7 +174,7 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
               {/* Header profile info */}
               <div className="px-4 py-3 border-b border-slate-100">
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Đang đăng nhập với</p>
-                <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">{user?.full_name}</p>
+                <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">{user?.full_name || user?.fullName}</p>
                 <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email}</p>
               </div>
 

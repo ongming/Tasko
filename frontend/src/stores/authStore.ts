@@ -12,6 +12,7 @@ export interface AuthState {
   // Các hàm cập nhật State
   setAuth: (user: User, accessToken: string) => void
   setAccessToken: (accessToken: string) => void
+  updateUser: (userData: Partial<User>) => void
   clearAuth: () => void
 
   // Kiểm tra và phục hồi phiên đăng nhập khi F5 / mở lại web
@@ -39,6 +40,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({
       accessToken,
       isAuthenticated: true,
+    })
+  },
+
+  updateUser: (userData: Partial<User>) => {
+    set((state) => {
+      if (!state.user) return state
+      const updated = { ...state.user, ...userData }
+      if (userData.avatarUrl !== undefined) {
+        updated.avatar_url = userData.avatarUrl
+        updated.avatarUrl = userData.avatarUrl
+      } else if (userData.avatar_url !== undefined) {
+        updated.avatarUrl = userData.avatar_url
+        updated.avatar_url = userData.avatar_url
+      }
+      if (userData.fullName !== undefined) {
+        updated.full_name = userData.fullName
+        updated.fullName = userData.fullName
+      } else if (userData.full_name !== undefined) {
+        updated.fullName = userData.full_name
+        updated.full_name = userData.full_name
+      }
+      return { user: updated }
     })
   },
 
