@@ -7,8 +7,6 @@ import {
   Code2,
   TrendingUp,
   Megaphone,
-  Truck,
-  Headphones,
 } from 'lucide-react'
 import type { AgileCardConfig, BusinessDomain, MethodDetails, AgileMethod } from '@/types/createProject'
 
@@ -44,12 +42,12 @@ export const AGILE_METHODS: AgileCardConfig[] = [
 
 export const BUSINESS_DOMAINS: BusinessDomain[] = [
   {
-    id: 'general',
+    id: 'default',
     name: 'Mặc định / Đa dụng',
     badge: 'Phổ biến',
     badgeColor: 'bg-slate-100 text-slate-700 border-slate-200/80',
     icon: <Briefcase className="w-4 h-4 text-indigo-600" />,
-    description: 'Quản lý tác vụ thông thường, dự án hỗn hợp và phối hợp phòng ban linh hoạt.',
+    description: 'Quản lý tác vụ thông thường, dự án hỗn hợp và phối hợp phòng ban.',
     tags: ['Tác vụ', 'Ưu tiên', 'Hạn chót', 'Ghi chú'],
     defaultPrefix: 'Dự án Đa dụng',
   },
@@ -59,19 +57,9 @@ export const BUSINESS_DOMAINS: BusinessDomain[] = [
     badge: 'Chuẩn IT',
     badgeColor: 'bg-blue-50 text-blue-700 border-blue-200/80',
     icon: <Code2 className="w-4 h-4 text-blue-600" />,
-    description: 'Đội ngũ kỹ thuật, chu kỳ phát hành (release), bug tracking, pull requests.',
+    description: 'Đội ngũ kỹ thuật, chu kỳ phát hành, theo dõi lỗi và pull request.',
     tags: ['Tính năng', 'Lỗi (Bug)', 'Refactor', 'Release'],
     defaultPrefix: 'Dự án Phần mềm',
-  },
-  {
-    id: 'business',
-    name: 'Kinh doanh & Bán hàng',
-    badge: 'Tăng trưởng',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    icon: <TrendingUp className="w-4 h-4 text-emerald-600" />,
-    description: 'Phễu khách hàng (pipeline), hợp đồng mua bán, đối tác và mục tiêu KPI doanh số.',
-    tags: ['Khách hàng', 'Hợp đồng', 'Chốt đơn', 'KPI'],
-    defaultPrefix: 'Dự án Kinh doanh',
   },
   {
     id: 'marketing',
@@ -79,29 +67,19 @@ export const BUSINESS_DOMAINS: BusinessDomain[] = [
     badge: 'Truyền thông',
     badgeColor: 'bg-pink-50 text-pink-700 border-pink-200/80',
     icon: <Megaphone className="w-4 h-4 text-pink-600" />,
-    description: 'Chiến dịch tiếp thị, sản xuất nội dung số, duyệt ấn phẩm thiết kế đồ họa.',
+    description: 'Chiến dịch tiếp thị, sản xuất nội dung và duyệt ấn phẩm thiết kế.',
     tags: ['Chiến dịch', 'Content', 'Design', 'Quảng cáo'],
     defaultPrefix: 'Dự án Marketing',
   },
   {
-    id: 'logistics',
-    name: 'Vận tải & Chuỗi cung ứng',
-    badge: 'Vận hành',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200/80',
-    icon: <Truck className="w-4 h-4 text-amber-600" />,
-    description: 'Điều phối vận chuyển hàng hóa, theo dõi lộ trình đơn vận, kho bãi giao nhận.',
-    tags: ['Đơn vận', 'Kho bãi', 'Lộ trình', 'Giao hàng'],
-    defaultPrefix: 'Dự án Vận tải',
-  },
-  {
-    id: 'support',
-    name: 'Dịch vụ & Chăm sóc KH',
-    badge: 'Hỗ trợ',
-    badgeColor: 'bg-teal-50 text-teal-700 border-teal-200/80',
-    icon: <Headphones className="w-4 h-4 text-teal-600" />,
-    description: 'Tiếp nhận ticket khiếu nại, phân luồng sự cố theo cam kết thời gian SLA.',
-    tags: ['Ticket', 'SLA Khẩn', 'Hỗ trợ', 'Đánh giá'],
-    defaultPrefix: 'Dự án Hỗ trợ KH',
+    id: 'sales',
+    name: 'Kinh doanh & Bán hàng',
+    badge: 'Tăng trưởng',
+    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    icon: <TrendingUp className="w-4 h-4 text-emerald-600" />,
+    description: 'Phễu khách hàng (pipeline), hợp đồng mua bán, đối tác và mục tiêu doanh số.',
+    tags: ['Khách hàng', 'Hợp đồng', 'Chốt đơn', 'KPI'],
+    defaultPrefix: 'Dự án Kinh doanh',
   },
 ]
 

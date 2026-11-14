@@ -62,7 +62,7 @@ describe('CreateProjectPage - Frontend Component Tests', () => {
 
     // Kiểm tra đã sang Bước 2
     expect(await screen.findByText('Bước 2 / 3')).toBeInTheDocument()
-    expect(screen.getByText(/Chọn mô hình phù hợp/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Chọn mô hình phù hợp/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Sử dụng mẫu này/i })).toBeInTheDocument()
   })
 

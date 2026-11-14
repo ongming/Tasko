@@ -4,6 +4,7 @@ import { useCreateProject } from '@/hooks/useCreateProject'
 import {
   AGILE_METHODS,
   BUSINESS_DOMAINS,
+  PROJECT_TEMPLATES,
   METHOD_DETAILS,
   MethodCard,
   MethodDetailsSidebar,
@@ -27,6 +28,7 @@ export const CreateProjectPage: React.FC = () => {
     step,
     selectedMethod,
     selectedDomain,
+    selectedTemplate,
     projectName,
     projectKey,
     projectColor,
@@ -187,15 +189,16 @@ export const CreateProjectPage: React.FC = () => {
               <MethodDetailsSidebar
                 method={selectedMethod}
                 details={METHOD_DETAILS[selectedMethod.id]}
+                selectedTemplate={selectedTemplate}
                 onUseTemplate={actions.proceedToFinalStep}
               />
 
-              {/* BÊN PHẢI (3/4): Chỉ chứa lưới 6 mô hình doanh nghiệp thoáng đãng */}
+              {/* BÊN PHẢI (3/4): Chỉ chứa lưới 4 mô hình doanh nghiệp thoáng đãng */}
               <div className="flex-1 w-full flex flex-col gap-6 text-left">
                 <DomainSelectorGrid
-                  domains={BUSINESS_DOMAINS}
-                  selectedDomain={selectedDomain}
-                  onSelectDomain={actions.selectDomain}
+                  templates={PROJECT_TEMPLATES}
+                  selectedTemplate={selectedTemplate}
+                  onSelectTemplate={actions.selectTemplate}
                 />
               </div>
             </div>
@@ -220,6 +223,7 @@ export const CreateProjectPage: React.FC = () => {
             onProjectKeyChange={actions.setProjectKey}
             onProjectColorChange={actions.setProjectColor}
             onUpdateWorkflowLabel={actions.updateWorkflowLabel}
+            onUpdateWorkflowCategory={actions.updateWorkflowCategory}
             onAddWorkflowStage={actions.addWorkflowStage}
             onRemoveWorkflowStage={actions.removeWorkflowStage}
             onUpdateWorkTypeLabel={actions.updateWorkTypeLabel}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import type { Project } from '@/types/workspace'
 import { workspaceService } from '@/services/workspaceService'
+import { projectService } from '@/services/projectService'
 import CreateWorkspaceModal from '@/components/workspace/CreateWorkspaceModal'
 
 export interface StarredItem {
@@ -90,9 +91,40 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
     }
   }
 
+  // Tải danh sách dự án của Workspace đang chọn
+  const loadProjectsForWorkspace = async (workspaceId: string) => {
+    try {
+      const projectsList = await projectService.getProjects(workspaceId)
+      setWorkspaces((prev) =>
+        prev.map((ws) =>
+          ws.id === workspaceId ? { ...ws, projects: projectsList || [] } : ws
+        )
+      )
+    } catch {
+      // Bỏ qua lỗi nếu tải thất bại
+    }
+  }
+
   useEffect(() => {
     reloadWorkspaces()
   }, [])
+
+  // Tải lại dự án khi người dùng đổi workspace hoặc khi có project mới được tạo
+  useEffect(() => {
+    if (selectedWorkspaceId) {
+      loadProjectsForWorkspace(selectedWorkspaceId)
+    }
+  }, [selectedWorkspaceId])
+
+  useEffect(() => {
+    const handleProjectCreated = () => {
+      if (selectedWorkspaceId) {
+        loadProjectsForWorkspace(selectedWorkspaceId)
+      }
+    }
+    window.addEventListener('project-created', handleProjectCreated)
+    return () => window.removeEventListener('project-created', handleProjectCreated)
+  }, [selectedWorkspaceId])
 
   // Đồng bộ khi có workspace mới được tạo từ màn hình khác
   useEffect(() => {
@@ -429,7 +461,11 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => setCurrentProject(p.id)}
+                      onClick={() => {
+                        setCurrentProject(p.id)
+                        navigate(`/workspace/board?projectId=${p.id}`)
+                        setIsMobileOpen?.(false)
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left cursor-pointer ${
                         isSelected
                           ? 'bg-indigo-50/80 text-indigo-700 font-medium'

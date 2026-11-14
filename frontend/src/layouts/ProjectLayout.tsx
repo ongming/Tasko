@@ -1,14 +1,37 @@
-import React, { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Outlet, useSearchParams } from 'react-router-dom'
 import { Star, Share2 } from 'lucide-react'
 import ProjectTabBar from '@/components/workspace/ProjectTabBar'
 import { useAuthStore } from '@/stores/authStore'
+import { projectService } from '@/services/projectService'
+import type { Project } from '@/types/workspace'
 
 export function ProjectLayout() {
   const [isFavorite, setIsFavorite] = useState(false)
+  const [project, setProject] = useState<Project | null>(null)
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('projectId')
   const { user } = useAuthStore()
 
+  useEffect(() => {
+    if (!projectId) {
+      setProject(null)
+      return
+    }
+
+    projectService
+      .getProjectById(projectId)
+      .then((data) => {
+        setProject(data)
+      })
+      .catch((err) => {
+        console.error('Failed to load project details:', err)
+      })
+  }, [projectId])
+
   const userInitials = user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'
+  const displayName = project?.name || 'Website Redesign'
+  const displayKey = project?.key || 'WR-2024'
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -16,27 +39,27 @@ export function ProjectLayout() {
       <div className="shrink-0 pb-2 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-4 p-4 sm:p-6 sm:pb-0">
           {/* Tên dự án, icon yêu thích, mã dự án */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Website Redesign
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              {displayName}
             </h1>
             <button
               type="button"
               onClick={() => setIsFavorite(!isFavorite)}
-              className="p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-amber-500 transition-colors cursor-pointer"
               title={isFavorite ? 'Bỏ đánh dấu yêu thích' : 'Đánh dấu dự án yêu thích'}
               aria-label="Đánh dấu dự án yêu thích"
             >
               <Star 
-                className={`w-5 h-5 transition-colors ${
+                className={`w-4 h-4 transition-colors ${
                   isFavorite 
                     ? 'fill-amber-400 text-amber-500' 
-                    : 'text-slate-400 hover:text-amber-500'
+                    : 'text-slate-400'
                 }`} 
               />
             </button>
-            <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-xs font-semibold tracking-wider">
-              WR-2024
+            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tracking-wider">
+              {displayKey}
             </span>
           </div>
 

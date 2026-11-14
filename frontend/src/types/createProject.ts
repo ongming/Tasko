@@ -27,6 +27,7 @@ export interface WorkflowStage {
   id: string
   label: string
   color: string
+  category?: 'TODO' | 'IN_PROGRESS' | 'DONE'
 }
 
 export interface CustomWorkType {

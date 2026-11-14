@@ -6,9 +6,14 @@ export interface Project {
   count?: number;
   color: string;
   key?: string;
+  description?: string | null;
+  workspaceId?: string;
+  ownerId?: string;
   lead?: string;
   status?: string;
   tasks?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface NavItem {

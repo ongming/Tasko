@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import {
   NotFoundException,
   ForbiddenException,
@@ -12,6 +12,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { ProjectsService } from './projects.service.js';
 import { Project } from './entities/project.entity.js';
+import { Status } from './entities/status.entity.js';
+import { WorkType } from './entities/work-type.entity.js';
+import { ProjectMember } from './entities/project-member.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
@@ -20,8 +23,12 @@ import { CreateProjectDto } from './dto/create-project.dto.js';
 describe('ProjectsService - Unit Tests', () => {
   let service: ProjectsService;
   let projectRepo: Partial<Repository<Project>>;
+  let statusRepo: Partial<Repository<Status>>;
+  let workTypeRepo: Partial<Repository<WorkType>>;
+  let projectMemberRepo: Partial<Repository<ProjectMember>>;
   let workspaceRepo: Partial<Repository<Workspace>>;
   let memberRepo: Partial<Repository<WorkspaceMember>>;
+  let mockQueryRunner: any;
 
   const mockUserId = 'user-uuid-111';
   const mockWorkspaceId = 'ws-uuid-222';
@@ -44,6 +51,18 @@ describe('ProjectsService - Unit Tests', () => {
       })),
     };
 
+    statusRepo = {
+      find: vi.fn(),
+    };
+
+    workTypeRepo = {
+      find: vi.fn(),
+    };
+
+    projectMemberRepo = {
+      find: vi.fn(),
+    };
+
     workspaceRepo = {
       findOne: vi.fn(),
     };
@@ -53,12 +72,45 @@ describe('ProjectsService - Unit Tests', () => {
       find: vi.fn(),
     };
 
+    mockQueryRunner = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      startTransaction: vi.fn().mockResolvedValue(undefined),
+      commitTransaction: vi.fn().mockResolvedValue(undefined),
+      rollbackTransaction: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn().mockResolvedValue(undefined),
+      manager: {
+        create: vi.fn((entityClass: any, data: any) => ({
+          ...data,
+          id: data.id || 'mock-generated-id',
+          created_at: new Date('2026-01-01'),
+          updated_at: new Date('2026-01-01'),
+        })),
+        save: vi.fn(async (_entityClass: any, data: any) => {
+          if (Array.isArray(data)) return data;
+          return {
+            ...data,
+            id: data.id || 'proj-uuid-333',
+            created_at: data.created_at || new Date('2026-01-01'),
+            updated_at: data.updated_at || new Date('2026-01-01'),
+          };
+        }),
+      },
+    };
+
+    const mockDataSource = {
+      createQueryRunner: vi.fn().mockReturnValue(mockQueryRunner),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectsService,
         { provide: getRepositoryToken(Project), useValue: projectRepo },
+        { provide: getRepositoryToken(Status), useValue: statusRepo },
+        { provide: getRepositoryToken(WorkType), useValue: workTypeRepo },
+        { provide: getRepositoryToken(ProjectMember), useValue: projectMemberRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -92,7 +144,8 @@ describe('ProjectsService - Unit Tests', () => {
       expect(memberRepo.findOne).toHaveBeenCalledWith({
         where: { workspace_id: mockWorkspaceId, user_id: mockUserId },
       });
-      expect(projectRepo.create).toHaveBeenCalledWith(
+      expect(mockQueryRunner.manager.create).toHaveBeenCalledWith(
+        Project,
         expect.objectContaining({
           name: 'Hệ Thống Bán Hàng',
           key: 'ECOM',

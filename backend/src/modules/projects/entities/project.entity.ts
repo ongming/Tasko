@@ -30,6 +30,9 @@ export class Project {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  settings: Record<string, any>;
+
   @Column({ type: 'uuid' })
   workspace_id: string;
 

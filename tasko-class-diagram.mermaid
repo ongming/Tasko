@@ -106,6 +106,15 @@ classDiagram
         +Boolean is_default
     }
 
+    class WorkType {
+        +UUID id
+        +UUID project_id
+        +String name
+        +String icon
+        +String color
+        +Boolean is_default
+    }
+
     class CustomField {
         +UUID id
         +UUID project_id
@@ -131,7 +140,7 @@ classDiagram
         +String title
         +String description
         +String priority
-        +String type
+        +UUID work_type_id
         +UUID status_id
         +UUID sprint_id
         +UUID parent_id
@@ -236,11 +245,13 @@ classDiagram
     Project "1" --> "*" ProjectMember : contains
     Project "1" --> "*" Sprint : manages
     Project "1" --> "*" Status : configures
+    Project "1" --> "*" WorkType : defines
     Project "1" --> "*" CustomField : defines
     Project "1" --> "*" Label : owns
     Project "1" --> "*" Task : owns
 
     Status "1" --> "*" Task : groups
+    WorkType "1" --> "*" Task : categorizes
     Sprint "0..1" --> "*" Task : plans
     Task "0..1" --> "*" Task : subtasks
 

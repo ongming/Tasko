@@ -53,4 +53,26 @@ export class ProjectsController {
   ) {
     return this.projectsService.findById(userId, id);
   }
+
+  /**
+   * GET /api/v1/projects/:id/statuses - Lấy danh sách cột Status của dự án
+   */
+  @Get(':id/statuses')
+  async getStatuses(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.projectsService.findStatusesByProject(userId, id);
+  }
+
+  /**
+   * GET /api/v1/projects/:id/work-types - Lấy danh sách WorkType của dự án
+   */
+  @Get(':id/work-types')
+  async getWorkTypes(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.projectsService.findWorkTypesByProject(userId, id);
+  }
 }

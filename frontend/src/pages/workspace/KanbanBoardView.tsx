@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { 
   Plus, 
   Clock, 
@@ -8,11 +8,13 @@ import {
   Filter, 
   Eye, 
   Columns3, 
-  List
+  List,
+  Loader2,
 } from 'lucide-react'
 import { Column } from '@/types/task'
+import { projectService } from '@/services/projectService'
 
-// Initial empty columns for new project
+// Initial empty columns fallback
 const INITIAL_COLUMNS: Column[] = [
   {
     id: 'backlog',
@@ -67,6 +69,55 @@ const INITIAL_COLUMNS: Column[] = [
 export function KanbanBoardView() {
   const [viewMode, setViewMode] = useState<'columns' | 'list'>('columns')
   const [columns, setColumns] = useState<Column[]>(INITIAL_COLUMNS)
+  const [isLoading, setIsLoading] = useState(false)
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('projectId')
+
+  useEffect(() => {
+    if (!projectId) return
+
+    setIsLoading(true)
+    projectService
+      .getProjectStatuses(projectId)
+      .then((statuses) => {
+        if (statuses && statuses.length > 0) {
+          const dynamicColumns: Column[] = statuses.map((st) => {
+            let colorBadge = 'bg-slate-400'
+            let countBadgeClass = 'bg-slate-200/90 text-slate-700'
+            let quickAddClass = 'border-slate-300/80 text-slate-500 hover:text-slate-800 hover:border-slate-400 hover:bg-white'
+
+            if (st.category === 'IN_PROGRESS') {
+              colorBadge = 'bg-indigo-600'
+              countBadgeClass = 'bg-indigo-100 text-indigo-700'
+            } else if (st.category === 'DONE') {
+              colorBadge = 'bg-emerald-500'
+              countBadgeClass = 'bg-emerald-100 text-emerald-800'
+              quickAddClass = 'border-emerald-200 text-emerald-700 hover:text-emerald-900 hover:border-emerald-400 hover:bg-white'
+            }
+
+            return {
+              id: st.id,
+              title: st.name.toUpperCase(),
+              count: 0,
+              colorBadge,
+              countBadgeClass,
+              wrapperClass: 'bg-slate-50/90 border border-slate-200/80',
+              headerClass: '',
+              accentBorder: '',
+              quickAddClass,
+              tasks: [],
+            }
+          })
+          setColumns(dynamicColumns)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load project statuses:', err)
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }, [projectId])
 
   const totalTasksCount = columns.reduce((acc, col) => acc + col.tasks.length, 0)
 
@@ -145,46 +196,46 @@ export function KanbanBoardView() {
         </div>
       </div>
 
-      {/* 3. Modern Flat Kanban Board Canvas (Cuộn ngang linh hoạt, không gạch border thô, không hộp thẻ nổi) */}
+      {/* 3. Modern Flat Kanban Board Canvas (Luôn dàn 1 hàng ngang phẳng, hỗ trợ cuộn ngang mượt mà) */}
       {viewMode === 'columns' ? (
-        <div className="flex-1 flex gap-4 overflow-x-auto pb-4 items-start xl:grid xl:grid-cols-4">
+        <div className="flex-1 flex gap-3.5 overflow-x-auto pb-4 items-start select-none">
           {columns.map((column) => (
             <div
               key={column.id}
-              className={`w-[290px] shrink-0 xl:w-auto p-3 rounded-2xl ${column.wrapperClass} flex flex-col gap-2.5 h-fit self-start transition-all`}
+              className={`w-[270px] min-w-[270px] shrink-0 p-2.5 rounded-xl ${column.wrapperClass} flex flex-col gap-2 h-fit self-start transition-all`}
             >
-              {/* Column Header: Tinh gọn, phẳng, thoáng đãng không bọc hộp nổi */}
-              <div className="flex items-center justify-between px-2 pt-1 pb-0.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-2.5 h-2.5 rounded-full ${column.colorBadge} shrink-0`} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 truncate">
-                    {column.title}
+              {/* Column Header: Chuẩn tinh gọn Jira (Tiêu đề chữ vừa, không viết hoa gắt) */}
+              <div className="flex items-center justify-between px-1.5 pt-0.5 pb-0.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`w-2 h-2 rounded-full ${column.colorBadge} shrink-0`} />
+                  <span className="text-[12px] font-semibold text-slate-700 capitalize truncate">
+                    {column.title.toLowerCase()}
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${column.countBadgeClass}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-medium ${column.countBadgeClass}`}>
                     {column.tasks.length}
                   </span>
                 </div>
                 <button
                   type="button"
-                  className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
+                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer shrink-0"
                   title={`Thêm công việc vào ${column.title}`}
                   aria-label={`Thêm công việc vào ${column.title}`}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
 
               {/* Cards in this column */}
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2">
                 {column.tasks.length === 0 ? (
-                  <div className="py-7 px-2 text-center text-xs text-slate-400 border border-dashed border-slate-200/80 rounded-xl">
+                  <div className="py-5 px-2 text-center text-[11px] text-slate-400 border border-dashed border-slate-200/80 rounded-lg">
                     Chưa có công việc
                   </div>
                 ) : (
                   column.tasks.map((task) => (
                     <div
                       key={task.id}
-                      className="bg-white p-3.5 rounded-xl shadow-2xs hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col gap-2.5"
+                      className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all duration-150 cursor-pointer group flex flex-col gap-2"
                     >
                       {/* Top Tag & Due Date */}
                       <div className="flex items-center justify-between text-xs">

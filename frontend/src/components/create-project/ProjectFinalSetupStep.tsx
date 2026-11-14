@@ -46,6 +46,7 @@ interface ProjectFinalSetupStepProps {
   onProjectKeyChange: (val: string) => void
   onProjectColorChange: (val: string) => void
   onUpdateWorkflowLabel: (id: string, label: string) => void
+  onUpdateWorkflowCategory?: (id: string, category: 'TODO' | 'IN_PROGRESS' | 'DONE') => void
   onAddWorkflowStage: () => void
   onRemoveWorkflowStage: (id: string) => void
   onUpdateWorkTypeLabel: (id: string, label: string) => void
@@ -119,6 +120,7 @@ export const ProjectFinalSetupStep: React.FC<ProjectFinalSetupStepProps> = ({
   onProjectKeyChange,
   onProjectColorChange,
   onUpdateWorkflowLabel,
+  onUpdateWorkflowCategory,
   onAddWorkflowStage,
   onRemoveWorkflowStage,
   onUpdateWorkTypeLabel,
@@ -375,31 +377,103 @@ export const ProjectFinalSetupStep: React.FC<ProjectFinalSetupStepProps> = ({
             </button>
 
             {isStatusesOpen && (
-              <div className="px-4 pb-4 pt-1 flex flex-col gap-2.5 border-t border-slate-100">
-                {workflow.map((st) => (
-                  <div key={st.id} className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-2xs">
-                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                    </div>
-                    <input
-                      type="text"
-                      value={st.label}
-                      onChange={(e) => onUpdateWorkflowLabel(st.id, e.target.value)}
-                      placeholder="Tên trạng thái"
-                      className="flex-1 h-10 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-2xs"
-                    />
-                    {workflow.length > 2 && (
+              <div className="px-4 pb-4 pt-2 flex flex-col gap-3 border-t border-slate-100">
+                {/* Chú thích màu sắc và ý nghĩa trạng thái chuẩn Jira */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/70 flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+                  <span className="font-semibold text-slate-700">Quy ước màu:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                    <span>Xám: Việc mới (To Do)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                    <span>Xanh dương: Đang làm (In Progress)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span>Xanh lá: Hoàn thành (Done)</span>
+                  </div>
+                </div>
+
+                {workflow.map((st) => {
+                  const currentCategory = st.category || 'IN_PROGRESS'
+                  return (
+                    <div key={st.id} className="flex items-center gap-2">
+                      {/* Nút bấm chuyển nhanh giữa 3 màu trạng thái (Xám, Xanh dương, Xanh lá) */}
                       <button
                         type="button"
-                        onClick={() => onRemoveWorkflowStage(st.id)}
-                        title="Xóa trạng thái này"
-                        className="w-10 h-10 rounded-md border border-slate-200 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        onClick={() => {
+                          if (!onUpdateWorkflowCategory) return
+                          const nextCat: 'TODO' | 'IN_PROGRESS' | 'DONE' =
+                            currentCategory === 'TODO'
+                              ? 'IN_PROGRESS'
+                              : currentCategory === 'IN_PROGRESS'
+                              ? 'DONE'
+                              : 'TODO'
+                          onUpdateWorkflowCategory(st.id, nextCat)
+                        }}
+                        title={`Nhóm hiện tại: ${
+                          currentCategory === 'TODO'
+                            ? 'Việc mới (Xám)'
+                            : currentCategory === 'IN_PROGRESS'
+                            ? 'Đang làm (Xanh dương)'
+                            : 'Hoàn thành (Xanh lá)'
+                        }. Bấm để đổi màu.`}
+                        className={`w-10 h-10 rounded-md border flex items-center justify-center shrink-0 shadow-2xs transition-all cursor-pointer ${
+                          currentCategory === 'TODO'
+                            ? 'bg-slate-100 border-slate-300'
+                            : currentCategory === 'DONE'
+                            ? 'bg-emerald-50 border-emerald-300'
+                            : 'bg-indigo-50 border-indigo-300'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <span
+                          className={`w-3.5 h-3.5 rounded-full transition-transform hover:scale-125 ${
+                            currentCategory === 'TODO'
+                              ? 'bg-slate-400'
+                              : currentCategory === 'DONE'
+                              ? 'bg-emerald-500'
+                              : 'bg-indigo-600'
+                          }`}
+                        />
                       </button>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Ô nhập tên Status */}
+                      <input
+                        type="text"
+                        value={st.label}
+                        onChange={(e) => onUpdateWorkflowLabel(st.id, e.target.value)}
+                        placeholder="Tên trạng thái"
+                        className="flex-1 h-10 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-2xs"
+                      />
+
+                      {/* Dropdown chọn nhóm nhanh */}
+                      <select
+                        value={currentCategory}
+                        onChange={(e) =>
+                          onUpdateWorkflowCategory &&
+                          onUpdateWorkflowCategory(st.id, e.target.value as 'TODO' | 'IN_PROGRESS' | 'DONE')
+                        }
+                        className="h-10 px-2.5 text-xs bg-white border border-slate-200 rounded-md text-slate-700 focus:outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <option value="TODO">Việc mới</option>
+                        <option value="IN_PROGRESS">Đang làm</option>
+                        <option value="DONE">Hoàn thành</option>
+                      </select>
+
+                      {workflow.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveWorkflowStage(st.id)}
+                          title="Xóa trạng thái này"
+                          className="w-10 h-10 rounded-md border border-slate-200 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
 
                 {/* Nút thêm trạng thái */}
                 <div className="pt-1">

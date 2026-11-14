@@ -5,8 +5,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { Project } from './entities/project.entity.js';
+import { Status, StatusCategory } from './entities/status.entity.js';
+import { WorkType } from './entities/work-type.entity.js';
+import { ProjectMember, ProjectRole } from './entities/project-member.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
@@ -19,11 +22,22 @@ export class ProjectsService {
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
 
+    @InjectRepository(Status)
+    private readonly statusRepository: Repository<Status>,
+
+    @InjectRepository(WorkType)
+    private readonly workTypeRepository: Repository<WorkType>,
+
+    @InjectRepository(ProjectMember)
+    private readonly projectMemberRepository: Repository<ProjectMember>,
+
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
 
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -65,18 +79,96 @@ export class ProjectsService {
       );
     }
 
-    // 4. Tạo và lưu bản ghi Project
-    const newProject = this.projectRepository.create({
-      name: normalizedName,
-      key: normalizedKey,
-      color,
-      description: normalizedDescription,
-      workspace_id: dto.workspaceId,
-      owner_id: userId,
-    });
+    // 4. Tạo và lưu bản ghi Project cùng Status, WorkType và ProjectMember trong 1 Transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedProject = await this.projectRepository.save(newProject);
-    return this.mapToResponse(savedProject);
+    try {
+      const newProject = queryRunner.manager.create(Project, {
+        name: normalizedName,
+        key: normalizedKey,
+        color,
+        description: normalizedDescription,
+        settings: dto.settings || {},
+        workspace_id: dto.workspaceId,
+        owner_id: userId,
+      });
+
+      const savedProject = await queryRunner.manager.save(Project, newProject);
+
+      // 4.1. Tự động thêm Owner vào ProjectMember
+      const projectMember = queryRunner.manager.create(ProjectMember, {
+        project_id: savedProject.id,
+        user_id: userId,
+        role: ProjectRole.OWNER,
+      });
+      await queryRunner.manager.save(ProjectMember, projectMember);
+
+      // 4.2. Tự động sinh các Cột Status / Workflow
+      const defaultWorkflow = [
+        { label: 'Backlog', category: StatusCategory.TODO, color: '#94a3b8' },
+        { label: 'In Progress', category: StatusCategory.IN_PROGRESS, color: '#4f46e5' },
+        { label: 'Review', category: StatusCategory.IN_PROGRESS, color: '#f59e0b' },
+        { label: 'Done', category: StatusCategory.DONE, color: '#10b981' },
+      ];
+
+      const workflowToCreate = (dto.workflow && dto.workflow.length > 0)
+        ? dto.workflow.map((item, idx) => {
+            let cat = StatusCategory.IN_PROGRESS;
+            if (idx === 0) cat = StatusCategory.TODO;
+            else if (idx === dto.workflow!.length - 1) cat = StatusCategory.DONE;
+            if (item.category) cat = item.category as StatusCategory;
+            return {
+              label: item.label,
+              category: cat,
+              color: item.color || (cat === StatusCategory.TODO ? '#94a3b8' : cat === StatusCategory.DONE ? '#10b981' : '#4f46e5'),
+            };
+          })
+        : defaultWorkflow;
+
+      const statusEntities = workflowToCreate.map((wf, index) =>
+        queryRunner.manager.create(Status, {
+          project_id: savedProject.id,
+          name: wf.label,
+          category: wf.category,
+          color: wf.color,
+          position: (index + 1) * 1000,
+          is_default: index === 0,
+        }),
+      );
+      await queryRunner.manager.save(Status, statusEntities);
+
+      // 4.3. Tự động sinh các Loại công việc (WorkType)
+      const defaultWorkTypes = [
+        { label: 'Module', icon: 'Package', color: 'bg-purple-100 text-purple-700' },
+        { label: 'Task', icon: 'CheckSquare', color: 'bg-blue-100 text-blue-700' },
+        { label: 'Bug', icon: 'Bug', color: 'bg-rose-100 text-rose-700' },
+      ];
+
+      const workTypesToCreate = (dto.workTypes && dto.workTypes.length > 0)
+        ? dto.workTypes
+        : defaultWorkTypes;
+
+      const workTypeEntities = workTypesToCreate.map((wt, index) =>
+        queryRunner.manager.create(WorkType, {
+          project_id: savedProject.id,
+          name: wt.label,
+          icon: wt.icon || 'CheckSquare',
+          color: wt.color || 'bg-blue-100 text-blue-700',
+          is_default: index === 0,
+        }),
+      );
+      await queryRunner.manager.save(WorkType, workTypeEntities);
+
+      await queryRunner.commitTransaction();
+      return this.mapToResponse(savedProject);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   /**
@@ -132,6 +224,50 @@ export class ProjectsService {
     }
 
     return this.mapToResponse(project);
+  }
+
+  /**
+   * 4. LẤY DANH SÁCH STATUS (CÁC CỘT KANBAN) CỦA DỰ ÁN
+   */
+  async findStatusesByProject(userId: string, projectId: string): Promise<Status[]> {
+    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspace_id: project.workspace_id, user_id: userId },
+    });
+    if (!member) {
+      throw new ForbiddenException('Bạn không có quyền truy cập trạng thái dự án này!');
+    }
+
+    return this.statusRepository.find({
+      where: { project_id: projectId },
+      order: { position: 'ASC' },
+    });
+  }
+
+  /**
+   * 5. LẤY DANH SÁCH LOẠI CÔNG VIỆC (WORK TYPES) CỦA DỰ ÁN
+   */
+  async findWorkTypesByProject(userId: string, projectId: string): Promise<WorkType[]> {
+    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspace_id: project.workspace_id, user_id: userId },
+    });
+    if (!member) {
+      throw new ForbiddenException('Bạn không có quyền truy cập loại công việc của dự án này!');
+    }
+
+    return this.workTypeRepository.find({
+      where: { project_id: projectId },
+      order: { created_at: 'ASC' },
+    });
   }
 
   private mapToResponse(project: Project): ProjectResponseDto {

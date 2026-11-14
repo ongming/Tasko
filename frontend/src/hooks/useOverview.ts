@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { workspaceService } from '@/services/workspaceService'
+import { projectService } from '@/services/projectService'
 import type { WorkspaceResponse } from '@/types/workspace'
 import type {
   OverviewStats,
@@ -42,7 +43,7 @@ export function useOverview() {
   const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<TaskCategory>('today')
   const [tasks, setTasks] = useState<MyTaskItem[]>([])
-  const [stats] = useState<OverviewStats>(EMPTY_STATS)
+  const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [velocity] = useState<DailyVelocity[]>([])
   const [teamMembers] = useState<TeamMemberStatus[]>([])
@@ -85,6 +86,64 @@ export function useOverview() {
     window.addEventListener('workspace-updated', handleWorkspaceUpdated)
     return () => window.removeEventListener('workspace-updated', handleWorkspaceUpdated)
   }, [])
+
+  // Tải danh sách các dự án thuộc Workspace hiện tại
+  useEffect(() => {
+    if (!currentWorkspace?.id) {
+      setProjects([])
+      return
+    }
+
+    let isMounted = true
+
+    const fetchProjects = () => {
+      projectService
+        .getProjects(currentWorkspace.id)
+        .then((data) => {
+          if (!isMounted) return
+          const mapped: ProjectSummary[] = (data || []).map((p) => ({
+            id: p.id,
+            code: p.key || 'PROJ',
+            sprint: 'Sprint 1',
+            statusTag: 'Đang vận hành',
+            statusColor: 'indigo',
+            title: p.name,
+            description: p.description || 'Dự án quản lý công việc và quy trình Agile',
+            progress: 0,
+            tasksCount: p.tasks || 0,
+            bugsCount: 0,
+            lead: {
+              name: user?.full_name || 'Project Lead',
+              initials: (user?.full_name || 'PL').slice(0, 2).toUpperCase(),
+              bg: p.color || 'bg-indigo-600',
+            },
+            boardRoute: `/workspace/board?projectId=${p.id}`,
+          }))
+          setProjects(mapped)
+          setStats((prev) => ({
+            ...prev,
+            activeProjects: {
+              count: mapped.length,
+              change: `${mapped.length} dự án`,
+              quarter: 'Q4/2026',
+            },
+          }))
+        })
+        .catch(() => {
+          if (isMounted) setProjects([])
+        })
+    }
+
+    fetchProjects()
+
+    const handleProjectCreated = () => fetchProjects()
+    window.addEventListener('project-created', handleProjectCreated)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('project-created', handleProjectCreated)
+    }
+  }, [currentWorkspace?.id, user?.full_name])
 
   // Tạo workspace mới và lưu vào cơ sở dữ liệu qua Backend API
   const handleCreateWorkspace = useCallback(

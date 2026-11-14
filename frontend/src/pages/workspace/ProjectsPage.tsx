@@ -1,10 +1,46 @@
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ArrowRight, FolderKanban } from 'lucide-react'
+import { Plus, ArrowRight, FolderKanban, Loader2 } from 'lucide-react'
 import { Project } from '@/types/workspace'
+import { projectService } from '@/services/projectService'
+import { workspaceService } from '@/services/workspaceService'
 
 export function ProjectsPage() {
-  const [projects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadProjects() {
+      try {
+        setIsLoading(true)
+        // 1. Lấy workspace của user
+        const workspaces = await workspaceService.getMyWorkspaces()
+        const currentWorkspaceId = workspaces?.[0]?.id
+
+        // 2. Tải danh sách dự án
+        const data = await projectService.getProjects(currentWorkspaceId)
+        if (isMounted) {
+          setProjects(data || [])
+        }
+      } catch {
+        if (isMounted) {
+          setProjects([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadProjects()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto p-4 sm:p-6">
@@ -26,7 +62,12 @@ export function ProjectsPage() {
         </Link>
       </div>
 
-      {projects.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-2">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          <span className="text-xs">Đang tải danh sách dự án...</span>
+        </div>
+      ) : projects.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-12 flex flex-col items-center justify-center text-center">
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
             <FolderKanban className="w-7 h-7" />
@@ -46,22 +87,29 @@ export function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {projects.map((proj) => (
-            <div key={proj.id} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between">
+            <div
+              key={proj.id}
+              className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+            >
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className={`w-3 h-3 rounded-full ${proj.color}`} />
+                  <span className={`w-3 h-3 rounded-full ${proj.color || 'bg-indigo-600'}`} />
                   <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                     {proj.key}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">{proj.name}</h3>
-                <p className="text-xs text-slate-500 mt-1">Lead: {proj.lead}</p>
+                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                  {proj.description || 'Dự án quản lý công việc và quy trình Agile'}
+                </p>
               </div>
 
               <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-600">{proj.tasks} công việc</span>
+                <span className="text-xs font-semibold text-slate-600">
+                  {proj.tasks || 0} công việc
+                </span>
                 <Link
-                  to="/workspace/board"
+                  to={`/workspace/board?projectId=${proj.id}`}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                 >
                   <span>Mở Board</span>

@@ -34,4 +34,21 @@ export class CreateProjectDto {
   @IsOptional()
   @MaxLength(500, { message: 'Mô tả dự án tối đa 500 ký tự' })
   description?: string;
+
+  @IsOptional()
+  workflow?: Array<{
+    label: string;
+    category?: 'TODO' | 'IN_PROGRESS' | 'DONE';
+    color?: string;
+  }>;
+
+  @IsOptional()
+  workTypes?: Array<{
+    label: string;
+    icon?: string;
+    color?: string;
+  }>;
+
+  @IsOptional()
+  settings?: Record<string, any>;
 }
