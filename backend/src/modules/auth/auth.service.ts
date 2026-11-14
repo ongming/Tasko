@@ -17,6 +17,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
+import { PasswordResetToken } from './entities/password-reset-token.entity.js';
 import type { IMailService } from '../mail/interfaces/mail-service.interface.js';
 import { MAIL_SERVICE } from '../mail/interfaces/mail-service.interface.js';
 import { RegisterDto } from './dto/register.dto.js';
@@ -46,6 +47,9 @@ export class AuthService {
 
     @InjectRepository(EmailVerification)
     private readonly emailVerificationRepository: Repository<EmailVerification>,
+
+    @InjectRepository(PasswordResetToken)
+    private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
 
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
@@ -461,5 +465,111 @@ export class AuthService {
    */
   async findUserById(id: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id, is_active: true } });
+  }
+
+  /**
+   * 5. QUÊN MẬT KHẨU — Sinh OTP & gửi email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const genericMessage = {
+      message:
+        'Nếu địa chỉ email tồn tại trong hệ thống, mã OTP đặt lại mật khẩu đã được gửi đến hộp thư của bạn.',
+    };
+
+    const user = await this.userRepository.findOne({ where: { email } });
+    // Chống User Enumeration: trả về message chung dù user không tồn tại hoặc không active
+    if (!user || !user.is_active) {
+      return genericMessage;
+    }
+
+    // Xóa toàn bộ token reset cũ của user
+    await this.passwordResetTokenRepository.delete({ user_id: user.id });
+
+    // Sinh OTP ngẫu nhiên 6 chữ số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = this.hashToken(otp);
+
+    // Thời hạn 15 phút
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+    const resetToken = this.passwordResetTokenRepository.create({
+      otp_hash: otpHash,
+      expires_at: expiresAt,
+      is_used: false,
+      user,
+    });
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    // Gửi email OTP
+    await this.mailService.sendPasswordResetOtpEmail(user.email, user.full_name, otp);
+
+    return genericMessage;
+  }
+
+  /**
+   * 5.1. XÁC THỰC OTP ĐẶT LẠI MẬT KHẨU
+   */
+  async verifyOtp(email: string, otp: string): Promise<{ valid: boolean; message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn!');
+    }
+
+    const otpHash = this.hashToken(otp);
+    const resetToken = await this.passwordResetTokenRepository.findOne({
+      where: { otp_hash: otpHash, user_id: user.id, is_used: false },
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn!');
+    }
+
+    if (new Date() > new Date(resetToken.expires_at)) {
+      throw new BadRequestException('Mã OTP đã hết hạn! Vui lòng yêu cầu gửi lại mã mới.');
+    }
+
+    return { valid: true, message: 'OTP hợp lệ' };
+  }
+
+  /**
+   * 5.2. ĐẶT LẠI MẬT KHẨU (Reset Password)
+   */
+  async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn!');
+    }
+
+    const otpHash = this.hashToken(otp);
+    const resetToken = await this.passwordResetTokenRepository.findOne({
+      where: { otp_hash: otpHash, user_id: user.id, is_used: false },
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn!');
+    }
+
+    if (new Date() > new Date(resetToken.expires_at)) {
+      throw new BadRequestException('Mã OTP đã hết hạn! Vui lòng yêu cầu gửi lại mã mới.');
+    }
+
+    // Hash mật khẩu mới bằng bcrypt
+    const saltRounds = 10;
+    user.password_hash = await bcrypt.hash(newPassword, saltRounds);
+    await this.userRepository.save(user);
+
+    // Đánh dấu token đã sử dụng
+    resetToken.is_used = true;
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    // Vô hiệu hóa TẤT CẢ sessions của user để bắt buộc đăng nhập lại
+    await this.sessionRepository.delete({ user: { id: user.id } });
+
+    return { message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.' };
   }
 }

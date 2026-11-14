@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity.js';
 import { Session } from './entities/session.entity.js';
 import { EmailVerification } from './entities/email-verification.entity.js';
+import { PasswordResetToken } from './entities/password-reset-token.entity.js';
 import { MailModule } from '../mail/mail.module.js';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
@@ -14,7 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 @Module({
   imports: [
     // 1. Khai báo các Entity cho TypeORM quản lý trong phân hệ Auth
-    TypeOrmModule.forFeature([User, Session, EmailVerification]),
+    TypeOrmModule.forFeature([User, Session, EmailVerification, PasswordResetToken]),
 
     // 2. Phân hệ gửi Email
     MailModule,

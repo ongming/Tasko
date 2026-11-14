@@ -54,3 +54,8 @@ export interface VerifyEmailResponse {
 export interface SimpleMessageResponse {
   message: string
 }
+
+export interface ForgotPasswordPayload { email: string }
+export interface VerifyOtpPayload { email: string; otp: string }
+export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
+export interface VerifyOtpResponse { valid: boolean; message: string }

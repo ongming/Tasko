@@ -29,6 +29,9 @@ const LandingPage = lazy(() => import('@/pages/LandingPage'))
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
 const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'))
+const VerifyOtpPage = lazy(() => import('@/pages/auth/VerifyOtpPage'))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'))
 
 // Workspace Project Pages (Lazy Loaded Chunks)
 const KanbanBoardView = lazy(() => import('@/pages/workspace/KanbanBoardView'))
@@ -80,6 +83,20 @@ export const router = createBrowserRouter([
   {
     path: '/verify-email',
     element: withSuspense(VerifyEmailPage),
+  },
+  {
+    path: '/forgot-password',
+    element: (
+      <GuestRoute>{withSuspense(ForgotPasswordPage)}</GuestRoute>
+    ),
+  },
+  {
+    path: '/verify-otp',
+    element: withSuspense(VerifyOtpPage),
+  },
+  {
+    path: '/reset-password',
+    element: withSuspense(ResetPasswordPage),
   },
   {
     path: '/signup',

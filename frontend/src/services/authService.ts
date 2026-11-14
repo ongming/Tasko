@@ -8,6 +8,10 @@ import type {
   RegisterResponse,
   VerifyEmailResponse,
   SimpleMessageResponse,
+  ForgotPasswordPayload,
+  VerifyOtpPayload,
+  ResetPasswordPayload,
+  VerifyOtpResponse,
 } from '@/types/auth'
 
 export type {
@@ -66,4 +70,22 @@ export const authService = {
    * Lấy thông tin tài khoản hiện tại
    */
   getProfile: () => api.get<User>('/auth/me'),
+
+  /**
+   * Gửi mã OTP đặt lại mật khẩu về email
+   */
+  forgotPassword: (payload: ForgotPasswordPayload) =>
+    api.post<SimpleMessageResponse>('/auth/forgot-password', payload, { skipAuth: true }),
+
+  /**
+   * Xác minh mã OTP đặt lại mật khẩu
+   */
+  verifyOtp: (payload: VerifyOtpPayload) =>
+    api.post<VerifyOtpResponse>('/auth/verify-otp', payload, { skipAuth: true }),
+
+  /**
+   * Đặt lại mật khẩu mới bằng OTP đã xác minh
+   */
+  resetPassword: (payload: ResetPasswordPayload) =>
+    api.post<SimpleMessageResponse>('/auth/reset-password', payload, { skipAuth: true }),
 }

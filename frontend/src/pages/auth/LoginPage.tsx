@@ -11,6 +11,7 @@ import { useLogin } from '@/hooks/useLogin'
 export function LoginPage() {
   const [searchParams] = useSearchParams()
   const isVerifiedFromEmail = searchParams.get('verified') === 'true'
+  const isPasswordReset = searchParams.get('passwordReset') === 'true'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -46,6 +47,14 @@ export function LoginPage() {
         <AlertBanner
           variant="success"
           message="Tài khoản của bạn đã được kích hoạt thành công! Hãy đăng nhập để bắt đầu."
+        />
+      )}
+
+      {/* Thông báo đặt lại mật khẩu thành công */}
+      {isPasswordReset && (
+        <AlertBanner
+          variant="success"
+          message="Đặt lại mật khẩu thành công! Hãy đăng nhập bằng mật khẩu mới của bạn."
         />
       )}
 
@@ -104,7 +113,7 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           rightLabelAction={
             <Link
-              to="#forgot"
+              to="/forgot-password"
               className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
             >
               Quên mật khẩu?
