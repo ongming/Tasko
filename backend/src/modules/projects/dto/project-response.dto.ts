@@ -4,6 +4,7 @@ export class ProjectResponseDto {
   key: string;
   color: string;
   description: string | null;
+  settings?: Record<string, any>;
   workspaceId: string;
   ownerId: string;
   createdAt: Date;

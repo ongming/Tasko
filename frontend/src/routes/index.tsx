@@ -111,7 +111,83 @@ export const router = createBrowserRouter([
     element: <Navigate to="/login" replace />,
   },
 
-  // 3. Phân hệ Workspace (Layout có Sidebar & Topbar cố định - Đòi hỏi Đăng nhập)
+  // 3. Phân hệ Workspace chuẩn RESTful Linear / GitHub: /:workspaceSlug/...
+  {
+    path: '/:workspaceSlug',
+    element: (
+      <ProtectedRoute>
+        <WorkspaceLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="overview" replace />,
+      },
+      // Các trang quản lý workspace
+      {
+        path: 'overview',
+        element: withSuspense(OverviewPage),
+      },
+      {
+        path: 'projects',
+        element: withSuspense(ProjectsPage),
+      },
+      {
+        path: 'projects/new',
+        element: withSuspense(CreateProjectPage),
+      },
+      {
+        path: 'members',
+        element: withSuspense(MembersPage),
+      },
+      {
+        path: 'settings',
+        element: withSuspense(SettingsPage),
+      },
+      // Phân hệ chế độ xem dự án: /:workspaceSlug/:projectKey/...
+      {
+        path: ':projectKey',
+        element: <ProjectLayout />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="board" replace />,
+          },
+          {
+            path: 'board',
+            element: withSuspense(KanbanBoardView),
+          },
+          {
+            path: 'kanban',
+            element: <Navigate to="board" replace />,
+          },
+          {
+            path: 'control',
+            element: withSuspense(ControlBoardView),
+          },
+          {
+            path: 'backlog',
+            element: withSuspense(BacklogView),
+          },
+          {
+            path: 'timeline',
+            element: withSuspense(TimelineView),
+          },
+          {
+            path: 'calendar',
+            element: withSuspense(CalendarView),
+          },
+          {
+            path: 'gantt',
+            element: withSuspense(GanttView),
+          },
+        ],
+      },
+    ],
+  },
+
+  // 4. Phân hệ Workspace tương thích ngược: /workspace/...
   {
     path: '/workspace',
     element: (

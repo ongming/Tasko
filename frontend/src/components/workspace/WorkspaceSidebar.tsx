@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Star,
@@ -15,6 +15,10 @@ import {
   ListFilter,
   AlignLeft,
   Settings,
+  MoreHorizontal,
+  Trash2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react'
 import type { Project } from '@/types/workspace'
 import { workspaceService } from '@/services/workspaceService'
@@ -34,6 +38,7 @@ export interface StarredItem {
 export interface WorkspaceItem {
   id: string
   name: string
+  slug: string
   subtitle: string
   initial: string
   color: string
@@ -51,6 +56,7 @@ export interface WorkspaceSidebarProps {
 export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
   const user = useAuthStore((state) => state.user)
 
   // Danh sách Workspaces và trạng thái chọn
@@ -71,6 +77,14 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
   const starredButtonRef = useRef<HTMLButtonElement>(null)
   const starredPopupRef = useRef<HTMLDivElement>(null)
 
+  // Trạng thái Popup menu 3 chấm của Project & Modal xác nhận xóa
+  const [activeMenuProject, setActiveMenuProject] = useState<Project | null>(null)
+  const [projectMenuCoords, setProjectMenuCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [isDeletingProject, setIsDeletingProject] = useState(false)
+  const projectMenuRef = useRef<HTMLDivElement>(null)
+  const deleteModalRef = useRef<HTMLDivElement>(null)
+
   // Tải danh sách Workspaces từ Backend Database
   const reloadWorkspaces = async () => {
     try {
@@ -79,20 +93,32 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
         const items: WorkspaceItem[] = workspacesList.map((ws) => ({
           id: ws.id,
           name: ws.name,
+          slug: ws.slug,
           subtitle: ws.role === 'OWNER' ? 'Chủ sở hữu' : 'Thành viên',
           initial: ws.name.slice(0, 2).toUpperCase(),
           color: 'bg-indigo-600',
           projects: [],
         }))
         setWorkspaces(items)
-        if (items.length > 0 && !selectedWorkspaceId) {
-          setSelectedWorkspaceId(items[0].id)
+        if (items.length > 0) {
+          const matched = workspaceSlug ? items.find((w) => w.slug === workspaceSlug) : null
+          setSelectedWorkspaceId(matched ? matched.id : (selectedWorkspaceId || items[0].id))
         }
       }
     } catch {
       // Bỏ qua lỗi nếu chưa đăng nhập
     }
   }
+
+  // Tự động đồng bộ khi URL thay đổi workspaceSlug
+  useEffect(() => {
+    if (workspaceSlug && workspaces.length > 0) {
+      const matched = workspaces.find((w) => w.slug === workspaceSlug)
+      if (matched && matched.id !== selectedWorkspaceId) {
+        setSelectedWorkspaceId(matched.id)
+      }
+    }
+  }, [workspaceSlug, workspaces, selectedWorkspaceId])
 
   // Tải danh sách dự án của Workspace đang chọn
   const loadProjectsForWorkspace = async (workspaceId: string) => {
@@ -155,6 +181,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
   }
 
   const currentWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId) || workspaces[0] || null
+  const activeSlug = currentWorkspace?.slug || workspaceSlug || 'workspace'
 
   // Mở popup Đã đánh dấu sao và tính toạ độ neo bên phải nút
   const toggleStarredPopup = () => {
@@ -219,18 +246,30 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
       ) {
         setIsStarredOpen(false)
       }
+
+      // Click ngoài Project Options Menu
+      if (
+        projectMenuRef.current &&
+        !projectMenuRef.current.contains(target)
+      ) {
+        setActiveMenuProject(null)
+      }
     }
 
     function handleScroll(event: Event) {
       // Cho phép cuộn bên trong popup
-      if (starredPopupRef.current?.contains(event.target as Node)) {
+      if (
+        starredPopupRef.current?.contains(event.target as Node) ||
+        projectMenuRef.current?.contains(event.target as Node)
+      ) {
         return
       }
       setIsWorkspaceDropdownOpen(false)
       setIsStarredOpen(false)
+      setActiveMenuProject(null)
     }
 
-    if (isWorkspaceDropdownOpen || isStarredOpen) {
+    if (isWorkspaceDropdownOpen || isStarredOpen || activeMenuProject) {
       document.addEventListener('mousedown', handleClickOutside)
       window.addEventListener('scroll', handleScroll, true)
     }
@@ -239,18 +278,88 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
       document.removeEventListener('mousedown', handleClickOutside)
       window.removeEventListener('scroll', handleScroll, true)
     }
-  }, [isWorkspaceDropdownOpen, isStarredOpen])
+  }, [isWorkspaceDropdownOpen, isStarredOpen, activeMenuProject])
 
-  // Chuyển đổi workspace -> tự động chọn dự án đầu tiên của workspace đó
+  const handleOpenProjectMenu = (p: Project, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (activeMenuProject?.id === p.id) {
+      setActiveMenuProject(null)
+      return
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const menuWidth = 140
+    let left = rect.right - menuWidth
+    if (left < 10) left = rect.left
+    setProjectMenuCoords({
+      top: rect.bottom + 4,
+      left,
+    })
+    setActiveMenuProject(p)
+  }
+
+  const handleConfirmDeleteProject = async () => {
+    if (!projectToDelete) return
+    try {
+      setIsDeletingProject(true)
+      await projectService.deleteProject(projectToDelete.id)
+
+      // Cập nhật danh sách dự án trong state
+      setWorkspaces((prev) =>
+        prev.map((ws) => ({
+          ...ws,
+          projects: ws.projects.filter((p) => p.id !== projectToDelete.id),
+        }))
+      )
+
+      // Bắn event toàn cục
+      window.dispatchEvent(
+        new CustomEvent('project-deleted', { detail: { id: projectToDelete.id } })
+      )
+
+      // Nếu đang ở dự án bị xóa, điều hướng sang dự án khác hoặc overview
+      const searchParams = new URLSearchParams(location.search)
+      const currentUrlProject = searchParams.get('project') || searchParams.get('projectId')
+      if (
+        currentUrlProject === projectToDelete.key ||
+        currentUrlProject === projectToDelete.id ||
+        currentProject === projectToDelete.id ||
+        currentProject === projectToDelete.key
+      ) {
+        const remaining = currentWorkspace?.projects.filter((p) => p.id !== projectToDelete.id) || []
+        if (remaining.length > 0) {
+          const nextTarget = remaining[0].key || remaining[0].id
+          setCurrentProject(nextTarget)
+          navigate(`/workspace/board?project=${nextTarget}`)
+        } else {
+          setCurrentProject(null)
+          navigate('/workspace/overview')
+        }
+      }
+
+      setProjectToDelete(null)
+    } catch (err) {
+      console.error('Failed to delete project:', err)
+      alert('Không thể xóa dự án. Vui lòng thử lại sau.')
+    } finally {
+      setIsDeletingProject(false)
+    }
+  }
+
+  // Chuyển đổi workspace -> tự động chọn dự án đầu tiên của workspace đó và điều hướng theo slug
   const handleSelectWorkspace = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId)
     const targetWs = workspaces.find((w) => w.id === workspaceId)
-    if (targetWs && targetWs.projects.length > 0) {
-      setCurrentProject(targetWs.projects[0].id)
-    } else {
-      setCurrentProject(null)
-    }
     setIsWorkspaceDropdownOpen(false)
+    if (targetWs) {
+      if (targetWs.projects.length > 0) {
+        const firstProj = targetWs.projects[0]
+        setCurrentProject(firstProj.key || firstProj.id)
+        navigate(`/${targetWs.slug}/${firstProj.key || firstProj.id}/board`)
+      } else {
+        setCurrentProject(null)
+        navigate(`/${targetWs.slug}/overview`)
+      }
+    }
   }
 
   return (
@@ -275,7 +384,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
           {/* Primary Nav Menu: Tổng quan & Đã đánh dấu sao */}
           <nav className="flex flex-col gap-1 pt-1">
             <NavLink
-              to="/workspace/overview"
+              to={`/${activeSlug}/overview`}
               onClick={() => {
                 setIsStarredOpen(false)
                 setIsMobileOpen?.(false)
@@ -321,7 +430,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
               <button
                 type="button"
                 onClick={() => {
-                  navigate('/workspace/projects/new')
+                  navigate(`/${activeSlug}/projects/new`)
                   setIsMobileOpen?.(false)
                 }}
                 className="text-slate-400 hover:text-indigo-600 transition-colors p-0.5 rounded cursor-pointer"
@@ -459,36 +568,61 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
             {currentWorkspace && currentWorkspace.projects.length > 0 ? (
               <div className="flex flex-col gap-0.5 mt-1">
                 {currentWorkspace.projects.map((p) => {
-                  const isSelected = currentProject === p.id
+                  const projectIdentifier = p.key || p.id
+                  const urlParam = new URLSearchParams(location.search).get('project') || new URLSearchParams(location.search).get('projectId')
+                  const isSelected =
+                    currentProject === p.id ||
+                    currentProject === p.key ||
+                    urlParam === p.key ||
+                    urlParam === p.id
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
                       onClick={() => {
-                        setCurrentProject(p.id)
-                        navigate(`/workspace/board?projectId=${p.id}`)
+                        setCurrentProject(projectIdentifier)
+                        navigate(`/${activeSlug}/${projectIdentifier}/board`)
                         setIsMobileOpen?.(false)
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left cursor-pointer ${
+                      className={`group relative w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all text-left cursor-pointer ${
                         isSelected
                           ? 'bg-indigo-50/80 text-indigo-700 font-medium'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${p.color}`} />
                         <span className="truncate text-xs">{p.name}</span>
                       </div>
-                      {p.count !== undefined && (
-                        <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
-                          isSelected 
-                            ? 'bg-indigo-100 text-indigo-700' 
-                            : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {p.count}
-                        </span>
-                      )}
-                    </button>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {p.count !== undefined && (
+                          <span
+                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
+                              isSelected
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {p.count}
+                          </span>
+                        )}
+
+                        {/* Nút 3 chấm mở popup lựa chọn */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenProjectMenu(p, e)}
+                          className={`p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-all cursor-pointer ${
+                            activeMenuProject?.id === p.id
+                              ? 'opacity-100 bg-slate-200/60 text-slate-700'
+                              : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                          }`}
+                          title="Tùy chọn dự án"
+                          aria-label={`Tùy chọn cho dự án ${p.name}`}
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
@@ -501,7 +635,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
             <button 
               type="button"
               onClick={() => {
-                navigate('/workspace/projects/new')
+                navigate(`/${activeSlug}/projects/new`)
                 setIsMobileOpen?.(false)
               }}
               className="mt-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50/60 transition-colors cursor-pointer"
@@ -515,7 +649,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
         {/* Footer: Thông tin User & Đường dẫn Cài đặt */}
         <div className="pt-2 px-3 border-t border-slate-200/60 mt-auto">
           <NavLink
-            to="/workspace/settings"
+            to={`/${activeSlug}/settings`}
             onClick={() => setIsMobileOpen?.(false)}
             className={({ isActive }) =>
               `w-full flex items-center justify-between p-2 rounded-xl border transition-all text-left group cursor-pointer ${
@@ -662,7 +796,7 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
               <button
                 type="button"
                 onClick={() => {
-                  navigate('/workspace/projects')
+                  navigate(`/${activeSlug}/projects`)
                   setIsStarredOpen(false)
                   setIsMobileOpen?.(false)
                 }}
@@ -671,6 +805,79 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
                 <AlignLeft className="w-3.5 h-3.5 text-slate-400" />
                 <span>Xem tất cả danh sách dự án</span>
               </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Menu Popup 3 chấm cho Dự án */}
+      {activeMenuProject &&
+        createPortal(
+          <div
+            ref={projectMenuRef}
+            style={{
+              position: 'fixed',
+              top: `${projectMenuCoords.top}px`,
+              left: `${projectMenuCoords.left}px`,
+              width: '150px',
+            }}
+            className="z-[9999] bg-white rounded-xl shadow-xl border border-slate-200/90 py-1 animate-in fade-in zoom-in-95 duration-100 text-xs"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setProjectToDelete(activeMenuProject)
+                setActiveMenuProject(null)
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer text-left font-medium"
+            >
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Xóa dự án</span>
+            </button>
+          </div>,
+          document.body
+        )}
+
+      {/* Modal Xác nhận Xóa Dự án */}
+      {projectToDelete &&
+        createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+            <div
+              ref={deleteModalRef}
+              className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 flex flex-col gap-4 animate-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <h3 className="text-sm font-bold text-slate-900">Xác nhận xóa dự án</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Bạn có chắc chắn muốn xóa vĩnh viễn dự án{' '}
+                    <span className="font-semibold text-slate-800">"{projectToDelete.name}"</span>? Mọi trạng thái và công việc trong dự án này sẽ bị xóa và không thể khôi phục.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setProjectToDelete(null)}
+                  disabled={isDeletingProject}
+                  className="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteProject}
+                  disabled={isDeletingProject}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  {isDeletingProject && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isDeletingProject ? 'Đang xóa...' : 'Xác nhận xóa'}</span>
+                </button>
+              </div>
             </div>
           </div>,
           document.body

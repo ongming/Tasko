@@ -117,7 +117,7 @@ export function useOverview() {
               initials: (user?.full_name || 'PL').slice(0, 2).toUpperCase(),
               bg: p.color || 'bg-indigo-600',
             },
-            boardRoute: `/workspace/board?projectId=${p.id}`,
+            boardRoute: `/${currentWorkspace.slug || 'workspace'}/${p.key || p.id}/board`,
           }))
           setProjects(mapped)
           setStats((prev) => ({

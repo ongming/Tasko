@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
 import {
@@ -86,22 +86,28 @@ const DEFAULT_WORK_TYPES: CustomWorkType[] = [
 export function useCreateProject(): { state: CreateProjectState; actions: CreateProjectActions } {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
 
   // Lấy workspaceId từ URL query param (?workspaceId=...) hoặc tải danh sách workspace của user
   const [workspaceId, setWorkspaceId] = useState<string>(searchParams.get('workspaceId') || '')
+  const [activeSlug, setActiveSlug] = useState<string>(workspaceSlug || '')
 
   useEffect(() => {
-    if (!workspaceId) {
+    if (!workspaceId || !activeSlug) {
       workspaceService
         .getMyWorkspaces()
         .then((workspaces) => {
           if (workspaces && workspaces.length > 0) {
-            setWorkspaceId(workspaces[0].id)
+            const matched = workspaceSlug ? workspaces.find((w) => w.slug === workspaceSlug) : workspaces[0]
+            if (matched) {
+              setWorkspaceId(matched.id)
+              setActiveSlug(matched.slug)
+            }
           }
         })
         .catch(() => {})
     }
-  }, [workspaceId])
+  }, [workspaceId, activeSlug, workspaceSlug])
 
   // 1. Quản lý phân bước (Step Management)
   const [step, setStep] = useState<CreateProjectStep>(1)
@@ -411,10 +417,14 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
         // Bắn event để Sidebar và Dashboard tự động làm mới danh sách tức thời
         window.dispatchEvent(new CustomEvent('project-created', { detail: newProject }))
 
-        if (newProject?.id) {
-          navigate(`/workspace/board?projectId=${newProject.id}`)
+        const targetSlug = activeSlug || workspaceSlug
+        const targetKey = newProject?.key || newProject?.id
+        if (targetSlug && targetKey) {
+          navigate(`/${targetSlug}/${targetKey}/board`)
+        } else if (targetKey) {
+          navigate(`/workspace/board?project=${targetKey}`)
         } else {
-          navigate('/workspace/board')
+          navigate(targetSlug ? `/${targetSlug}/projects` : '/workspace/projects')
         }
       } catch (err: unknown) {
         console.error('Failed to create project:', err)

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { 
   Kanban, 
   ListTodo, 
@@ -10,7 +10,7 @@ import {
   Plus, 
   X
 } from 'lucide-react'
-import { ProjectViewType } from '@/types/workspace'
+import type { Project, ProjectViewType } from '@/types/workspace'
 
 // All possible view types available in the project
 export const ALL_VIEW_TYPES: ProjectViewType[] = [
@@ -24,11 +24,11 @@ export const ALL_VIEW_TYPES: ProjectViewType[] = [
   },
   { 
     id: 'board', 
-    label: 'Bảng Kanban', 
+    label: 'Bảng', 
     path: '/workspace/board', 
     icon: Kanban, 
     isCore: true,
-    description: 'Bảng công việc 4 cột trạng thái: Backlog, In Progress, Review, Done'
+    description: 'Bảng công việc theo các cột trạng thái'
   },
   { 
     id: 'backlog', 
@@ -36,6 +36,7 @@ export const ALL_VIEW_TYPES: ProjectViewType[] = [
     path: '/workspace/backlog', 
     icon: ListTodo, 
     isCore: true,
+    onlyScrum: true,
     description: 'Lập kế hoạch Sprint, chia nhỏ công việc và ước lượng Story Points'
   },
   { 
@@ -64,23 +65,82 @@ export const ALL_VIEW_TYPES: ProjectViewType[] = [
   },
 ]
 
-export function ProjectTabBar() {
+export interface ProjectTabBarProps {
+  project?: Project | null
+}
+
+export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
+  const activeKey = projectKey || project?.key
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // Hàm sinh đường dẫn linh hoạt (hỗ trợ cả RESTful /:workspace/:key/tab và /workspace/tab?project=...)
+  const getTabPath = (tabId: string) => {
+    if (workspaceSlug && activeKey) {
+      return `/${workspaceSlug}/${activeKey}/${tabId}`
+    }
+    return `/workspace/${tabId}${location.search}`
+  }
+
+  const isTabActive = (tabId: string) => {
+    if (workspaceSlug && activeKey) {
+      return (
+        location.pathname === `/${workspaceSlug}/${activeKey}/${tabId}` ||
+        (tabId === 'board' &&
+          (location.pathname === `/${workspaceSlug}/${activeKey}` ||
+            location.pathname === `/${workspaceSlug}/${activeKey}/`))
+      )
+    }
+    return (
+      location.pathname === `/workspace/${tabId}` ||
+      (tabId === 'board' &&
+        (location.pathname === '/workspace' || location.pathname === '/workspace/'))
+    )
+  }
+
+  // Xác định phương pháp quản lý của dự án (Scrum hay Kanban)
+  const methodId =
+    project?.settings?.method_id ||
+    (project?.name?.toLowerCase().includes('scrum') ? 'scrum' : 'kanban')
+  const isScrum = methodId === 'scrum' || methodId === 'scrumban'
+
+  // Chỉ cho phép hiển thị Backlog nếu dự án là Scrum
+  const availableViewTypes = ALL_VIEW_TYPES.filter((v) => !v.onlyScrum || isScrum)
+  const defaultCoreIds = isScrum ? ['control', 'board', 'backlog'] : ['control', 'board']
+
   // Track which optional views are pinned on the tab bar
   const [pinnedViewIds, setPinnedViewIds] = useState<string[]>(() => {
-    // Check if the current URL matches an optional view
     const currentPath = location.pathname
-    const matchedView = ALL_VIEW_TYPES.find(v => v.path === currentPath)
-    const defaults = ['control', 'board', 'backlog']
-    if (matchedView && !defaults.includes(matchedView.id)) {
-      return [...defaults, matchedView.id]
+    const matchedView = availableViewTypes.find((v) => currentPath.endsWith('/' + v.id) || v.path === currentPath)
+    if (matchedView && !defaultCoreIds.includes(matchedView.id)) {
+      return [...defaultCoreIds, matchedView.id]
     }
-    return defaults
+    return defaultCoreIds
   })
+
+  // Tự động đồng bộ tabs khi method của dự án thay đổi (ví dụ khi load xong thông tin project)
+  useEffect(() => {
+    setPinnedViewIds((prev) => {
+      const valid = prev.filter((id) => {
+        const view = ALL_VIEW_TYPES.find((v) => v.id === id)
+        if (!view) return false
+        if (view.onlyScrum && !isScrum) return false
+        return true
+      })
+      defaultCoreIds.forEach((id) => {
+        if (!valid.includes(id)) valid.push(id)
+      })
+      return valid
+    })
+
+    // Nếu dự án là Kanban mà đang mở URL backlog thì tự chuyển về board
+    if (!isScrum && location.pathname.endsWith('/backlog')) {
+      navigate(getTabPath('board'), { replace: true })
+    }
+  }, [isScrum, location.pathname, location.search, navigate])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -95,30 +155,31 @@ export function ProjectTabBar() {
 
   // Auto-pin view if user navigates to it
   useEffect(() => {
-    const matchedView = ALL_VIEW_TYPES.find(v => v.path === location.pathname)
+    const matchedView = availableViewTypes.find((v) => location.pathname.endsWith('/' + v.id) || v.path === location.pathname)
     if (matchedView && !pinnedViewIds.includes(matchedView.id)) {
-      setPinnedViewIds(prev => [...prev, matchedView.id])
+      setPinnedViewIds((prev) => [...prev, matchedView.id])
     }
-  }, [location.pathname, pinnedViewIds])
+  }, [location.pathname, pinnedViewIds, availableViewTypes])
 
-  const visibleTabs = ALL_VIEW_TYPES.filter(v => v.isCore || pinnedViewIds.includes(v.id))
+  const visibleTabs = availableViewTypes.filter(
+    (v) => (v.isCore && (!v.onlyScrum || isScrum)) || pinnedViewIds.includes(v.id),
+  )
 
   const handleSelectView = (view: ProjectViewType) => {
     if (!pinnedViewIds.includes(view.id)) {
-      setPinnedViewIds(prev => [...prev, view.id])
+      setPinnedViewIds((prev) => [...prev, view.id])
     }
     setIsDropdownOpen(false)
-    navigate(view.path)
+    navigate(getTabPath(view.id))
   }
 
   const handleRemoveTab = (e: React.MouseEvent, viewId: string) => {
     e.preventDefault()
     e.stopPropagation()
-    setPinnedViewIds(prev => prev.filter(id => id !== viewId))
+    setPinnedViewIds((prev) => prev.filter((id) => id !== viewId))
     // If the active tab was removed, navigate to board
-    const removedView = ALL_VIEW_TYPES.find(v => v.id === viewId)
-    if (removedView && location.pathname === removedView.path) {
-      navigate('/workspace/board')
+    if (location.pathname.endsWith('/' + viewId)) {
+      navigate(getTabPath('board'))
     }
   }
 
@@ -127,12 +188,12 @@ export function ProjectTabBar() {
       <nav className="px-4 sm:px-6 flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto scrollbar-none">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon
-          const isActive = location.pathname === tab.path || (tab.id === 'board' && (location.pathname === '/workspace' || location.pathname === '/workspace/'))
+          const isActive = isTabActive(tab.id)
 
           return (
             <div key={tab.id} className="relative group/tab flex items-center">
               <Link
-                to={tab.path}
+                to={getTabPath(tab.id)}
                 className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${
                   isActive
                     ? 'border-indigo-600 text-indigo-600 font-semibold '
@@ -186,7 +247,7 @@ export function ProjectTabBar() {
               </div>
 
               <div className="py-1 flex flex-col gap-1 max-h-80 overflow-y-auto">
-                {ALL_VIEW_TYPES.map((view) => {
+                {availableViewTypes.map((view) => {
                   const Icon = view.icon
                   const isPinned = pinnedViewIds.includes(view.id) || view.isCore
 

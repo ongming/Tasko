@@ -128,7 +128,7 @@ describe('CreateProjectPage - Frontend Component Tests', () => {
           workspaceId: 'ws-mock-id',
         }),
       )
-      expect(mockNavigate).toHaveBeenCalledWith('/workspace/board?projectId=proj-new-id')
+      expect(mockNavigate).toHaveBeenCalledWith('/mock-ws/TAK/board')
     })
   })
 

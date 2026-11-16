@@ -7,6 +7,7 @@ export interface Project {
   color: string;
   key?: string;
   description?: string | null;
+  settings?: Record<string, any>;
   workspaceId?: string;
   ownerId?: string;
   lead?: string;
@@ -28,6 +29,7 @@ export interface ProjectViewType {
   path: string;
   icon: LucideIcon;
   isCore: boolean;
+  onlyScrum?: boolean;
   description: string;
 }
 

@@ -69,4 +69,10 @@ export const projectService = {
    */
   createProject: (payload: CreateProjectPayload) =>
     api.post<Project>('/projects', payload),
+
+  /**
+   * Xóa một dự án theo ID
+   */
+  deleteProject: (id: string) =>
+    api.delete<{ success: boolean; message: string }>(`/projects/${encodeURIComponent(id)}`),
 }

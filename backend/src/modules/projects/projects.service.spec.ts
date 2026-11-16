@@ -15,6 +15,8 @@ import { Project } from './entities/project.entity.js';
 import { Status } from './entities/status.entity.js';
 import { WorkType } from './entities/work-type.entity.js';
 import { ProjectMember } from './entities/project-member.entity.js';
+import { Sprint } from './entities/sprint.entity.js';
+import { Task } from './entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
@@ -49,6 +51,7 @@ describe('ProjectsService - Unit Tests', () => {
         created_at: entity.created_at || new Date('2026-01-01'),
         updated_at: entity.updated_at || new Date('2026-01-01'),
       })),
+      remove: vi.fn(),
     };
 
     statusRepo = {
@@ -101,6 +104,27 @@ describe('ProjectsService - Unit Tests', () => {
       createQueryRunner: vi.fn().mockReturnValue(mockQueryRunner),
     };
 
+    const sprintRepo = {
+      find: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      save: vi.fn(),
+      remove: vi.fn(),
+      count: vi.fn(),
+      update: vi.fn(),
+    };
+
+    const taskRepo = {
+      find: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      save: vi.fn(),
+      remove: vi.fn(),
+      count: vi.fn(),
+      update: vi.fn(),
+      createQueryBuilder: vi.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectsService,
@@ -108,6 +132,8 @@ describe('ProjectsService - Unit Tests', () => {
         { provide: getRepositoryToken(Status), useValue: statusRepo },
         { provide: getRepositoryToken(WorkType), useValue: workTypeRepo },
         { provide: getRepositoryToken(ProjectMember), useValue: projectMemberRepo },
+        { provide: getRepositoryToken(Sprint), useValue: sprintRepo },
+        { provide: getRepositoryToken(Task), useValue: taskRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
         { provide: DataSource, useValue: mockDataSource },
@@ -320,6 +346,45 @@ describe('ProjectsService - Unit Tests', () => {
       await expect(service.findById(mockUserId, 'proj-secret')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('delete', () => {
+    it('ném lỗi NotFoundException nếu dự án không tồn tại', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue(null);
+      await expect(service.delete(mockUserId, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('ném lỗi ForbiddenException nếu user không thuộc workspace', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({
+        id: 'proj-1',
+        workspace_id: mockWorkspaceId,
+        owner_id: mockUserId,
+      } as Project);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.delete(mockUserId, 'proj-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('xóa dự án thành công khi user là chủ sở hữu dự án', async () => {
+      const mockProj = {
+        id: 'proj-1',
+        workspace_id: mockWorkspaceId,
+        owner_id: mockUserId,
+      } as Project;
+      vi.mocked(projectRepo.findOne!).mockResolvedValue(mockProj);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({
+        workspace_id: mockWorkspaceId,
+        user_id: mockUserId,
+        role: WorkspaceRole.MEMBER,
+      } as WorkspaceMember);
+
+      await service.delete(mockUserId, 'proj-1');
+      expect(projectRepo.remove).toHaveBeenCalledWith(mockProj);
     });
   });
 

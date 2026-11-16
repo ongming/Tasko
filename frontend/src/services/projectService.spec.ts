@@ -6,6 +6,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     post: vi.fn(),
     get: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
@@ -68,5 +69,14 @@ describe('projectService - Unit Tests', () => {
 
     expect(api.get).toHaveBeenCalledWith('/projects/p-999')
     expect(result).toEqual(mockDetail)
+  })
+
+  it('gọi đúng endpoint DELETE /projects/:id khi xóa dự án', async () => {
+    vi.mocked(api.delete).mockResolvedValue({ success: true, message: 'Đã xóa dự án thành công!' })
+
+    const result = await projectService.deleteProject('proj-123')
+
+    expect(api.delete).toHaveBeenCalledWith('/projects/proj-123')
+    expect(result).toEqual({ success: true, message: 'Đã xóa dự án thành công!' })
   })
 })

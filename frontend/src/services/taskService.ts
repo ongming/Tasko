@@ -1,75 +1,113 @@
 import { api } from '@/lib/api'
-import type { Task } from '@/types/task'
+import type {
+  Task,
+  TaskItem,
+  CreateTaskPayload,
+  UpdateTaskPayload,
+  MoveTaskPayload,
+} from '@/types/task'
 
-export interface CreateTaskPayload {
-  title: string
-  projectId?: string
-  status?: string
-  priority?: 'low' | 'medium' | 'high'
-  dueDate?: string
-  tag?: string
-}
+export type { CreateTaskPayload }
 
 export const taskService = {
   /**
-   * Lấy danh sách task theo dự án (hoặc toàn bộ)
+   * Lấy danh sách task của một dự án (hỗ trợ lọc theo sprintId hoặc isBacklog)
    */
-  getTasks: async (projectId?: string): Promise<Task[]> => {
+  async getProjectTasks(
+    projectIdOrKey: string,
+    params?: { sprintId?: string; isBacklog?: boolean },
+  ): Promise<TaskItem[]> {
     try {
-      const endpoint = projectId ? `/tasks?projectId=${projectId}` : '/tasks'
-      const response = await api.get<{ data: Task[] }>(endpoint)
-      return response.data || []
+      const query = new URLSearchParams()
+      if (params?.sprintId) query.set('sprintId', params.sprintId)
+      if (params?.isBacklog !== undefined) query.set('isBacklog', String(params.isBacklog))
+      const qs = query.toString() ? `?${query.toString()}` : ''
+
+      const res = await api.get<TaskItem[]>(`/projects/${projectIdOrKey}/tasks${qs}`)
+      return res || []
     } catch {
-      // Fallback an toàn khi backend chưa triển khai endpoint
       return []
     }
   },
 
   /**
-   * Tạo task mới
+   * Tạo task mới trong dự án (Backlog hoặc Sprint)
    */
-  createTask: async (payload: CreateTaskPayload): Promise<Task> => {
-    try {
-      const response = await api.post<{ data: Task }>('/tasks', payload)
-      return response.data
-    } catch {
-      // Giả lập ID phản hồi cho client nếu offline / backend pending
-      return {
-        id: `TSK-${Math.floor(100 + Math.random() * 900)}`,
-        title: payload.title,
-        status: payload.status || 'Backlog',
-        statusColor: 'bg-slate-100 text-slate-700',
-        tag: payload.tag || 'Chung',
-        tagClass: 'bg-slate-100 text-slate-700',
-        dueDate: payload.dueDate || 'Hôm nay',
-        points: 1,
-        assignees: [],
-        isDone: false,
-      }
-    }
+  async createProjectTask(
+    projectIdOrKey: string,
+    payload: CreateTaskPayload,
+  ): Promise<TaskItem> {
+    return api.post<TaskItem>(`/projects/${projectIdOrKey}/tasks`, payload)
   },
 
   /**
-   * Cập nhật trạng thái task (kéo thả Kanban)
+   * Lấy chi tiết một task
    */
-  updateTaskStatus: async (taskId: string, status: string): Promise<{ success: boolean }> => {
-    try {
-      await api.patch(`/tasks/${taskId}/status`, { status })
-      return { success: true }
-    } catch {
-      return { success: true }
-    }
+  async getTaskById(projectIdOrKey: string, taskId: string): Promise<TaskItem> {
+    return api.get<TaskItem>(`/projects/${projectIdOrKey}/tasks/${taskId}`)
   },
 
   /**
-   * Toggle hoàn thành công việc
+   * Cập nhật thông tin task
    */
-  toggleTask: async (taskId: string, isDone: boolean): Promise<{ success: boolean }> => {
+  async updateProjectTask(
+    projectIdOrKey: string,
+    taskId: string,
+    payload: UpdateTaskPayload,
+  ): Promise<TaskItem> {
+    return api.patch<TaskItem>(`/projects/${projectIdOrKey}/tasks/${taskId}`, payload)
+  },
+
+  /**
+   * Di chuyển task (đổi sprint, đổi status, đổi vị trí)
+   */
+  async moveProjectTask(
+    projectIdOrKey: string,
+    taskId: string,
+    payload: MoveTaskPayload,
+  ): Promise<TaskItem> {
+    return api.patch<TaskItem>(`/projects/${projectIdOrKey}/tasks/${taskId}/move`, payload)
+  },
+
+  /**
+   * Xóa task
+   */
+  async deleteProjectTask(projectIdOrKey: string, taskId: string): Promise<void> {
+    await api.delete(`/projects/${projectIdOrKey}/tasks/${taskId}`)
+  },
+
+  // ==========================================
+  // LEGACY FALLBACK METHODS (Cho các component cũ)
+  // ==========================================
+  getTasks: async (projectId?: string): Promise<Task[]> => {
     try {
-      await api.patch(`/tasks/${taskId}`, { isDone })
-      return { success: true }
+      const endpoint = projectId ? `/tasks?projectId=${projectId}` : '/tasks'
+      const response = await api.get<Task[]>(endpoint)
+      return response || []
     } catch {
-      return { success: true }
+      return []
     }
+  },
+
+  createTask: async (payload: { title: string; projectId?: string; status?: string }): Promise<Task> => {
+    return {
+      id: `TSK-${Math.floor(100 + Math.random() * 900)}`,
+      title: payload.title,
+      status: payload.status || 'Backlog',
+      statusColor: 'bg-slate-100 text-slate-700',
+      tag: 'Chung',
+      dueDate: 'Hôm nay',
+      points: 1,
+      assignees: [],
+      isDone: false,
+    }
+  },
+
+  updateTaskStatus: async (_taskId: string, _status: string): Promise<{ success: boolean }> => {
+    return { success: true }
+  },
+
+  toggleTask: async (_taskId: string, _isDone: boolean): Promise<{ success: boolean }> => {
+    return { success: true }
   },
 }

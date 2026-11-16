@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Outlet, useSearchParams } from 'react-router-dom'
+import { Outlet, useSearchParams, useParams } from 'react-router-dom'
 import { Star, Share2 } from 'lucide-react'
 import ProjectTabBar from '@/components/workspace/ProjectTabBar'
 import { useAuthStore } from '@/stores/authStore'
@@ -9,25 +9,33 @@ import type { Project } from '@/types/workspace'
 export function ProjectLayout() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
-  const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('projectId')
+  const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId')
   const { user } = useAuthStore()
 
   useEffect(() => {
-    if (!projectId) {
+    if (!projectParam) {
       setProject(null)
       return
     }
 
     projectService
-      .getProjectById(projectId)
+      .getProjectById(projectParam)
       .then((data) => {
         setProject(data)
+        // Nếu URL vẫn đang dùng projectId=UUID cũ, tự động chuẩn hóa sang ?project=KEY đẹp như Jira
+        if (data.key && searchParams.get('projectId')) {
+          const newParams = new URLSearchParams(searchParams)
+          newParams.delete('projectId')
+          newParams.set('project', data.key)
+          setSearchParams(newParams, { replace: true })
+        }
       })
       .catch((err) => {
         console.error('Failed to load project details:', err)
       })
-  }, [projectId])
+  }, [projectParam])
 
   const userInitials = user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'
   const displayName = project?.name || 'Website Redesign'
@@ -83,8 +91,8 @@ export function ProjectLayout() {
           </div>
         </div>
 
-        {/* Thanh Tab chuyển đổi chế độ xem: Control Board | Bảng Kanban | Backlog... */}
-        <ProjectTabBar />
+        {/* Thanh Tab chuyển đổi chế độ xem: Control Board | Bảng | Backlog (nếu Scrum)... */}
+        <ProjectTabBar project={project} />
       </div>
 
       {/* 2. Vùng nội dung cuộn bên dưới: Thay đổi linh hoạt theo Tab đang chọn */}

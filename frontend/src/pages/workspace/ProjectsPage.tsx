@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Plus, ArrowRight, FolderKanban, Loader2 } from 'lucide-react'
 import { Project } from '@/types/workspace'
 import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
 
 export function ProjectsPage() {
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -15,9 +16,12 @@ export function ProjectsPage() {
     async function loadProjects() {
       try {
         setIsLoading(true)
-        // 1. Lấy workspace của user
+        // 1. Lấy workspace của user theo slug hoặc mặc định
         const workspaces = await workspaceService.getMyWorkspaces()
-        const currentWorkspaceId = workspaces?.[0]?.id
+        const currentWorkspace = workspaceSlug
+          ? workspaces?.find((w) => w.slug === workspaceSlug) || workspaces?.[0]
+          : workspaces?.[0]
+        const currentWorkspaceId = currentWorkspace?.id
 
         // 2. Tải danh sách dự án
         const data = await projectService.getProjects(currentWorkspaceId)
@@ -54,7 +58,7 @@ export function ProjectsPage() {
           </p>
         </div>
         <Link
-          to="/workspace/projects/new"
+          to={`/${workspaceSlug || 'workspace'}/projects/new`}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -77,7 +81,7 @@ export function ProjectsPage() {
             Bắt đầu bằng cách tạo dự án đầu tiên để quản lý các đầu việc, bảng Kanban, chu kỳ Sprint và phân quyền thành viên.
           </p>
           <Link
-            to="/workspace/projects/new"
+            to={`/${workspaceSlug || 'workspace'}/projects/new`}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-xs transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -109,7 +113,7 @@ export function ProjectsPage() {
                   {proj.tasks || 0} công việc
                 </span>
                 <Link
-                  to={`/workspace/board?projectId=${proj.id}`}
+                  to={`/${workspaceSlug || 'workspace'}/${proj.key || proj.id}/board`}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                 >
                   <span>Mở Board</span>
