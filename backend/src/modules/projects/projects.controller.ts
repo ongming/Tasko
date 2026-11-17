@@ -201,6 +201,18 @@ export class ProjectsController {
   }
 
   /**
+   * PATCH /api/v1/projects/:id/settings - Cập nhật cấu hình dự án (ví dụ views, tabs)
+   */
+  @Patch(':id/settings')
+  async updateSettings(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() settings: Record<string, any>,
+  ) {
+    return this.projectsService.updateSettings(userId, id, settings);
+  }
+
+  /**
    * DELETE /api/v1/projects/:id - Xóa một dự án (theo ID hoặc Key)
    */
   @Delete(':id')

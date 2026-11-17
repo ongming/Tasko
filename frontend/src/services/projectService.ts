@@ -71,6 +71,12 @@ export const projectService = {
     api.post<Project>('/projects', payload),
 
   /**
+   * Cập nhật cấu hình dự án (ví dụ views, tabs)
+   */
+  updateProjectSettings: (projectId: string, settings: Record<string, any>) =>
+    api.patch<Project>(`/projects/${encodeURIComponent(projectId)}/settings`, settings),
+
+  /**
    * Xóa một dự án theo ID
    */
   deleteProject: (id: string) =>

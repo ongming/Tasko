@@ -582,9 +582,9 @@
     "semantic_hash": ""
   },
   "frontend/src/services/projectService.ts": {
-    "mtime": 1794740897.2008896,
-    "seen": 1794744226.7350175,
-    "ast_hash": "607e5759e98ad2ea24c7bc8f6620393d",
+    "mtime": 1794923243.9456072,
+    "seen": 1794923551.734849,
+    "ast_hash": "c7665325e3727027f6b4105afe008f55",
     "semantic_hash": ""
   },
   "frontend/src/services/taskService.ts": {
@@ -714,9 +714,9 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useCreateProject.ts": {
-    "mtime": 1794909414.0968695,
-    "seen": 1794909459.8724778,
-    "ast_hash": "9eceb487f7f0057eb30442dfb5996c7f",
+    "mtime": 1794923262.922342,
+    "seen": 1794923551.734613,
+    "ast_hash": "87be9cddfd6c7e0ce93995ef27a03a56",
     "semantic_hash": ""
   },
   "frontend/src/types/createProject.ts": {
@@ -828,9 +828,9 @@
     "semantic_hash": ""
   },
   "backend/src/modules/projects/projects.controller.ts": {
-    "mtime": 1794813798.9972625,
-    "seen": 1794815878.9742997,
-    "ast_hash": "b4534e9999b89a0f65f9757a36ec5064",
+    "mtime": 1794923205.9399557,
+    "seen": 1794923551.7341049,
+    "ast_hash": "b60bbbe9cb28a6d34da5dfff562874d2",
     "semantic_hash": ""
   },
   "backend/src/modules/projects/projects.module.ts": {
@@ -846,9 +846,9 @@
     "semantic_hash": ""
   },
   "backend/src/modules/projects/projects.service.ts": {
-    "mtime": 1794813852.4243824,
-    "seen": 1794815878.9743075,
-    "ast_hash": "12acec42ab4746675285a315edd68410",
+    "mtime": 1794923423.9241712,
+    "seen": 1794923551.7341287,
+    "ast_hash": "f8e702f19bc45b3b54509c1c8075e56f",
     "semantic_hash": ""
   },
   "frontend/src/pages/workspace/CreateProjectPage.spec.tsx": {
@@ -1056,9 +1056,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/project/ProjectTabBar.tsx": {
-    "mtime": 1794743812.9360242,
-    "seen": 1794888134.0606742,
-    "ast_hash": "da3637f5f80a743f61cd2f431a525633",
+    "mtime": 1794923351.7920413,
+    "seen": 1794923551.734552,
+    "ast_hash": "b3da4beaa009a4dba839769339132e43",
     "semantic_hash": ""
   },
   "frontend/src/components/project/StartSprintModal.tsx": {

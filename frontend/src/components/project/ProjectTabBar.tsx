@@ -10,6 +10,7 @@ import {
   Plus, 
   X
 } from 'lucide-react'
+import { projectService } from '@/services/projectService'
 import type { Project, ProjectViewType } from '@/types/workspace'
 
 // All possible view types available in the project
@@ -107,9 +108,19 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     (project?.name?.toLowerCase().includes('scrum') ? 'scrum' : 'kanban')
   const isScrum = methodId === 'scrum' || methodId === 'scrumban'
 
+  // Lấy danh sách views đã lưu trong database nếu có
+  const savedViews: string[] | null = Array.isArray(project?.settings?.views)
+    ? (project.settings.views as string[])
+    : null
+
   // Chỉ cho phép hiển thị Backlog nếu dự án là Scrum
   const availableViewTypes = ALL_VIEW_TYPES.filter((v) => !v.onlyScrum || isScrum)
-  const defaultCoreIds = isScrum ? ['control', 'board', 'backlog'] : ['control', 'board']
+  const defaultCoreIds =
+    savedViews && savedViews.length > 0
+      ? savedViews
+      : isScrum
+        ? ['control', 'board', 'backlog']
+        : ['control', 'board']
 
   // Track which optional views are pinned on the tab bar
   const [pinnedViewIds, setPinnedViewIds] = useState<string[]>(() => {
@@ -120,6 +131,13 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     }
     return defaultCoreIds
   })
+
+  // Tự động đồng bộ tabs khi project.settings.views từ database được tải về
+  useEffect(() => {
+    if (project?.settings?.views && Array.isArray(project.settings.views)) {
+      setPinnedViewIds(project.settings.views)
+    }
+  }, [project?.settings?.views])
 
   // Tự động đồng bộ tabs khi method của dự án thay đổi (ví dụ khi load xong thông tin project)
   useEffect(() => {
@@ -165,18 +183,42 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     (v) => (v.isCore && (!v.onlyScrum || isScrum)) || pinnedViewIds.includes(v.id),
   )
 
-  const handleSelectView = (view: ProjectViewType) => {
+  const handleSelectView = async (view: ProjectViewType) => {
+    let nextPinned = pinnedViewIds
     if (!pinnedViewIds.includes(view.id)) {
-      setPinnedViewIds((prev) => [...prev, view.id])
+      nextPinned = [...pinnedViewIds, view.id]
+      setPinnedViewIds(nextPinned)
+
+      // Lưu cập nhật vào Database
+      const targetProjectId = project?.id || activeKey
+      if (targetProjectId) {
+        try {
+          await projectService.updateProjectSettings(targetProjectId, { views: nextPinned })
+        } catch (err) {
+          console.error('Failed to persist pinned view to database:', err)
+        }
+      }
     }
     setIsDropdownOpen(false)
     navigate(getTabPath(view.id))
   }
 
-  const handleRemoveTab = (e: React.MouseEvent, viewId: string) => {
+  const handleRemoveTab = async (e: React.MouseEvent, viewId: string) => {
     e.preventDefault()
     e.stopPropagation()
-    setPinnedViewIds((prev) => prev.filter((id) => id !== viewId))
+    const nextPinned = pinnedViewIds.filter((id) => id !== viewId)
+    setPinnedViewIds(nextPinned)
+
+    // Lưu cập nhật vào Database
+    const targetProjectId = project?.id || activeKey
+    if (targetProjectId) {
+      try {
+        await projectService.updateProjectSettings(targetProjectId, { views: nextPinned })
+      } catch (err) {
+        console.error('Failed to persist unpinned view to database:', err)
+      }
+    }
+
     // If the active tab was removed, navigate to board
     if (location.pathname.endsWith('/' + viewId)) {
       navigate(getTabPath('board'))

@@ -348,6 +348,10 @@ export function useCreateProject() {
           settings: {
             template_id: selectedTemplate?.id || 'default',
             method_id: selectedMethod?.id || 'kanban',
+            views:
+              selectedMethod?.id === 'scrum' || selectedMethod?.id === 'scrumban'
+                ? ['control', 'board', 'backlog']
+                : ['control', 'board'],
           },
         }
 

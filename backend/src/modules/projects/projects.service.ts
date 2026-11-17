@@ -665,6 +665,34 @@ export class ProjectsService {
     await this.projectRepository.remove(project);
   }
 
+  /**
+   * CẬP NHẬT CẤU HÌNH (SETTINGS) CỦA DỰ ÁN (Ví dụ: views, tabs, method)
+   */
+  async updateSettings(
+    userId: string,
+    idOrKey: string,
+    settings: Record<string, any>,
+  ): Promise<ProjectResponseDto> {
+    const project = await this.findProjectEntity(idOrKey);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại hoặc đã bị xóa!');
+    }
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspace_id: project.workspace_id, user_id: userId },
+    });
+    if (!member) {
+      throw new ForbiddenException('Bạn không thuộc không gian làm việc này!');
+    }
+
+    project.settings = {
+      ...(project.settings || {}),
+      ...settings,
+    };
+
+    const saved = await this.projectRepository.save(project);
+    return this.mapToResponse(saved);
+  }
+
   private mapToResponse(project: Project): ProjectResponseDto {
     return {
       id: project.id,
