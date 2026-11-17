@@ -8,7 +8,13 @@ import {
   TrendingUp,
   Megaphone,
 } from 'lucide-react'
-import type { AgileCardConfig, BusinessDomain, MethodDetails, AgileMethod } from '@/types/createProject'
+import type { AgileCardConfig, BusinessDomain, MethodDetails, AgileMethod, CustomWorkType } from '@/types/createProject'
+
+export const DEFAULT_WORK_TYPES: CustomWorkType[] = [
+  { id: 'module', label: 'Module', iconKey: 'Package', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { id: 'task', label: 'Task', iconKey: 'CheckSquare', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { id: 'bug', label: 'Bug', iconKey: 'Bug', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+]
 
 export const AGILE_METHODS: AgileCardConfig[] = [
   {

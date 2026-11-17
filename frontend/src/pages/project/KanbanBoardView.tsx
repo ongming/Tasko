@@ -20,7 +20,7 @@ import { taskService } from '@/services/taskService'
 import type { Sprint } from '@/types/sprint'
 import type { TaskItem } from '@/types/task'
 import type { Project } from '@/types/workspace'
-import { CompleteSprintModal } from '@/components/workspace/CompleteSprintModal'
+import { CompleteSprintModal } from '@/components/project/CompleteSprintModal'
 
 export interface BoardColumn {
   id: string

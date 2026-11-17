@@ -1,5 +1,5 @@
 import React from 'react'
-import ProjectTabBar from '@/components/workspace/ProjectTabBar'
+import ProjectTabBar from '@/components/project/ProjectTabBar'
 import { BarChartHorizontal } from 'lucide-react'
 
 interface GanttTask {

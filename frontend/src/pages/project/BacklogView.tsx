@@ -25,8 +25,8 @@ import { sprintService } from '@/services/sprintService'
 import { taskService } from '@/services/taskService'
 import type { Sprint } from '@/types/sprint'
 import type { TaskItem } from '@/types/task'
-import { StartSprintModal } from '@/components/workspace/StartSprintModal'
-import { CompleteSprintModal } from '@/components/workspace/CompleteSprintModal'
+import { StartSprintModal } from '@/components/project/StartSprintModal'
+import { CompleteSprintModal } from '@/components/project/CompleteSprintModal'
 
 export function BacklogView() {
   const { projectKey } = useParams<{ projectKey?: string }>()

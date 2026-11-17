@@ -5,7 +5,7 @@ import {
   Plus, 
   Search
 } from 'lucide-react'
-import ProjectTabBar from '@/components/workspace/ProjectTabBar'
+import ProjectTabBar from '@/components/project/ProjectTabBar'
 
 interface TimelineTask {
   id: string;

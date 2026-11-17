@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, useSearchParams, useParams } from 'react-router-dom'
 import { Star, Share2 } from 'lucide-react'
-import ProjectTabBar from '@/components/workspace/ProjectTabBar'
+import ProjectTabBar from '@/components/project/ProjectTabBar'
 import { useAuthStore } from '@/stores/authStore'
 import { projectService } from '@/services/projectService'
 import type { Project } from '@/types/workspace'

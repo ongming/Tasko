@@ -6,6 +6,7 @@ import {
   BUSINESS_DOMAINS,
   METHOD_DETAILS,
   PROJECT_TEMPLATES,
+  DEFAULT_WORK_TYPES,
   generateProjectKey,
 } from '@/components/create-project'
 import type {
@@ -13,77 +14,17 @@ import type {
   BusinessDomain,
   WorkflowStage,
   CustomWorkType,
+  CreateProjectStep,
+  CreateProjectState,
 } from '@/types/createProject'
 import type { ProjectTemplate } from '@/types/projectTemplate'
-
-export type CreateProjectStep = 1 | 2 | 3
-
-export interface CreateProjectState {
-  step: CreateProjectStep
-  selectedMethod: AgileCardConfig | null
-  selectedDomain: BusinessDomain
-  selectedTemplate: ProjectTemplate | null
-  projectName: string
-  projectKey: string
-  projectColor: string
-  isSubmitting: boolean
-  error: string
-  isAiModalOpen: boolean
-  aiUploadedFile: File | null
-  aiPrompt: string
-  // Tùy biến nâng cao Bước 3: Workflow & Work Types
-  workflow: WorkflowStage[]
-  workTypes: CustomWorkType[]
-  isAdvancedOpen: boolean
-}
-
-export interface CreateProjectActions {
-  setStep: (step: CreateProjectStep) => void
-  setSelectedMethod: (method: AgileCardConfig | null) => void
-  selectMethod: (method: AgileCardConfig) => void
-  selectDomain: (domain: BusinessDomain) => void
-  selectTemplate: (template: ProjectTemplate) => void
-  proceedToFinalStep: () => void
-  backToStepOne: () => void
-  backToStepTwo: () => void
-  handleNameChange: (name: string) => void
-  setProjectKey: (key: string) => void
-  setProjectColor: (color: string) => void
-  handleClose: () => void
-  handleCreateSubmit: (e: React.FormEvent) => Promise<void>
-  // Tùy biến Workflow & Work Types
-  updateWorkflowLabel: (id: string, label: string) => void
-  updateWorkflowCategory: (id: string, category: 'TODO' | 'IN_PROGRESS' | 'DONE') => void
-  addWorkflowStage: () => void
-  removeWorkflowStage: (id: string) => void
-  updateWorkTypeLabel: (id: string, label: string) => void
-  updateWorkTypeIcon: (id: string, iconKey: string) => void
-  addWorkType: () => void
-  removeWorkType: (id: string) => void
-  resetConfiguration: () => void
-  toggleAdvanced: () => void
-  // AI Modal Actions
-  setIsAiModalOpen: (isOpen: boolean) => void
-  setAiPrompt: (prompt: string) => void
-  setAiUploadedFile: (file: File | null) => void
-  handleAiSubmit: () => void
-}
-
-const DEFAULT_WORK_TYPES: CustomWorkType[] = [
-  { id: 'module', label: 'Module', iconKey: 'Package', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { id: 'task', label: 'Task', iconKey: 'CheckSquare', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { id: 'bug', label: 'Bug', iconKey: 'Bug', color: 'bg-rose-100 text-rose-700 border-rose-200' },
-]
 
 /**
  * Custom Hook quản lý toàn bộ nghiệp vụ, trạng thái và tác vụ mạng cho trang Tạo dự án
  * Tách biệt hoàn toàn khỏi giao diện (Separation of Concerns).
- * Hỗ trợ luồng 3 bước chuẩn mực:
- * - Bước 1: Chọn phương pháp quản lý (Kanban, Scrum, Scrumban)
- * - Bước 2: Xem chi tiết mẫu & chọn mô hình ngành nghề (Domain)
- * - Bước 3: Thiết lập thông tin dự án cuối cùng (Tên, Key, Màu sắc) & Tùy biến Workflow / Work Types
+ * Tận dụng TypeScript Type Inference: Tự động suy luận kiểu trả về mà không cần boilerplate interface thủ công.
  */
-export function useCreateProject(): { state: CreateProjectState; actions: CreateProjectActions } {
+export function useCreateProject() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
@@ -235,7 +176,7 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
     setWorkflow((prev) => [
       ...prev,
       {
-        id: `wf-${Date.now()}`,
+        id: `wf-${crypto.randomUUID()}`,
         label: `Giai đoạn ${prev.length + 1}`,
         category: 'IN_PROGRESS',
         color: '#4f46e5',
@@ -263,7 +204,7 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
     setWorkTypes((prev) => [
       ...prev,
       {
-        id: `wt-${Date.now()}`,
+        id: `wt-${crypto.randomUUID()}`,
         label: `Loại mới ${prev.length + 1}`,
         iconKey: 'CheckSquare',
         color: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -449,6 +390,8 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
       projectKey,
       projectColor,
       workspaceId,
+      activeSlug,
+      workspaceSlug,
       navigate,
       workflow,
       workTypes,
@@ -514,3 +457,6 @@ export function useCreateProject(): { state: CreateProjectState; actions: Create
     },
   }
 }
+
+export type CreateProjectActions = ReturnType<typeof useCreateProject>['actions']
+export type { CreateProjectState, CreateProjectStep } from '@/types/createProject'

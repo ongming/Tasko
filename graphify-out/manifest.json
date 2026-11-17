@@ -323,12 +323,6 @@
     "ast_hash": "deab9a3cbc91c09dee5dee83417cf17e",
     "semantic_hash": ""
   },
-  "frontend/src/components/workspace/ProjectTabBar.tsx": {
-    "mtime": 1794743812.9360242,
-    "seen": 1794744226.734808,
-    "ast_hash": "da3637f5f80a743f61cd2f431a525633",
-    "semantic_hash": ""
-  },
   "frontend/src/components/workspace/WorkspaceSidebar.tsx": {
     "mtime": 1794743953.3751864,
     "seen": 1794744226.7348113,
@@ -366,9 +360,9 @@
     "semantic_hash": ""
   },
   "frontend/src/layouts/ProjectLayout.tsx": {
-    "mtime": 1794743747.360836,
-    "seen": 1794744226.7348614,
-    "ast_hash": "04837fdd78d0b5c0b3c3efedc9916cef",
+    "mtime": 1794888047.637531,
+    "seen": 1794888134.0607145,
+    "ast_hash": "65ef0e032cb45039e9a1ae488a37cdcf",
     "semantic_hash": ""
   },
   "frontend/src/layouts/WorkspaceLayout.tsx": {
@@ -419,42 +413,6 @@
     "ast_hash": "81f0c0b8007b106b358984069748ee8a",
     "semantic_hash": ""
   },
-  "frontend/src/pages/workspace/BacklogView.tsx": {
-    "mtime": 1794818810.057262,
-    "seen": 1794818895.7352715,
-    "ast_hash": "5ebd0fe2649e3f5674a8555b79a74001",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/BoardView.tsx": {
-    "mtime": 1793271957.0978158,
-    "seen": 1793347509.998605,
-    "ast_hash": "09af214a1c32fa4b24b14bcdd7ed1fae",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/CalendarView.tsx": {
-    "mtime": 1793346886.2146363,
-    "seen": 1793347509.9986093,
-    "ast_hash": "1f6500f17e0d700c5da134c45c80e82c",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/ControlBoardView.tsx": {
-    "mtime": 1794815763.410954,
-    "seen": 1794815878.9745524,
-    "ast_hash": "ce8f89670c8eeacd31e58e54fdde7a0a",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/GanttView.tsx": {
-    "mtime": 1793346907.234773,
-    "seen": 1793347509.9986184,
-    "ast_hash": "4c42e3ae897934d822da4c4c5a081f7e",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/KanbanBoardView.tsx": {
-    "mtime": 1794819410.077406,
-    "seen": 1794819444.2524486,
-    "ast_hash": "c914f33280f8a30f6d91466d5d0ce615",
-    "semantic_hash": ""
-  },
   "frontend/src/pages/workspace/MembersPage.tsx": {
     "mtime": 1793346876.7750063,
     "seen": 1793347509.9986274,
@@ -479,22 +437,10 @@
     "ast_hash": "55acfc273cf291e73aee1bcd2cd8d21d",
     "semantic_hash": ""
   },
-  "frontend/src/pages/workspace/SprintView.tsx": {
-    "mtime": 1793346968.8308997,
-    "seen": 1793347509.9986455,
-    "ast_hash": "60a7a9fd90ebce80c221f2b68c544abe",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/workspace/TimelineView.tsx": {
-    "mtime": 1793965574.657998,
-    "seen": 1793965601.86357,
-    "ast_hash": "7f004bc739a854fe211bef4db23f74af",
-    "semantic_hash": ""
-  },
   "frontend/src/routes/index.tsx": {
-    "mtime": 1794743726.7001183,
-    "seen": 1794744226.7349975,
-    "ast_hash": "119406670fcd8570d658e3481d6d55ae",
+    "mtime": 1794888040.260844,
+    "seen": 1794888134.0607839,
+    "ast_hash": "a6229f480241a6b61bc0de500936016a",
     "semantic_hash": ""
   },
   "frontend/src/services/authService.ts": {
@@ -756,9 +702,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/constants.tsx": {
-    "mtime": 1794647874.545473,
-    "seen": 1794647883.0181708,
-    "ast_hash": "422ce97e7e3114da286176fd254d3fa9",
+    "mtime": 1794909340.3791738,
+    "seen": 1794909459.8724055,
+    "ast_hash": "41f4006b5689d58b5002b1bb3751f56a",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/index.ts": {
@@ -768,15 +714,15 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useCreateProject.ts": {
-    "mtime": 1794744141.272035,
-    "seen": 1794744226.7348347,
-    "ast_hash": "23eb79208a5346116c8d48d68501b273",
+    "mtime": 1794909414.0968695,
+    "seen": 1794909459.8724778,
+    "ast_hash": "9eceb487f7f0057eb30442dfb5996c7f",
     "semantic_hash": ""
   },
   "frontend/src/types/createProject.ts": {
-    "mtime": 1794647874.5572195,
-    "seen": 1794647883.018341,
-    "ast_hash": "21c7f2a48e31e774c2cfb25567877341",
+    "mtime": 1794909331.046921,
+    "seen": 1794909459.8726108,
+    "ast_hash": "eb64822c4b8ad1c4beacb1a5751f0186",
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/ProjectFinalSetupStep.tsx": {
@@ -1091,18 +1037,6 @@
     "ast_hash": "ce7167be1fc9136c3004a4c90aac2ef4",
     "semantic_hash": ""
   },
-  "frontend/src/components/workspace/CompleteSprintModal.tsx": {
-    "mtime": 1794814430.3255458,
-    "seen": 1794815878.974462,
-    "ast_hash": "02c1bc14f9238bcf81c9f17305cd1fba",
-    "semantic_hash": ""
-  },
-  "frontend/src/components/workspace/StartSprintModal.tsx": {
-    "mtime": 1794814418.0955644,
-    "seen": 1794815878.9744735,
-    "ast_hash": "f6205fbaea49ab02bc8fb6fbe4aeb8e7",
-    "semantic_hash": ""
-  },
   "frontend/src/services/sprintService.ts": {
     "mtime": 1794815786.6268394,
     "seen": 1794815878.974595,
@@ -1113,6 +1047,60 @@
     "mtime": 1794814325.2377684,
     "seen": 1794815878.9746292,
     "ast_hash": "822d22a92eb4b12e4cc80b94e2a2879a",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/project/CompleteSprintModal.tsx": {
+    "mtime": 1794814430.3255458,
+    "seen": 1794888134.0606704,
+    "ast_hash": "02c1bc14f9238bcf81c9f17305cd1fba",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/project/ProjectTabBar.tsx": {
+    "mtime": 1794743812.9360242,
+    "seen": 1794888134.0606742,
+    "ast_hash": "da3637f5f80a743f61cd2f431a525633",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/project/StartSprintModal.tsx": {
+    "mtime": 1794814418.0955644,
+    "seen": 1794888134.0606768,
+    "ast_hash": "f6205fbaea49ab02bc8fb6fbe4aeb8e7",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/BacklogView.tsx": {
+    "mtime": 1794888054.5097964,
+    "seen": 1794888134.0607517,
+    "ast_hash": "964c6d8b48e73853ddfbc4a09ad52aca",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/CalendarView.tsx": {
+    "mtime": 1794888072.671677,
+    "seen": 1794888134.060754,
+    "ast_hash": "a8c4ad4b963467bee32464d120304561",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/ControlBoardView.tsx": {
+    "mtime": 1794815763.410954,
+    "seen": 1794888134.0607564,
+    "ast_hash": "ce8f89670c8eeacd31e58e54fdde7a0a",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/GanttView.tsx": {
+    "mtime": 1794888079.023191,
+    "seen": 1794888134.0607588,
+    "ast_hash": "17bb91d3e7fe5d00bc2932bdb35b2ed0",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/KanbanBoardView.tsx": {
+    "mtime": 1794888066.6824934,
+    "seen": 1794888134.060761,
+    "ast_hash": "177d61ee033ca53c8ad11124f528ebb4",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/project/TimelineView.tsx": {
+    "mtime": 1794888086.0443707,
+    "seen": 1794888134.0607636,
+    "ast_hash": "3ec66e4623da25adfe123c22d861c8f9",
     "semantic_hash": ""
   },
   "backend/package-lock.json": {

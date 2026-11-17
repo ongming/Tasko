@@ -1,6 +1,6 @@
 import React from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import ProjectTabBar from '@/components/workspace/ProjectTabBar'
+import ProjectTabBar from '@/components/project/ProjectTabBar'
 
 export function CalendarView() {
   const days: string[] = ['Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7', 'CN']
