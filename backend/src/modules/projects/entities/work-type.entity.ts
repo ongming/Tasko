@@ -10,6 +10,7 @@ import {
   type Relation,
 } from 'typeorm';
 import { Project } from './project.entity.js';
+import { Workflow } from './workflow.entity.js';
 
 @Entity('work_types')
 @Index('idx_work_types_project', ['project_id'])
@@ -35,6 +36,16 @@ export class WorkType {
 
   @Column({ type: 'boolean', default: false })
   is_default: boolean;
+
+  @Column({ name: 'is_subtask', type: 'boolean', default: false })
+  isSubtask: boolean;
+
+  @Column({ name: 'workflow_id', type: 'uuid', nullable: true })
+  workflowId: string | null;
+
+  @ManyToOne(() => Workflow, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'workflow_id' })
+  workflow: Relation<Workflow> | null;
 
   @CreateDateColumn({ type: 'timestamp with time zone' })
   created_at: Date;

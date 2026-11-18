@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -18,6 +19,20 @@ import {
   UpdateProjectMemberRoleDto,
   TransferOwnershipDto,
 } from './dto/project-member.dto.js';
+import {
+  CreateWorkTypeDto,
+  UpdateWorkTypeDto,
+  DeleteWorkTypeDto,
+  CreateStatusDto,
+  UpdateStatusDto,
+  DeleteStatusDto,
+  CreateWorkflowDto,
+  UpdateWorkflowDto,
+  UpdateWorkflowTransitionsDto,
+  CreateCustomFieldDto,
+  UpdateCustomFieldDto,
+  UpdateProjectSettingsDto,
+} from './dto/project-config.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator.js';
@@ -77,6 +92,47 @@ export class ProjectsController {
   }
 
   /**
+   * POST /api/v1/projects/:projectId/statuses - Tạo cột Status mới
+   */
+  @Post(':projectId/statuses')
+  @RequirePermission('PROJECT_CONFIGURE')
+  @HttpCode(HttpStatus.CREATED)
+  async createStatus(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateStatusDto,
+  ) {
+    return this.projectsService.createStatus(projectId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/projects/:projectId/statuses/:id - Cập nhật Status & WIP limit
+   */
+  @Patch(':projectId/statuses/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateStatus(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+  ) {
+    return this.projectsService.updateStatus(projectId, id, dto);
+  }
+
+  /**
+   * DELETE /api/v1/projects/:projectId/statuses/:id - Xóa cột Status (kèm fallbackStatusId)
+   */
+  @Delete(':projectId/statuses/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async deleteStatus(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() bodyDto?: DeleteStatusDto,
+    @Query() queryDto?: DeleteStatusDto,
+  ) {
+    const dto = bodyDto?.fallbackStatusId ? bodyDto : queryDto;
+    return this.projectsService.deleteStatus(projectId, id, dto);
+  }
+
+  /**
    * GET /api/v1/projects/:id/work-types - Lấy danh sách WorkType của dự án (theo ID hoặc Key)
    */
   @Get(':id/work-types')
@@ -86,6 +142,154 @@ export class ProjectsController {
     @Param('id') id: string,
   ) {
     return this.projectsService.findWorkTypesByProject(userId, id);
+  }
+
+  /**
+   * POST /api/v1/projects/:projectId/work-types - Tạo mới WorkType
+   */
+  @Post(':projectId/work-types')
+  @RequirePermission('PROJECT_CONFIGURE')
+  @HttpCode(HttpStatus.CREATED)
+  async createWorkType(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateWorkTypeDto,
+  ) {
+    return this.projectsService.createWorkType(projectId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/projects/:projectId/work-types/:id - Cập nhật WorkType
+   */
+  @Patch(':projectId/work-types/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateWorkType(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkTypeDto,
+  ) {
+    return this.projectsService.updateWorkType(projectId, id, dto);
+  }
+
+  /**
+   * DELETE /api/v1/projects/:projectId/work-types/:id - Xóa WorkType (kèm fallbackWorkTypeId)
+   */
+  @Delete(':projectId/work-types/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async deleteWorkType(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() bodyDto?: DeleteWorkTypeDto,
+    @Query() queryDto?: DeleteWorkTypeDto,
+  ) {
+    const dto = bodyDto?.fallbackWorkTypeId ? bodyDto : queryDto;
+    return this.projectsService.deleteWorkType(projectId, id, dto);
+  }
+
+  /**
+   * GET /api/v1/projects/:projectId/workflows - Lấy danh sách Workflow kèm Transitions
+   */
+  @Get(':projectId/workflows')
+  @RequirePermission('PROJECT_VIEW_ONLY')
+  async getWorkflows(@Param('projectId') projectId: string) {
+    return this.projectsService.getWorkflows(projectId);
+  }
+
+  /**
+   * POST /api/v1/projects/:projectId/workflows - Tạo Workflow mới
+   */
+  @Post(':projectId/workflows')
+  @RequirePermission('PROJECT_CONFIGURE')
+  @HttpCode(HttpStatus.CREATED)
+  async createWorkflow(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateWorkflowDto,
+  ) {
+    return this.projectsService.createWorkflow(projectId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/projects/:projectId/workflows/:workflowId - Đổi tên Workflow
+   */
+  @Patch(':projectId/workflows/:workflowId')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateWorkflow(
+    @Param('projectId') projectId: string,
+    @Param('workflowId') workflowId: string,
+    @Body() dto: UpdateWorkflowDto,
+  ) {
+    return this.projectsService.updateWorkflow(projectId, workflowId, dto);
+  }
+
+  /**
+   * DELETE /api/v1/projects/:projectId/workflows/:workflowId - Xóa Workflow
+   */
+  @Delete(':projectId/workflows/:workflowId')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async deleteWorkflow(
+    @Param('projectId') projectId: string,
+    @Param('workflowId') workflowId: string,
+  ) {
+    return this.projectsService.deleteWorkflow(projectId, workflowId);
+  }
+
+  /**
+   * PUT /api/v1/projects/:projectId/workflows/:workflowId/transitions - Cập nhật ma trận Transitions
+   */
+  @Put(':projectId/workflows/:workflowId/transitions')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateWorkflowTransitions(
+    @Param('projectId') projectId: string,
+    @Param('workflowId') workflowId: string,
+    @Body() dto: UpdateWorkflowTransitionsDto,
+  ) {
+    return this.projectsService.updateWorkflowTransitions(projectId, workflowId, dto);
+  }
+
+  /**
+   * GET /api/v1/projects/:projectId/custom-fields - Lấy danh sách Custom Fields
+   */
+  @Get(':projectId/custom-fields')
+  @RequirePermission('PROJECT_VIEW_ONLY')
+  async getCustomFields(@Param('projectId') projectId: string) {
+    return this.projectsService.getCustomFields(projectId);
+  }
+
+  /**
+   * POST /api/v1/projects/:projectId/custom-fields - Tạo mới Custom Field
+   */
+  @Post(':projectId/custom-fields')
+  @RequirePermission('PROJECT_CONFIGURE')
+  @HttpCode(HttpStatus.CREATED)
+  async createCustomField(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateCustomFieldDto,
+  ) {
+    return this.projectsService.createCustomField(projectId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/projects/:projectId/custom-fields/:id - Cập nhật Custom Field
+   */
+  @Patch(':projectId/custom-fields/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateCustomField(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomFieldDto,
+  ) {
+    return this.projectsService.updateCustomField(projectId, id, dto);
+  }
+
+  /**
+   * DELETE /api/v1/projects/:projectId/custom-fields/:id - Xóa Custom Field
+   */
+  @Delete(':projectId/custom-fields/:id')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async deleteCustomField(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+  ) {
+    return this.projectsService.deleteCustomField(projectId, id);
   }
 
   /**
@@ -150,16 +354,16 @@ export class ProjectsController {
   }
 
   /**
-   * PATCH /api/v1/projects/:id/settings - Cập nhật cấu hình dự án (ví dụ views, tabs)
+   * PATCH /api/v1/projects/:id/settings - Cập nhật cấu hình chung, views và chuyển đổi methodology
    */
   @Patch(':id/settings')
   @RequirePermission('PROJECT_CONFIGURE')
   async updateSettings(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
-    @Body() settings: Record<string, any>,
+    @Body() dto: UpdateProjectSettingsDto,
   ) {
-    return this.projectsService.updateSettings(userId, id, settings);
+    return this.projectsService.updateSettings(userId, id, dto);
   }
 
   /**

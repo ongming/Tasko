@@ -11,16 +11,21 @@ import { plainToInstance } from 'class-transformer';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { ProjectsService } from './projects.service.js';
-import { Project } from './entities/project.entity.js';
-import { Status } from './entities/status.entity.js';
+import { Project, ProjectMethodology } from './entities/project.entity.js';
+import { Status, StatusCategory } from './entities/status.entity.js';
 import { WorkType } from './entities/work-type.entity.js';
 import { ProjectMember, ProjectRole } from './entities/project-member.entity.js';
+import { Workflow } from './entities/workflow.entity.js';
+import { WorkflowTransition } from './entities/workflow-transition.entity.js';
+import { CustomField, CustomFieldType } from './entities/custom-field.entity.js';
+import { Task } from '../tasks/entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
 import { User } from '../auth/entities/user.entity.js';
 import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
+import { BadRequestException } from '@nestjs/common';
 
 describe('ProjectsService - Unit Tests', () => {
   let service: ProjectsService;
@@ -32,6 +37,10 @@ describe('ProjectsService - Unit Tests', () => {
   let memberRepo: Partial<Repository<WorkspaceMember>>;
   let userRepo: Partial<Repository<User>>;
   let roleRepo: Partial<Repository<Role>>;
+  let workflowRepo: Partial<Repository<Workflow>>;
+  let workflowTransitionRepo: Partial<Repository<WorkflowTransition>>;
+  let customFieldRepo: Partial<Repository<CustomField>>;
+  let taskRepo: Partial<Repository<Task>>;
   let mockQueryRunner: any;
 
   const mockUserId = 'user-uuid-111';
@@ -59,10 +68,20 @@ describe('ProjectsService - Unit Tests', () => {
 
     statusRepo = {
       find: vi.fn(),
+      findOne: vi.fn(),
+      count: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'status-mock-id' } as Status)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'status-mock-id' })),
+      remove: vi.fn(),
     };
 
     workTypeRepo = {
       find: vi.fn(),
+      findOne: vi.fn(),
+      count: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'wt-mock-id' } as WorkType)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'wt-mock-id' })),
+      remove: vi.fn(),
     };
 
     projectMemberRepo = {
@@ -90,6 +109,37 @@ describe('ProjectsService - Unit Tests', () => {
       findOne: vi.fn(),
     };
 
+    workflowRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'wf-mock-id' } as Workflow)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'wf-mock-id' })),
+      remove: vi.fn(),
+    };
+
+    workflowTransitionRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'wft-mock-id' } as WorkflowTransition)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'wft-mock-id' })),
+      remove: vi.fn(),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+
+    customFieldRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      create: vi.fn((data: any) => ({ ...data, id: 'cf-mock-id' } as CustomField)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'cf-mock-id' })),
+      remove: vi.fn(),
+    };
+
+    taskRepo = {
+      count: vi.fn().mockResolvedValue(0),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+
     mockQueryRunner = {
       connect: vi.fn().mockResolvedValue(undefined),
       startTransaction: vi.fn().mockResolvedValue(undefined),
@@ -114,6 +164,8 @@ describe('ProjectsService - Unit Tests', () => {
         }),
         findOne: vi.fn().mockResolvedValue({ id: 'role-owner-id' }),
         update: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
       },
     };
 
@@ -128,6 +180,10 @@ describe('ProjectsService - Unit Tests', () => {
         { provide: getRepositoryToken(Status), useValue: statusRepo },
         { provide: getRepositoryToken(WorkType), useValue: workTypeRepo },
         { provide: getRepositoryToken(ProjectMember), useValue: projectMemberRepo },
+        { provide: getRepositoryToken(Workflow), useValue: workflowRepo },
+        { provide: getRepositoryToken(WorkflowTransition), useValue: workflowTransitionRepo },
+        { provide: getRepositoryToken(CustomField), useValue: customFieldRepo },
+        { provide: getRepositoryToken(Task), useValue: taskRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
@@ -551,6 +607,151 @@ describe('ProjectsService - Unit Tests', () => {
 
       const errors = await validate(dto);
       expect(errors.some((e) => e.property === 'workspaceId')).toBe(true);
+    });
+  });
+
+  // =========================================================
+  // 12. DYNAMIC WORKFLOW & CONFIG TESTS
+  // =========================================================
+  describe('WorkType Management', () => {
+    it('tạo WorkType thành công', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workTypeRepo.save = vi.fn().mockResolvedValue({ id: 'wt-1', name: 'Hotfix' } as WorkType);
+
+      const result = await service.createWorkType('proj-1', { name: 'Hotfix' });
+      expect(result.name).toBe('Hotfix');
+    });
+
+    it('xóa WorkType ném BadRequestException nếu đang có task mà thiếu fallbackId', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workTypeRepo.findOne = vi.fn().mockResolvedValue({ id: 'wt-1' });
+      taskRepo.count = vi.fn().mockResolvedValue(5);
+
+      await expect(service.deleteWorkType('proj-1', 'wt-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('xóa WorkType thành công khi có fallbackId hợp lệ', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workTypeRepo.findOne = vi.fn().mockImplementation(async ({ where }: any) => {
+        if (where.id === 'wt-1') return { id: 'wt-1' } as WorkType;
+        if (where.id === 'wt-fallback') return { id: 'wt-fallback' } as WorkType;
+        return null;
+      });
+      taskRepo.count = vi.fn().mockResolvedValue(5);
+
+      const result = await service.deleteWorkType('proj-1', 'wt-1', { fallbackWorkTypeId: 'wt-fallback' });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('Status Management & WIP Limit', () => {
+    it('tạo Status ném BadRequestException nếu wipLimit < 1', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      await expect(
+        service.createStatus('proj-1', {
+          name: 'Review',
+          category: StatusCategory.IN_PROGRESS,
+          wipLimit: 0,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('xóa Status ném BadRequestException nếu có Task mà không có fallbackStatusId', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      statusRepo.findOne = vi.fn().mockResolvedValue({ id: 'st-1' });
+      taskRepo.count = vi.fn().mockResolvedValue(2);
+
+      await expect(service.deleteStatus('proj-1', 'st-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('xóa Status thành công và chuyển Task sang fallbackStatusId', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      statusRepo.findOne = vi.fn().mockImplementation(async ({ where }: any) => {
+        if (where.id === 'st-1') return { id: 'st-1' } as Status;
+        if (where.id === 'st-fallback') return { id: 'st-fallback' } as Status;
+        return null;
+      });
+      taskRepo.count = vi.fn().mockResolvedValue(2);
+
+      const result = await service.deleteStatus('proj-1', 'st-1', { fallbackStatusId: 'st-fallback' });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('Workflow & Transitions', () => {
+    it('cập nhật transitions ném BadRequestException nếu fromStatus === toStatus', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workflowRepo.findOne = vi.fn().mockResolvedValue({ id: 'wf-1' });
+      statusRepo.find = vi.fn().mockResolvedValue([{ id: 'st-1' }]);
+
+      await expect(
+        service.updateWorkflowTransitions('proj-1', 'wf-1', {
+          transitions: [{ fromStatusId: 'st-1', toStatusId: 'st-1' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('cập nhật transitions thành công khi dữ liệu hợp lệ', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workflowRepo.findOne = vi.fn().mockResolvedValue({ id: 'wf-1' });
+      statusRepo.find = vi.fn().mockResolvedValue([{ id: 'st-1' }, { id: 'st-2' }]);
+      workflowTransitionRepo.find = vi.fn().mockResolvedValue([
+        { id: 'wft-1', fromStatusId: 'st-1', toStatusId: 'st-2' },
+      ]);
+
+      const result = await service.updateWorkflowTransitions('proj-1', 'wf-1', {
+        transitions: [{ fromStatusId: 'st-1', toStatusId: 'st-2' }],
+      });
+      expect(result.length).toBe(1);
+    });
+  });
+
+  describe('CustomField Management', () => {
+    it('tạo CustomField SELECT ném BadRequestException nếu thiếu options', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+
+      await expect(
+        service.createCustomField('proj-1', {
+          name: 'Priority Level',
+          fieldType: CustomFieldType.SELECT,
+          options: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('tạo CustomField thành công khi hợp lệ', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      customFieldRepo.save = vi.fn().mockResolvedValue({
+        id: 'cf-1',
+        name: 'Sprint Goal',
+        fieldType: CustomFieldType.TEXT,
+      } as CustomField);
+
+      const result = await service.createCustomField('proj-1', {
+        name: 'Sprint Goal',
+        fieldType: CustomFieldType.TEXT,
+      });
+      expect(result.name).toBe('Sprint Goal');
+    });
+  });
+
+  describe('Update Settings & Methodology', () => {
+    it('chuyển đổi methodology và cập nhật settings thành công', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({
+        id: 'proj-1',
+        workspace_id: mockWorkspaceId,
+        settings: {},
+      });
+      memberRepo.findOne = vi.fn().mockResolvedValue({ user_id: mockUserId, workspace_id: mockWorkspaceId });
+      projectRepo.save = vi.fn().mockImplementation(async (p) => p);
+
+      const result = await service.updateSettings(mockUserId, 'proj-1', {
+        methodology: ProjectMethodology.SCRUM,
+        settings: { views: ['control', 'board', 'backlog'] },
+      });
+
+      expect(result.methodology).toBe(ProjectMethodology.SCRUM);
+      expect(result.settings?.views).toContain('backlog');
     });
   });
 });

@@ -68,10 +68,11 @@ export class TasksController {
   @RequirePermission('TASK_WRITE')
   async moveTask(
     @CurrentUser('id') userId: string,
+    @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @Body() dto: MoveTaskDto,
   ) {
-    return this.tasksService.moveTask(userId, taskId, dto);
+    return this.tasksService.moveTask(userId, projectId, taskId, dto);
   }
 
   @Delete(':taskId')

@@ -49,6 +49,9 @@ export class Status {
   @Column({ type: 'boolean', default: false })
   is_default: boolean;
 
+  @Column({ name: 'wip_limit', type: 'integer', nullable: true })
+  wipLimit: number | null;
+
   @CreateDateColumn({ type: 'timestamp with time zone' })
   created_at: Date;
 

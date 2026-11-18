@@ -1,5 +1,18 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  IsUUID,
+  IsArray,
+} from 'class-validator';
 import { TaskPriority } from '../entities/task.entity.js';
+
+export interface TaskCustomFieldValueInput {
+  customFieldId: string;
+  value: any;
+}
 
 export class CreateTaskDto {
   @IsString()
@@ -37,6 +50,10 @@ export class CreateTaskDto {
   @IsInt()
   @IsOptional()
   position?: number;
+
+  @IsArray()
+  @IsOptional()
+  customFields?: TaskCustomFieldValueInput[];
 }
 
 export class UpdateTaskDto {
@@ -75,6 +92,10 @@ export class UpdateTaskDto {
   @IsInt()
   @IsOptional()
   position?: number;
+
+  @IsArray()
+  @IsOptional()
+  customFields?: TaskCustomFieldValueInput[];
 }
 
 export class MoveTaskDto {
@@ -85,6 +106,10 @@ export class MoveTaskDto {
   @IsUUID()
   @IsOptional()
   statusId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  toStatusId?: string;
 
   @IsInt()
   @IsOptional()

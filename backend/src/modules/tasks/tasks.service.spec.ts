@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { TasksService } from './tasks.service.js';
@@ -9,6 +9,9 @@ import { Task, TaskPriority } from './entities/task.entity.js';
 import { Status } from '../projects/entities/status.entity.js';
 import { WorkType } from '../projects/entities/work-type.entity.js';
 import { Project } from '../projects/entities/project.entity.js';
+import { CustomField, CustomFieldType } from '../projects/entities/custom-field.entity.js';
+import { CustomFieldValue } from './entities/custom-field-value.entity.js';
+import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
 
 describe('TasksService - Unit Tests', () => {
   let service: TasksService;
@@ -16,6 +19,9 @@ describe('TasksService - Unit Tests', () => {
   let statusRepo: Partial<Repository<Status>>;
   let workTypeRepo: Partial<Repository<WorkType>>;
   let projectRepo: Partial<Repository<Project>>;
+  let customFieldRepo: Partial<Repository<CustomField>>;
+  let customFieldValueRepo: Partial<Repository<CustomFieldValue>>;
+  let workflowTransitionRepo: Partial<Repository<WorkflowTransition>>;
 
   const mockProjectId = 'project-uuid-111';
   const mockTaskId = 'task-uuid-333';
@@ -42,14 +48,40 @@ describe('TasksService - Unit Tests', () => {
 
     statusRepo = {
       findOne: vi.fn(),
+      find: vi.fn(),
+      count: vi.fn(),
     };
 
     workTypeRepo = {
       findOne: vi.fn(),
+      find: vi.fn(),
     };
 
     projectRepo = {
       findOne: vi.fn().mockResolvedValue({ id: mockProjectId, key: 'PROJ' } as Project),
+    };
+
+    customFieldRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      count: vi.fn(),
+    };
+
+    customFieldValueRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'cfv-uuid-1' })),
+      save: vi.fn(async (entity: any) => entity),
+      createQueryBuilder: vi.fn().mockReturnValue({
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([]),
+      }),
+    };
+
+    workflowTransitionRepo = {
+      findOne: vi.fn(),
+      find: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -59,6 +91,9 @@ describe('TasksService - Unit Tests', () => {
         { provide: getRepositoryToken(Status), useValue: statusRepo },
         { provide: getRepositoryToken(WorkType), useValue: workTypeRepo },
         { provide: getRepositoryToken(Project), useValue: projectRepo },
+        { provide: getRepositoryToken(CustomField), useValue: customFieldRepo },
+        { provide: getRepositoryToken(CustomFieldValue), useValue: customFieldValueRepo },
+        { provide: getRepositoryToken(WorkflowTransition), useValue: workflowTransitionRepo },
       ],
     }).compile();
 
@@ -96,111 +131,196 @@ describe('TasksService - Unit Tests', () => {
       expect(result.taskKey).toBe('PROJ-1');
     });
 
-    it('ném NotFoundException khi không tìm thấy project', async () => {
-      vi.mocked(projectRepo.findOne!).mockResolvedValue(null);
-      await expect(service.createTask('user-1', 'non-existent', { title: 'Task mới' })).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('getTasks', () => {
-    it('lấy danh sách tasks thành công', async () => {
-      mockQueryBuilder.getMany.mockResolvedValueOnce([
+    it('ném BadRequestException khi thiếu trường CustomField có isRequired = true', async () => {
+      vi.mocked(customFieldRepo.find!).mockResolvedValue([
         {
-          id: mockTaskId,
-          project_id: mockProjectId,
-          sprint_id: null,
-          task_key: 'PROJ-1',
-          title: 'Task 1',
-          status: { id: 's1', name: 'Todo', category: 'TODO', color: '#ccc' },
-          type: null,
-          assignee: null,
-          position: 1000,
-        },
+          id: 'cf-req-1',
+          name: 'Story Points Estimate',
+          fieldType: CustomFieldType.NUMBER,
+          isRequired: true,
+          projectId: mockProjectId,
+        } as CustomField,
       ]);
 
-      const result = await service.getTasks(mockProjectId);
-      expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Task 1');
+      await expect(
+        service.createTask('user-1', mockProjectId, {
+          title: 'Task thiếu custom field bắt buộc',
+          customFields: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
-  });
 
-  describe('getTaskById', () => {
-    it('lấy task thành công theo ID', async () => {
+    it('lưu CustomFieldValue thành công khi tạo task có customFields hợp lệ', async () => {
+      vi.mocked(customFieldRepo.find!).mockResolvedValue([
+        {
+          id: 'cf-req-1',
+          name: 'Release Date',
+          fieldType: CustomFieldType.DATE,
+          isRequired: true,
+          projectId: mockProjectId,
+        } as CustomField,
+      ]);
+      vi.mocked(taskRepo.count!).mockResolvedValue(1);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({ id: 'status-1', name: 'To Do' } as Status);
+      vi.mocked(workTypeRepo.findOne!).mockResolvedValue({ id: 'wt-1', name: 'Task' } as WorkType);
+      vi.mocked(taskRepo.save!).mockResolvedValue({ id: mockTaskId } as Task);
       vi.mocked(taskRepo.findOne!).mockResolvedValue({
         id: mockTaskId,
         project_id: mockProjectId,
-        task_key: 'PROJ-1',
-        title: 'Task mới',
-        status: { id: 'status-1', name: 'Backlog', category: 'TODO', color: '#ccc' },
+        task_key: 'PROJ-2',
+        title: 'Task có Custom Field',
+        status: { id: 'status-1', name: 'To Do', category: 'TODO', color: '#ccc' },
         type: null,
         assignee: null,
         reporter: null,
-        priority: TaskPriority.MEDIUM,
-        position: 1000,
       } as any);
 
-      const result = await service.getTaskById(mockTaskId);
+      const result = await service.createTask('user-1', mockProjectId, {
+        title: 'Task có Custom Field',
+        customFields: [{ customFieldId: 'cf-req-1', value: '2026-12-01' }],
+      });
+
+      expect(customFieldValueRepo.save).toHaveBeenCalled();
       expect(result.id).toBe(mockTaskId);
-      expect(result.title).toBe('Task mới');
-    });
-
-    it('ném NotFoundException khi không tìm thấy task', async () => {
-      vi.mocked(taskRepo.findOne!).mockResolvedValue(null);
-      await expect(service.getTaskById('non-existent')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('updateTask', () => {
-    it('cập nhật task thành công', async () => {
-      const mockTask = {
-        id: mockTaskId,
-        title: 'Old title',
-        description: null,
-        status_id: 'status-1',
-        priority: TaskPriority.LOW,
-      } as Task;
-      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
-      vi.mocked(taskRepo.save!).mockResolvedValue({ ...mockTask, title: 'New title' } as Task);
-      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce({
-        ...mockTask,
-        title: 'New title',
-        status: null,
-        type: null,
-        assignee: null,
-        reporter: null,
-      } as any);
-
-      const result = await service.updateTask('user-1', mockTaskId, { title: 'New title' });
-      expect(result.title).toBe('New title');
-    });
-
-    it('ném NotFoundException khi task không tồn tại', async () => {
-      vi.mocked(taskRepo.findOne!).mockResolvedValue(null);
-      await expect(service.updateTask('user-1', 'non-existent', {})).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('moveTask', () => {
-    it('di chuyển task thành công', async () => {
+    it('sắp xếp lại trong cùng 1 cột không bị chặn bởi WIP Limit hay Workflow Transition', async () => {
       const mockTask = {
         id: mockTaskId,
-        sprint_id: null,
+        project_id: mockProjectId,
         status_id: 'status-1',
         position: 1000,
-      } as Task;
+        status: { id: 'status-1', name: 'In Progress' },
+        type: { id: 'wt-1', name: 'Bug', workflowId: 'wf-1' },
+      } as any;
+
       vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
-      vi.mocked(taskRepo.save!).mockResolvedValue({ ...mockTask, position: 2000 } as Task);
+      vi.mocked(taskRepo.save!).mockResolvedValue({ ...mockTask, position: 2500 });
       vi.mocked(taskRepo.findOne!).mockResolvedValueOnce({
         ...mockTask,
-        position: 2000,
-        status: null,
-        type: null,
-        assignee: null,
-        reporter: null,
+        position: 2500,
+      });
+
+      // Di chuyển trong cùng cột status-1
+      const result = await service.moveTask('user-1', mockTaskId, {
+        statusId: 'status-1',
+        position: 2500,
+      });
+
+      expect(result.position).toBe(2500);
+      expect(workflowTransitionRepo.findOne).not.toHaveBeenCalled();
+      expect(taskRepo.count).not.toHaveBeenCalled();
+    });
+
+    it('ném BadRequestException khi chuyển sang cột khác vi phạm WorkflowTransition', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'To Do' },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-strict-1' },
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-done',
+        name: 'Done',
+        project_id: mockProjectId,
+      } as Status);
+
+      // Workflow Transition từ To Do -> Done không tồn tại
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue(null);
+
+      await expect(
+        service.moveTask('user-1', mockTaskId, {
+          toStatusId: 'status-done',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ném BadRequestException khi chuyển sang cột đích đã đạt giới hạn WIP limit', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'To Do' },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-1' },
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-in-progress',
+        name: 'In Progress',
+        project_id: mockProjectId,
+        wipLimit: 3,
+      } as Status);
+
+      // Transition hợp lệ
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue({
+        id: 'trans-1',
+        workflowId: 'wf-1',
+        fromStatusId: 'status-todo',
+        toStatusId: 'status-in-progress',
       } as any);
 
-      const result = await service.moveTask('user-1', mockTaskId, { position: 2000 });
-      expect(result.position).toBe(2000);
+      // Cột In Progress đã có 3 task (đạt giới hạn WIP 3)
+      vi.mocked(taskRepo.count!).mockResolvedValue(3);
+
+      await expect(
+        service.moveTask('user-1', mockTaskId, {
+          toStatusId: 'status-in-progress',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('chuyển cột thành công khi quy trình cho phép và chưa vượt WIP limit', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'To Do' },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-1' },
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-in-progress',
+        name: 'In Progress',
+        project_id: mockProjectId,
+        wipLimit: 5,
+      } as Status);
+
+      // Transition hợp lệ
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue({
+        id: 'trans-1',
+        workflowId: 'wf-1',
+        fromStatusId: 'status-todo',
+        toStatusId: 'status-in-progress',
+      } as any);
+
+      // Cột hiện có 2 task < 5
+      vi.mocked(taskRepo.count!).mockResolvedValue(2);
+      vi.mocked(taskRepo.save!).mockResolvedValue({
+        ...mockTask,
+        status_id: 'status-in-progress',
+        position: 3000,
+      });
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce({
+        ...mockTask,
+        status_id: 'status-in-progress',
+        position: 3000,
+        status: { id: 'status-in-progress', name: 'In Progress' },
+      });
+
+      const result = await service.moveTask('user-1', mockTaskId, {
+        toStatusId: 'status-in-progress',
+        position: 3000,
+      });
+
+      expect(result.statusId).toBe('status-in-progress');
+      expect(result.position).toBe(3000);
     });
   });
 

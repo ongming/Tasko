@@ -13,6 +13,12 @@ import {
 import { User } from '../../auth/entities/user.entity.js';
 import { Workspace } from '../../workspaces/entities/workspace.entity.js';
 
+export enum ProjectMethodology {
+  SCRUM = 'SCRUM',
+  KANBAN = 'KANBAN',
+  SCRUMBAN = 'SCRUMBAN',
+}
+
 @Entity('projects')
 @Index('idx_projects_workspace_key_unique', ['workspace_id', 'key'], { unique: true })
 export class Project {
@@ -30,6 +36,19 @@ export class Project {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: ProjectMethodology,
+    default: ProjectMethodology.KANBAN,
+  })
+  methodology: ProjectMethodology;
+
+  @Column({ name: 'start_date', type: 'timestamp with time zone', nullable: true })
+  startDate: Date | null;
+
+  @Column({ name: 'end_date', type: 'timestamp with time zone', nullable: true })
+  endDate: Date | null;
 
   @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
   settings: Record<string, any>;
