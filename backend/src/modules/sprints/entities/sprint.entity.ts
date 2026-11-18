@@ -9,7 +9,7 @@ import {
   Index,
   type Relation,
 } from 'typeorm';
-import { Project } from './project.entity.js';
+import { Project } from '../../projects/entities/project.entity.js';
 
 export enum SprintStatus {
   PLANNED = 'PLANNED',

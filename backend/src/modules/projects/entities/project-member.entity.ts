@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Project } from './project.entity.js';
 import { User } from '../../auth/entities/user.entity.js';
+import { Role } from '../../rbac/entities/role.entity.js';
 
 export enum ProjectRole {
   OWNER = 'OWNER',
@@ -43,6 +44,13 @@ export class ProjectMember {
     default: ProjectRole.MEMBER,
   })
   role: ProjectRole;
+
+  @Column({ type: 'uuid', nullable: true, name: 'role_id' })
+  roleId: string | null;
+
+  @ManyToOne(() => Role, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'role_id' })
+  roleEntity: Relation<Role> | null;
 
   @CreateDateColumn({ type: 'timestamp with time zone' })
   joined_at: Date;

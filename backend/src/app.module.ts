@@ -10,6 +10,9 @@ import { cloudinaryConfig } from './config/cloudinary.config.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module.js';
 import { ProjectsModule } from './modules/projects/projects.module.js';
+import { SprintsModule } from './modules/sprints/sprints.module.js';
+import { TasksModule } from './modules/tasks/tasks.module.js';
+import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -41,13 +44,22 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     // 3. Phân hệ Xác thực & Quản lý phiên (Auth)
     AuthModule,
 
-    // 4. Phân hệ Quản lý Không gian làm việc (Workspaces)
+    // 4. Phân hệ Quản lý Phân quyền RBAC 2 cấp (Rbac)
+    RbacModule,
+
+    // 5. Phân hệ Quản lý Không gian làm việc (Workspaces)
     WorkspacesModule,
 
-    // 5. Phân hệ Quản lý Dự án (Projects)
+    // 6. Phân hệ Quản lý Dự án (Projects)
     ProjectsModule,
 
-    // 6. Phân hệ Quản lý Người dùng & Hồ sơ cá nhân (Users)
+    // 7. Phân hệ Quản lý Chu kỳ Sprint (Sprints)
+    SprintsModule,
+
+    // 8. Phân hệ Quản lý Công việc / Task (Tasks)
+    TasksModule,
+
+    // 9. Phân hệ Quản lý Người dùng & Hồ sơ cá nhân (Users)
     UsersModule,
   ],
   controllers: [AppController],

@@ -11,6 +11,7 @@ import { WorkspaceMember } from './entities/workspace-member.entity.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { WorkspaceResponseDto } from './dto/workspace-response.dto.js';
+import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 
 @Injectable()
 export class WorkspacesService {
@@ -53,11 +54,16 @@ export class WorkspacesService {
       });
       const savedWorkspace = await queryRunner.manager.save(workspace);
 
-      // 2.2. Gán Creator làm OWNER trong workspace_members
+      // 2.2. Gán Creator làm OWNER trong workspace_members kèm roleId (ADMIN cấp WORKSPACE)
+      const adminRole = await queryRunner.manager.findOne(Role, {
+        where: { name: 'ADMIN', scope: RoleScope.WORKSPACE },
+      });
+
       const member = queryRunner.manager.create(WorkspaceMember, {
         workspace_id: savedWorkspace.id,
         user_id: userId,
         role: WorkspaceRole.OWNER,
+        roleId: adminRole ? adminRole.id : null,
       });
       await queryRunner.manager.save(member);
 

@@ -12,6 +12,7 @@ import {
 import { User } from '../../auth/entities/user.entity.js';
 import type { Workspace } from './workspace.entity.js';
 import { WorkspaceRole } from '../enums/workspace-role.enum.js';
+import { Role } from '../../rbac/entities/role.entity.js';
 
 @Entity('workspace_members')
 @Unique('idx_workspace_members_unique', ['workspace_id', 'user_id'])
@@ -33,6 +34,13 @@ export class WorkspaceMember {
     default: WorkspaceRole.MEMBER,
   })
   role: WorkspaceRole;
+
+  @Column({ type: 'uuid', nullable: true, name: 'role_id' })
+  roleId: string | null;
+
+  @ManyToOne(() => Role, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'role_id' })
+  roleEntity: Relation<Role> | null;
 
   @ManyToOne('Workspace', 'members', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })

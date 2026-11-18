@@ -13,17 +13,6 @@ import {
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
-import {
-  CreateSprintDto,
-  UpdateSprintDto,
-  StartSprintDto,
-  CompleteSprintDto,
-} from './dto/sprint.dto.js';
-import {
-  CreateTaskDto,
-  UpdateTaskDto,
-  MoveTaskDto,
-} from './dto/task.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -86,118 +75,6 @@ export class ProjectsController {
     @Param('id') id: string,
   ) {
     return this.projectsService.findWorkTypesByProject(userId, id);
-  }
-
-  /**
-   * ==========================================
-   * SPRINTS ENDPOINTS (SCRUM)
-   * ==========================================
-   */
-
-  @Get(':id/sprints')
-  async getSprints(@Param('id') id: string) {
-    return this.projectsService.getSprints(id);
-  }
-
-  @Post(':id/sprints')
-  @HttpCode(HttpStatus.CREATED)
-  async createSprint(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-    @Body() dto: CreateSprintDto,
-  ) {
-    return this.projectsService.createSprint(userId, id, dto);
-  }
-
-  @Patch(':id/sprints/:sprintId')
-  async updateSprint(
-    @CurrentUser('id') userId: string,
-    @Param('sprintId') sprintId: string,
-    @Body() dto: UpdateSprintDto,
-  ) {
-    return this.projectsService.updateSprint(userId, sprintId, dto);
-  }
-
-  @Post(':id/sprints/:sprintId/start')
-  async startSprint(
-    @CurrentUser('id') userId: string,
-    @Param('sprintId') sprintId: string,
-    @Body() dto: StartSprintDto,
-  ) {
-    return this.projectsService.startSprint(userId, sprintId, dto);
-  }
-
-  @Post(':id/sprints/:sprintId/complete')
-  async completeSprint(
-    @CurrentUser('id') userId: string,
-    @Param('sprintId') sprintId: string,
-    @Body() dto: CompleteSprintDto,
-  ) {
-    return this.projectsService.completeSprint(userId, sprintId, dto);
-  }
-
-  @Delete(':id/sprints/:sprintId')
-  async deleteSprint(
-    @CurrentUser('id') userId: string,
-    @Param('sprintId') sprintId: string,
-  ) {
-    return this.projectsService.deleteSprint(userId, sprintId);
-  }
-
-  /**
-   * ==========================================
-   * TASKS / ISSUES ENDPOINTS
-   * ==========================================
-   */
-
-  @Get(':id/tasks')
-  async getTasks(
-    @Param('id') id: string,
-    @Query('sprintId') sprintId?: string,
-    @Query('isBacklog') isBacklog?: string,
-  ) {
-    return this.projectsService.getTasks(id, { sprintId, isBacklog });
-  }
-
-  @Post(':id/tasks')
-  @HttpCode(HttpStatus.CREATED)
-  async createTask(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-    @Body() dto: CreateTaskDto,
-  ) {
-    return this.projectsService.createTask(userId, id, dto);
-  }
-
-  @Get(':id/tasks/:taskId')
-  async getTaskById(@Param('taskId') taskId: string) {
-    return this.projectsService.getTaskById(taskId);
-  }
-
-  @Patch(':id/tasks/:taskId')
-  async updateTask(
-    @CurrentUser('id') userId: string,
-    @Param('taskId') taskId: string,
-    @Body() dto: UpdateTaskDto,
-  ) {
-    return this.projectsService.updateTask(userId, taskId, dto);
-  }
-
-  @Patch(':id/tasks/:taskId/move')
-  async moveTask(
-    @CurrentUser('id') userId: string,
-    @Param('taskId') taskId: string,
-    @Body() dto: MoveTaskDto,
-  ) {
-    return this.projectsService.moveTask(userId, taskId, dto);
-  }
-
-  @Delete(':id/tasks/:taskId')
-  async deleteTask(
-    @CurrentUser('id') userId: string,
-    @Param('taskId') taskId: string,
-  ) {
-    return this.projectsService.deleteTask(userId, taskId);
   }
 
   /**

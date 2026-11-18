@@ -15,8 +15,6 @@ import { Project } from './entities/project.entity.js';
 import { Status } from './entities/status.entity.js';
 import { WorkType } from './entities/work-type.entity.js';
 import { ProjectMember } from './entities/project-member.entity.js';
-import { Sprint } from './entities/sprint.entity.js';
-import { Task } from './entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
@@ -97,32 +95,12 @@ describe('ProjectsService - Unit Tests', () => {
             updated_at: data.updated_at || new Date('2026-01-01'),
           };
         }),
+        findOne: vi.fn().mockResolvedValue({ id: 'role-owner-id' }),
       },
     };
 
     const mockDataSource = {
       createQueryRunner: vi.fn().mockReturnValue(mockQueryRunner),
-    };
-
-    const sprintRepo = {
-      find: vi.fn(),
-      findOne: vi.fn(),
-      create: vi.fn(),
-      save: vi.fn(),
-      remove: vi.fn(),
-      count: vi.fn(),
-      update: vi.fn(),
-    };
-
-    const taskRepo = {
-      find: vi.fn(),
-      findOne: vi.fn(),
-      create: vi.fn(),
-      save: vi.fn(),
-      remove: vi.fn(),
-      count: vi.fn(),
-      update: vi.fn(),
-      createQueryBuilder: vi.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -132,8 +110,6 @@ describe('ProjectsService - Unit Tests', () => {
         { provide: getRepositoryToken(Status), useValue: statusRepo },
         { provide: getRepositoryToken(WorkType), useValue: workTypeRepo },
         { provide: getRepositoryToken(ProjectMember), useValue: projectMemberRepo },
-        { provide: getRepositoryToken(Sprint), useValue: sprintRepo },
-        { provide: getRepositoryToken(Task), useValue: taskRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
         { provide: DataSource, useValue: mockDataSource },

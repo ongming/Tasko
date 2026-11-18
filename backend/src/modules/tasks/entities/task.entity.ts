@@ -9,10 +9,10 @@ import {
   Index,
   type Relation,
 } from 'typeorm';
-import { Project } from './project.entity.js';
-import { Sprint } from './sprint.entity.js';
-import { Status } from './status.entity.js';
-import { WorkType } from './work-type.entity.js';
+import { Project } from '../../projects/entities/project.entity.js';
+import { Sprint } from '../../sprints/entities/sprint.entity.js';
+import { Status } from '../../projects/entities/status.entity.js';
+import { WorkType } from '../../projects/entities/work-type.entity.js';
 import { User } from '../../auth/entities/user.entity.js';
 
 export enum TaskPriority {

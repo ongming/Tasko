@@ -33,6 +33,7 @@ describe('WorkspacesService - Create Workspace', () => {
           updated_at: new Date('2026-01-01'),
         })),
         save: vi.fn(async (entity) => entity),
+        findOne: vi.fn().mockResolvedValue({ id: 'role-admin-id' }),
       },
     };
 
@@ -114,6 +115,7 @@ describe('WorkspacesService - Create Workspace', () => {
         workspace_id: 'ws-mock-id',
         user_id: userId,
         role: WorkspaceRole.OWNER,
+        roleId: 'role-admin-id',
       });
 
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
