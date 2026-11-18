@@ -8,7 +8,8 @@ import {
   BarChart3, 
   Sliders, 
   Plus, 
-  X
+  X,
+  Settings
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import type { Project, ProjectViewType } from '@/types/workspace'
@@ -83,6 +84,9 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     if (workspaceSlug && activeKey) {
       return `/${workspaceSlug}/${activeKey}/${tabId}`
     }
+    if (tabId === 'settings') {
+      return `/workspace/project-settings${location.search}`
+    }
     return `/workspace/${tabId}${location.search}`
   }
 
@@ -96,7 +100,9 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
       )
     }
     return (
-      location.pathname === `/workspace/${tabId}` ||
+      (tabId === 'settings'
+        ? location.pathname === '/workspace/project-settings'
+        : location.pathname === `/workspace/${tabId}`) ||
       (tabId === 'board' &&
         (location.pathname === '/workspace' || location.pathname === '/workspace/'))
     )
@@ -324,6 +330,22 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Nút Cài đặt dự án */}
+        <div className="ml-auto flex items-center pl-2">
+          <Link
+            to={getTabPath('settings')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              isTabActive('settings')
+                ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+            }`}
+            title="Cài đặt dự án"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cài đặt</span>
+          </Link>
         </div>
       </nav>
     </div>

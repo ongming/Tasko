@@ -7,6 +7,9 @@ export interface Project {
   color: string;
   key?: string;
   description?: string | null;
+  methodology?: 'SCRUM' | 'KANBAN' | 'SCRUMBAN';
+  startDate?: string | null;
+  endDate?: string | null;
   settings?: Record<string, any>;
   workspaceId?: string;
   ownerId?: string;

@@ -40,6 +40,7 @@ const TimelineView = lazy(() => import('@/pages/project/TimelineView'))
 const CalendarView = lazy(() => import('@/pages/project/CalendarView'))
 const GanttView = lazy(() => import('@/pages/project/GanttView'))
 const ControlBoardView = lazy(() => import('@/pages/project/ControlBoardView'))
+const ProjectSettingsPage = lazy(() => import('@/pages/project/ProjectSettingsPage'))
 
 // Workspace Management Pages (Lazy Loaded Chunks)
 const OverviewPage = lazy(() => import('@/pages/workspace/OverviewPage'))
@@ -182,6 +183,14 @@ export const router = createBrowserRouter([
             path: 'gantt',
             element: withSuspense(GanttView),
           },
+          {
+            path: 'settings',
+            element: withSuspense(ProjectSettingsPage),
+          },
+          {
+            path: 'project-settings',
+            element: withSuspense(ProjectSettingsPage),
+          },
         ],
       },
     ],
@@ -232,6 +241,10 @@ export const router = createBrowserRouter([
           {
             path: 'gantt',
             element: withSuspense(GanttView),
+          },
+          {
+            path: 'project-settings',
+            element: withSuspense(ProjectSettingsPage),
           },
         ],
       },
