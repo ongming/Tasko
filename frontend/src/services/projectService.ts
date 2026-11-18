@@ -1,5 +1,10 @@
 import { api } from '@/lib/api'
 import type { Project } from '@/types/workspace'
+import type {
+  ProjectMember,
+  AddProjectMemberPayload,
+  Role,
+} from '@/types/member'
 
 export interface ProjectStatus {
   id: string
@@ -81,4 +86,47 @@ export const projectService = {
    */
   deleteProject: (id: string) =>
     api.delete<{ success: boolean; message: string }>(`/projects/${encodeURIComponent(id)}`),
+
+  /**
+   * Lấy danh sách thành viên Dự án
+   */
+  getProjectMembers: (projectId: string) =>
+    api.get<ProjectMember[]>(`/projects/${encodeURIComponent(projectId)}/members`),
+
+  /**
+   * Thêm thành viên vào Dự án
+   */
+  addProjectMember: (projectId: string, payload: AddProjectMemberPayload) =>
+    api.post<ProjectMember>(`/projects/${encodeURIComponent(projectId)}/members`, payload),
+
+  /**
+   * Thay đổi vai trò thành viên Dự án
+   */
+  updateProjectMemberRole: (projectId: string, userId: string, roleId: string) =>
+    api.patch<ProjectMember>(`/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}/role`, {
+      roleId,
+    }),
+
+  /**
+   * Xóa thành viên khỏi Dự án
+   */
+  removeProjectMember: (projectId: string, userId: string) =>
+    api.delete<{ success: boolean; message: string }>(
+      `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}`,
+    ),
+
+  /**
+   * Chuyển quyền sở hữu Dự án
+   */
+  transferProjectOwnership: (projectId: string, targetUserId: string) =>
+    api.patch<{ success: boolean; message: string }>(
+      `/projects/${encodeURIComponent(projectId)}/transfer-ownership`,
+      { targetUserId },
+    ),
+
+  /**
+   * Lấy danh sách Vai trò (Role)
+   */
+  getRoles: (scope?: 'WORKSPACE' | 'PROJECT') =>
+    api.get<Role[]>(scope ? `/roles?scope=${encodeURIComponent(scope)}` : '/roles'),
 }

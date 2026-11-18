@@ -3,6 +3,7 @@ import type {
   CreateWorkspacePayload,
   WorkspaceResponse,
 } from '@/types/workspace'
+import type { WorkspaceMemberItem } from '@/types/member'
 
 export const workspaceService = {
   /**
@@ -22,6 +23,12 @@ export const workspaceService = {
    */
   getBySlug: (slug: string) =>
     api.get<WorkspaceResponse>(`/workspaces/${encodeURIComponent(slug)}`),
+
+  /**
+   * Lấy danh sách thành viên của workspace
+   */
+  getMembers: (wsId: string) =>
+    api.get<WorkspaceMemberItem[]>(`/workspaces/${encodeURIComponent(wsId)}/members`),
 }
 
 export default workspaceService

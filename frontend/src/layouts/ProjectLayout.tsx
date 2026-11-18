@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, useSearchParams, useParams } from 'react-router-dom'
 import { Star, Share2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import ProjectTabBar from '@/components/project/ProjectTabBar'
+import { ProjectMembersModal } from '@/components/project/ProjectMembersModal'
 import { useAuthStore } from '@/stores/authStore'
 import { projectService } from '@/services/projectService'
 import type { Project } from '@/types/workspace'
 
 export function ProjectLayout() {
   const [isFavorite, setIsFavorite] = useState(false)
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
-  const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
+  const { projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId')
   const { user } = useAuthStore()
@@ -37,6 +40,13 @@ export function ProjectLayout() {
       })
   }, [projectParam])
 
+  // Lấy danh sách thành viên thực tế của dự án để hiển thị avatar trên Header
+  const { data: members = [] } = useQuery({
+    queryKey: ['project-members', project?.id],
+    queryFn: () => projectService.getProjectMembers(project!.id),
+    enabled: !!project?.id,
+  })
+
   const userInitials = user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'
   const displayName = project?.name || 'Website Redesign'
   const displayKey = project?.key || 'WR-2024'
@@ -58,12 +68,10 @@ export function ProjectLayout() {
               title={isFavorite ? 'Bỏ đánh dấu yêu thích' : 'Đánh dấu dự án yêu thích'}
               aria-label="Đánh dấu dự án yêu thích"
             >
-              <Star 
+              <Star
                 className={`w-4 h-4 transition-colors ${
-                  isFavorite 
-                    ? 'fill-amber-400 text-amber-500' 
-                    : 'text-slate-400'
-                }`} 
+                  isFavorite ? 'fill-amber-400 text-amber-500' : 'text-slate-400'
+                }`}
               />
             </button>
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tracking-wider">
@@ -73,16 +81,56 @@ export function ProjectLayout() {
 
           {/* Danh sách thành viên & nút Chia sẻ (Chuẩn Linear secondary action) */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center -space-x-1.5">
-              <div
-                className="w-7 h-7 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-2xs"
-                title={user?.full_name || 'Bạn'}
-              >
-                {userInitials}
-              </div>
+            {/* Cụm avatar thành viên (tối đa 4 avatar + badge số dư) */}
+            <div
+              onClick={() => setIsMembersModalOpen(true)}
+              className="flex items-center -space-x-1.5 cursor-pointer hover:opacity-90 transition-opacity"
+              title="Quản lý thành viên dự án"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setIsMembersModalOpen(true)}
+            >
+              {members.length > 0 ? (
+                <>
+                  {members.slice(0, 4).map((m) =>
+                    m.user.avatarUrl ? (
+                      <img
+                        key={m.id}
+                        src={m.user.avatarUrl}
+                        alt={m.user.fullName}
+                        className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-2xs"
+                        title={`${m.user.fullName} (${m.role.name})`}
+                      />
+                    ) : (
+                      <div
+                        key={m.id}
+                        className="w-7 h-7 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-2xs"
+                        title={`${m.user.fullName} (${m.role.name})`}
+                      >
+                        {m.user.fullName ? m.user.fullName.slice(0, 2).toUpperCase() : 'U'}
+                      </div>
+                    ),
+                  )}
+                  {members.length > 4 && (
+                    <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-semibold text-[11px] flex items-center justify-center ring-2 ring-white shadow-2xs">
+                      +{members.length - 4}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div
+                  className="w-7 h-7 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-2xs"
+                  title={user?.full_name || 'Bạn'}
+                >
+                  {userInitials}
+                </div>
+              )}
             </div>
+
+            {/* Nút Chia sẻ / Quản lý thành viên */}
             <button
               type="button"
+              onClick={() => setIsMembersModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200/90 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-all cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5 text-slate-500" />
@@ -99,6 +147,16 @@ export function ProjectLayout() {
       <div className="flex-1 overflow-y-auto pt-3 min-h-0 flex flex-col p-4 sm:p-6">
         <Outlet />
       </div>
+
+      {/* 3. Modal Quản lý thành viên Project */}
+      {project && (
+        <ProjectMembersModal
+          isOpen={isMembersModalOpen}
+          onClose={() => setIsMembersModalOpen(false)}
+          projectId={project.id}
+          workspaceId={project.workspaceId}
+        />
+      )}
     </div>
   )
 }
