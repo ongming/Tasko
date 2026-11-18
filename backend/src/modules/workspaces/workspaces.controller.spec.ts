@@ -5,6 +5,8 @@ import { WorkspacesService } from './workspaces.service.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { WorkspaceResponseDto } from './dto/workspace-response.dto.js';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
 
 describe('WorkspacesController - Create Workspace', () => {
   let controller: WorkspacesController;
@@ -37,7 +39,12 @@ describe('WorkspacesController - Create Workspace', () => {
           useValue: mockWorkspacesService,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RbacPermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<WorkspacesController>(WorkspacesController);
     service = module.get<WorkspacesService>(WorkspacesService);

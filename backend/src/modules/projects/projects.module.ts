@@ -6,6 +6,8 @@ import { WorkType } from './entities/work-type.entity.js';
 import { ProjectMember } from './entities/project-member.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
+import { User } from '../auth/entities/user.entity.js';
+import { Role } from '../rbac/entities/role.entity.js';
 import { ProjectsController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
 
@@ -18,6 +20,8 @@ import { ProjectsService } from './projects.service.js';
       ProjectMember,
       Workspace,
       WorkspaceMember,
+      User,
+      Role,
     ]),
   ],
   controllers: [ProjectsController],

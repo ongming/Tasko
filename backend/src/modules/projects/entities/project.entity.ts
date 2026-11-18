@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -52,4 +53,7 @@ export class Project {
 
   @UpdateDateColumn({ type: 'timestamp with time zone' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamp with time zone', nullable: true })
+  deleted_at: Date | null;
 }

@@ -14,10 +14,12 @@ import { ProjectsService } from './projects.service.js';
 import { Project } from './entities/project.entity.js';
 import { Status } from './entities/status.entity.js';
 import { WorkType } from './entities/work-type.entity.js';
-import { ProjectMember } from './entities/project-member.entity.js';
+import { ProjectMember, ProjectRole } from './entities/project-member.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
+import { User } from '../auth/entities/user.entity.js';
+import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
 
 describe('ProjectsService - Unit Tests', () => {
@@ -28,6 +30,8 @@ describe('ProjectsService - Unit Tests', () => {
   let projectMemberRepo: Partial<Repository<ProjectMember>>;
   let workspaceRepo: Partial<Repository<Workspace>>;
   let memberRepo: Partial<Repository<WorkspaceMember>>;
+  let userRepo: Partial<Repository<User>>;
+  let roleRepo: Partial<Repository<Role>>;
   let mockQueryRunner: any;
 
   const mockUserId = 'user-uuid-111';
@@ -50,6 +54,7 @@ describe('ProjectsService - Unit Tests', () => {
         updated_at: entity.updated_at || new Date('2026-01-01'),
       })),
       remove: vi.fn(),
+      softRemove: vi.fn(),
     };
 
     statusRepo = {
@@ -62,6 +67,10 @@ describe('ProjectsService - Unit Tests', () => {
 
     projectMemberRepo = {
       find: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'pm-id' })),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'pm-id' })),
+      remove: vi.fn(),
     };
 
     workspaceRepo = {
@@ -71,6 +80,14 @@ describe('ProjectsService - Unit Tests', () => {
     memberRepo = {
       findOne: vi.fn(),
       find: vi.fn(),
+    };
+
+    userRepo = {
+      findOne: vi.fn(),
+    };
+
+    roleRepo = {
+      findOne: vi.fn(),
     };
 
     mockQueryRunner = {
@@ -96,6 +113,7 @@ describe('ProjectsService - Unit Tests', () => {
           };
         }),
         findOne: vi.fn().mockResolvedValue({ id: 'role-owner-id' }),
+        update: vi.fn().mockResolvedValue(undefined),
       },
     };
 
@@ -112,6 +130,8 @@ describe('ProjectsService - Unit Tests', () => {
         { provide: getRepositoryToken(ProjectMember), useValue: projectMemberRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Role), useValue: roleRepo },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -360,7 +380,108 @@ describe('ProjectsService - Unit Tests', () => {
       } as WorkspaceMember);
 
       await service.delete(mockUserId, 'proj-1');
-      expect(projectRepo.remove).toHaveBeenCalledWith(mockProj);
+      expect(projectRepo.softRemove).toHaveBeenCalledWith(mockProj);
+    });
+  });
+
+  describe('Quản lý thành viên Dự án & Chuyển quyền sở hữu', () => {
+    const projId = 'proj-uuid-111';
+    const targetUserId = 'target-user-222';
+    const roleId = 'role-member-333';
+
+    it('getProjectMembers: lấy danh sách thành viên dự án thành công', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, workspace_id: mockWorkspaceId } as Project);
+      vi.mocked(projectMemberRepo.find!).mockResolvedValue([
+        {
+          id: 'pm-1',
+          user_id: mockUserId,
+          user: { id: mockUserId, email: 'owner@example.com', full_name: 'Owner', avatar_url: null },
+          roleId: 'role-owner',
+          roleEntity: { id: 'role-owner', name: 'OWNER' },
+          role: ProjectRole.OWNER,
+          joined_at: new Date(),
+        } as any,
+      ]);
+
+      const res = await service.getProjectMembers(projId);
+      expect(res).toHaveLength(1);
+      expect(res[0].role.name).toBe('OWNER');
+    });
+
+    it('addProjectMember: thêm thành viên vào dự án thành công khi đã thuộc Workspace', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, workspace_id: mockWorkspaceId } as Project);
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.PROJECT } as Role);
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: targetUserId, email: 'member@example.com' } as User);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({ id: 'ws-mem-1' } as any); // Đã thuộc workspace
+      vi.mocked(projectMemberRepo.findOne!).mockResolvedValue(null); // Chưa thuộc project
+
+      const res = await service.addProjectMember(projId, { userId: targetUserId, roleId });
+      expect(res.userId).toBe(targetUserId);
+      expect(projectMemberRepo.save).toHaveBeenCalled();
+    });
+
+    it('addProjectMember: ném BadRequestException khi người dùng chưa thuộc Workspace', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, workspace_id: mockWorkspaceId } as Project);
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.PROJECT } as Role);
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: targetUserId, email: 'outsider@example.com' } as User);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue(null); // Chưa thuộc workspace!
+
+      await expect(
+        service.addProjectMember(projId, { userId: targetUserId, roleId }),
+      ).rejects.toThrow('Người dùng phải là thành viên của Không gian làm việc trước khi thêm vào Dự án!');
+    });
+
+    it('updateProjectMemberRole: chặn đổi sang role OWNER qua API này', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, owner_id: mockUserId } as Project);
+      vi.mocked(projectMemberRepo.findOne!).mockResolvedValue({
+        id: 'pm-1',
+        project_id: projId,
+        user_id: targetUserId,
+        role: ProjectRole.MEMBER,
+      } as any);
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: 'owner-role-id', name: 'OWNER', scope: RoleScope.PROJECT } as Role);
+
+      await expect(
+        service.updateProjectMemberRole(projId, targetUserId, { roleId: 'owner-role-id' }),
+      ).rejects.toThrow('Không thể gán vai trò Chủ sở hữu qua API này');
+    });
+
+    it('removeProjectMember: chặn xóa OWNER khỏi dự án', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, owner_id: mockUserId } as Project);
+      vi.mocked(projectMemberRepo.findOne!).mockResolvedValue({
+        id: 'pm-owner',
+        project_id: projId,
+        user_id: mockUserId,
+        role: ProjectRole.OWNER,
+      } as any);
+
+      await expect(service.removeProjectMember(projId, mockUserId)).rejects.toThrow(
+        'Không thể xóa Chủ sở hữu khỏi dự án. Vui lòng chuyển quyền sở hữu trước!',
+      );
+    });
+
+    it('transferOwnership: chuyển quyền sở hữu thành công trong Transaction', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, owner_id: mockUserId } as Project);
+      vi.mocked(projectMemberRepo.findOne!).mockResolvedValue({
+        id: 'pm-target',
+        project_id: projId,
+        user_id: targetUserId,
+      } as any);
+
+      const res = await service.transferOwnership(mockUserId, projId, { targetUserId });
+      expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledTimes(3);
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      expect(res.success).toBe(true);
+    });
+
+    it('transferOwnership: ném BadRequestException nếu targetUserId chưa là thành viên dự án', async () => {
+      vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, owner_id: mockUserId } as Project);
+      vi.mocked(projectMemberRepo.findOne!).mockResolvedValue(null);
+
+      await expect(
+        service.transferOwnership(mockUserId, projId, { targetUserId }),
+      ).rejects.toThrow('Người nhận chuyển giao quyền sở hữu phải là thành viên của dự án!');
     });
   });
 

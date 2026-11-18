@@ -3,15 +3,21 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Workspace } from './entities/workspace.entity.js';
 import { WorkspaceMember } from './entities/workspace-member.entity.js';
+import { User } from '../auth/entities/user.entity.js';
+import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { WorkspaceResponseDto } from './dto/workspace-response.dto.js';
-import { Role, RoleScope } from '../rbac/entities/role.entity.js';
+import {
+  AddWorkspaceMemberDto,
+  UpdateWorkspaceMemberRoleDto,
+} from './dto/workspace-member.dto.js';
 
 @Injectable()
 export class WorkspacesService {
@@ -21,6 +27,10 @@ export class WorkspacesService {
     private readonly workspaceRepo: Repository<Workspace>,
     @InjectRepository(WorkspaceMember)
     private readonly memberRepo: Repository<WorkspaceMember>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    @InjectRepository(Role)
+    private readonly roleRepo: Repository<Role>,
   ) {}
 
   /**
@@ -145,5 +155,183 @@ export class WorkspacesService {
       createdAt: workspace.created_at,
       updatedAt: workspace.updated_at,
     };
+  }
+
+  /**
+   * Lấy danh sách thành viên của Workspace
+   */
+  async getMembers(wsId: string) {
+    const members = await this.memberRepo.find({
+      where: { workspace_id: wsId },
+      relations: { user: true, roleEntity: true },
+      order: { joined_at: 'ASC' },
+    });
+
+    return members.map((m) => ({
+      id: m.id,
+      userId: m.user_id,
+      user: {
+        id: m.user.id,
+        email: m.user.email,
+        fullName: m.user.full_name,
+        avatarUrl: m.user.avatar_url,
+      },
+      roleId: m.roleId,
+      role: m.roleEntity
+        ? { id: m.roleEntity.id, name: m.roleEntity.name }
+        : { id: null, name: m.role },
+      joinedAt: m.joined_at,
+    }));
+  }
+
+  /**
+   * Thêm thành viên mới vào Workspace
+   */
+  async addMember(wsId: string, dto: AddWorkspaceMemberDto) {
+    const role = await this.roleRepo.findOne({
+      where: { id: dto.roleId, scope: RoleScope.WORKSPACE },
+    });
+    if (!role) {
+      throw new BadRequestException('Vai trò không hợp lệ cho Không gian làm việc!');
+    }
+
+    const user = await this.userRepo.findOne({
+      where: { email: dto.email.toLowerCase().trim() },
+    });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng với email này!');
+    }
+
+    const existing = await this.memberRepo.findOne({
+      where: { workspace_id: wsId, user_id: user.id },
+    });
+    if (existing) {
+      throw new ConflictException('Người dùng đã là thành viên của không gian làm việc!');
+    }
+
+    const memberRoleEnum =
+      role.name === 'ADMIN' ? WorkspaceRole.ADMIN : WorkspaceRole.MEMBER;
+
+    const newMember = this.memberRepo.create({
+      workspace_id: wsId,
+      user_id: user.id,
+      roleId: role.id,
+      role: memberRoleEnum,
+    });
+    const saved = await this.memberRepo.save(newMember);
+
+    return {
+      id: saved.id,
+      userId: user.id,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        avatarUrl: user.avatar_url,
+      },
+      roleId: role.id,
+      role: { id: role.id, name: role.name },
+      joinedAt: saved.joined_at,
+    };
+  }
+
+  /**
+   * Đổi vai trò của thành viên trong Workspace
+   */
+  async updateMemberRole(
+    wsId: string,
+    targetUserId: string,
+    dto: UpdateWorkspaceMemberRoleDto,
+  ) {
+    const member = await this.memberRepo.findOne({
+      where: { workspace_id: wsId, user_id: targetUserId },
+      relations: { roleEntity: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Thành viên không tồn tại trong không gian làm việc!');
+    }
+
+    const newRole = await this.roleRepo.findOne({
+      where: { id: dto.roleId, scope: RoleScope.WORKSPACE },
+    });
+    if (!newRole) {
+      throw new BadRequestException('Vai trò mới không hợp lệ cho Không gian làm việc!');
+    }
+
+    const isCurrentAdmin =
+      member.roleEntity?.name === 'ADMIN' ||
+      member.role === WorkspaceRole.ADMIN ||
+      member.role === WorkspaceRole.OWNER;
+
+    if (isCurrentAdmin && newRole.name !== 'ADMIN') {
+      const allMembers = await this.memberRepo.find({
+        where: { workspace_id: wsId },
+        relations: { roleEntity: true },
+      });
+      const adminCount = allMembers.filter(
+        (m) =>
+          m.roleEntity?.name === 'ADMIN' ||
+          m.role === WorkspaceRole.ADMIN ||
+          m.role === WorkspaceRole.OWNER,
+      ).length;
+
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Không thể hạ vai trò Quản trị viên duy nhất của Không gian làm việc!',
+        );
+      }
+    }
+
+    member.roleId = newRole.id;
+    member.role =
+      newRole.name === 'ADMIN' ? WorkspaceRole.ADMIN : WorkspaceRole.MEMBER;
+    await this.memberRepo.save(member);
+
+    return {
+      id: member.id,
+      userId: member.user_id,
+      roleId: newRole.id,
+      role: { id: newRole.id, name: newRole.name },
+    };
+  }
+
+  /**
+   * Xóa thành viên khỏi Workspace
+   */
+  async removeMember(wsId: string, targetUserId: string) {
+    const member = await this.memberRepo.findOne({
+      where: { workspace_id: wsId, user_id: targetUserId },
+      relations: { roleEntity: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Thành viên không tồn tại trong không gian làm việc!');
+    }
+
+    const isCurrentAdmin =
+      member.roleEntity?.name === 'ADMIN' ||
+      member.role === WorkspaceRole.ADMIN ||
+      member.role === WorkspaceRole.OWNER;
+
+    if (isCurrentAdmin) {
+      const allMembers = await this.memberRepo.find({
+        where: { workspace_id: wsId },
+        relations: { roleEntity: true },
+      });
+      const adminCount = allMembers.filter(
+        (m) =>
+          m.roleEntity?.name === 'ADMIN' ||
+          m.role === WorkspaceRole.ADMIN ||
+          m.role === WorkspaceRole.OWNER,
+      ).length;
+
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Không thể xóa Quản trị viên duy nhất của Không gian làm việc!',
+        );
+      }
+    }
+
+    await this.memberRepo.remove(member);
+    return { success: true, message: 'Đã xóa thành viên khỏi không gian làm việc thành công!' };
   }
 }

@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ProjectsController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
 
 describe('ProjectsController - Unit Tests', () => {
   let controller: ProjectsController;
@@ -21,7 +23,12 @@ describe('ProjectsController - Unit Tests', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectsController],
       providers: [{ provide: ProjectsService, useValue: service }],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RbacPermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ProjectsController>(ProjectsController);
   });

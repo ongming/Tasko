@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SprintsController } from './sprints.controller.js';
 import { SprintsService } from './sprints.service.js';
 import { CreateSprintDto } from './dto/sprint.dto.js';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
 
 describe('SprintsController - Unit Tests', () => {
   let controller: SprintsController;
@@ -25,7 +27,12 @@ describe('SprintsController - Unit Tests', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SprintsController],
       providers: [{ provide: SprintsService, useValue: service }],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RbacPermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<SprintsController>(SprintsController);
   });

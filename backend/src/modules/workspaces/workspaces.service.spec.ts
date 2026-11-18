@@ -1,20 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WorkspacesService } from './workspaces.service.js';
 import { Workspace } from './entities/workspace.entity.js';
 import { WorkspaceMember } from './entities/workspace-member.entity.js';
+import { User } from '../auth/entities/user.entity.js';
+import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 
-describe('WorkspacesService - Create Workspace', () => {
+describe('WorkspacesService - Unit Tests', () => {
   let service: WorkspacesService;
   let workspaceRepo: Partial<Repository<Workspace>>;
   let memberRepo: Partial<Repository<WorkspaceMember>>;
+  let userRepo: Partial<Repository<User>>;
+  let roleRepo: Partial<Repository<Role>>;
   let queryRunnerMock: any;
   let dataSourceMock: Partial<DataSource>;
 
@@ -43,6 +50,19 @@ describe('WorkspacesService - Create Workspace', () => {
 
     memberRepo = {
       find: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'member-mock-id' })),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'member-mock-id' })),
+      remove: vi.fn(),
+      count: vi.fn(),
+    };
+
+    userRepo = {
+      findOne: vi.fn(),
+    };
+
+    roleRepo = {
+      findOne: vi.fn(),
     };
 
     dataSourceMock = {
@@ -59,6 +79,14 @@ describe('WorkspacesService - Create Workspace', () => {
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: memberRepo,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: userRepo,
+        },
+        {
+          provide: getRepositoryToken(Role),
+          useValue: roleRepo,
         },
         {
           provide: DataSource,
@@ -290,6 +318,93 @@ describe('WorkspacesService - Create Workspace', () => {
       expect(errors.length).toBeGreaterThan(0);
       expect(errors.some((e) => e.property === 'name')).toBe(true);
       expect(errors.some((e) => e.property === 'slug')).toBe(true);
+    });
+  });
+
+  describe('Quản lý thành viên Workspace', () => {
+    const wsId = 'ws-uuid-111';
+    const userId = 'user-uuid-222';
+    const roleId = 'role-uuid-333';
+
+    it('getMembers: lấy danh sách thành viên thành công', async () => {
+      vi.mocked(memberRepo.find!).mockResolvedValue([
+        {
+          id: 'm-1',
+          user_id: userId,
+          user: { id: userId, email: 'test@example.com', full_name: 'Test', avatar_url: null },
+          roleId,
+          roleEntity: { id: roleId, name: 'ADMIN' },
+          role: WorkspaceRole.ADMIN,
+          joined_at: new Date(),
+        } as any,
+      ]);
+
+      const res = await service.getMembers(wsId);
+      expect(res).toHaveLength(1);
+      expect(res[0].user.email).toBe('test@example.com');
+    });
+
+    it('addMember: thêm thành viên mới thành công', async () => {
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.WORKSPACE } as Role);
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: userId, email: 'new@example.com', full_name: 'New', avatar_url: null } as User);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue(null);
+
+      const res = await service.addMember(wsId, { email: 'new@example.com', roleId });
+      expect(res.userId).toBe(userId);
+      expect(memberRepo.save).toHaveBeenCalled();
+    });
+
+    it('addMember: ném NotFoundException khi không tìm thấy email', async () => {
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.WORKSPACE } as Role);
+      vi.mocked(userRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.addMember(wsId, { email: 'notfound@example.com', roleId })).rejects.toThrow(NotFoundException);
+    });
+
+    it('addMember: ném ConflictException khi đã là thành viên', async () => {
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.WORKSPACE } as Role);
+      vi.mocked(userRepo.findOne!).mockResolvedValue({ id: userId, email: 'exist@example.com' } as User);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({ id: 'm-exist' } as any);
+
+      await expect(service.addMember(wsId, { email: 'exist@example.com', roleId })).rejects.toThrow(ConflictException);
+    });
+
+    it('updateMemberRole: chặn hạ quyền khi là ADMIN duy nhất', async () => {
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({
+        id: 'm-1',
+        workspace_id: wsId,
+        user_id: userId,
+        roleEntity: { name: 'ADMIN' },
+        role: WorkspaceRole.ADMIN,
+      } as any);
+
+      vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: 'member-role-id', name: 'MEMBER', scope: RoleScope.WORKSPACE } as Role);
+      // Chỉ có 1 admin trong workspace
+      vi.mocked(memberRepo.find!).mockResolvedValue([
+        { roleEntity: { name: 'ADMIN' }, role: WorkspaceRole.ADMIN },
+      ] as any);
+
+      await expect(
+        service.updateMemberRole(wsId, userId, { roleId: 'member-role-id' }),
+      ).rejects.toThrow('Không thể hạ vai trò Quản trị viên duy nhất của Không gian làm việc!');
+    });
+
+    it('removeMember: chặn xóa khi là ADMIN duy nhất', async () => {
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({
+        id: 'm-1',
+        workspace_id: wsId,
+        user_id: userId,
+        roleEntity: { name: 'ADMIN' },
+        role: WorkspaceRole.ADMIN,
+      } as any);
+
+      vi.mocked(memberRepo.find!).mockResolvedValue([
+        { roleEntity: { name: 'ADMIN' }, role: WorkspaceRole.ADMIN },
+      ] as any);
+
+      await expect(service.removeMember(wsId, userId)).rejects.toThrow(
+        'Không thể xóa Quản trị viên duy nhất của Không gian làm việc!',
+      );
     });
   });
 });

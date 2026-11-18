@@ -18,14 +18,17 @@ import {
   MoveTaskDto,
 } from './dto/task.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @Controller('projects/:projectId/tasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RbacPermissionGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get()
+  @RequirePermission('PROJECT_VIEW_ONLY')
   async getTasks(
     @Param('projectId') projectId: string,
     @Query('sprintId') sprintId?: string,
@@ -35,6 +38,7 @@ export class TasksController {
   }
 
   @Post()
+  @RequirePermission('TASK_WRITE')
   @HttpCode(HttpStatus.CREATED)
   async createTask(
     @CurrentUser('id') userId: string,
@@ -45,11 +49,13 @@ export class TasksController {
   }
 
   @Get(':taskId')
+  @RequirePermission('PROJECT_VIEW_ONLY')
   async getTaskById(@Param('taskId') taskId: string) {
     return this.tasksService.getTaskById(taskId);
   }
 
   @Patch(':taskId')
+  @RequirePermission('TASK_WRITE')
   async updateTask(
     @CurrentUser('id') userId: string,
     @Param('taskId') taskId: string,
@@ -59,6 +65,7 @@ export class TasksController {
   }
 
   @Patch(':taskId/move')
+  @RequirePermission('TASK_WRITE')
   async moveTask(
     @CurrentUser('id') userId: string,
     @Param('taskId') taskId: string,
@@ -68,6 +75,7 @@ export class TasksController {
   }
 
   @Delete(':taskId')
+  @RequirePermission('TASK_WRITE')
   async deleteTask(
     @CurrentUser('id') userId: string,
     @Param('taskId') taskId: string,

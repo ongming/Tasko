@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
@@ -13,9 +14,15 @@ import { ProjectMember, ProjectRole } from './entities/project-member.entity.js'
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
+import { User } from '../auth/entities/user.entity.js';
 import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
 import { ProjectResponseDto } from './dto/project-response.dto.js';
+import {
+  AddProjectMemberDto,
+  UpdateProjectMemberRoleDto,
+  TransferOwnershipDto,
+} from './dto/project-member.dto.js';
 
 @Injectable()
 export class ProjectsService {
@@ -38,8 +45,14 @@ export class ProjectsService {
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
 
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
+
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * 1. TẠO DỰ ÁN MỚI
@@ -121,16 +134,16 @@ export class ProjectsService {
 
       const workflowToCreate = (dto.workflow && dto.workflow.length > 0)
         ? dto.workflow.map((item, idx) => {
-          let cat = StatusCategory.IN_PROGRESS;
-          if (idx === 0) cat = StatusCategory.TODO;
-          else if (idx === dto.workflow!.length - 1) cat = StatusCategory.DONE;
-          if (item.category) cat = item.category as StatusCategory;
-          return {
-            label: item.label,
-            category: cat,
-            color: item.color || (cat === StatusCategory.TODO ? '#94a3b8' : cat === StatusCategory.DONE ? '#10b981' : '#4f46e5'),
-          };
-        })
+            let cat = StatusCategory.IN_PROGRESS;
+            if (idx === 0) cat = StatusCategory.TODO;
+            else if (idx === dto.workflow!.length - 1) cat = StatusCategory.DONE;
+            if (item.category) cat = item.category as StatusCategory;
+            return {
+              label: item.label,
+              category: cat,
+              color: item.color || (cat === StatusCategory.TODO ? '#94a3b8' : cat === StatusCategory.DONE ? '#10b981' : '#4f46e5'),
+            };
+          })
         : defaultWorkflow;
 
       const statusEntities = workflowToCreate.map((wf, index) =>
@@ -291,7 +304,261 @@ export class ProjectsService {
   }
 
   /**
-   * 6. XÓA DỰ ÁN (THEO ID HOẶC KEY)
+   * 6. LẤY DANH SÁCH THÀNH VIÊN CỦA DỰ ÁN
+   */
+  async getProjectMembers(identifier: string) {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const members = await this.projectMemberRepository.find({
+      where: { project_id: project.id },
+      relations: { user: true, roleEntity: true },
+      order: { joined_at: 'ASC' },
+    });
+
+    return members.map((m) => ({
+      id: m.id,
+      userId: m.user_id,
+      user: {
+        id: m.user.id,
+        email: m.user.email,
+        fullName: m.user.full_name,
+        avatarUrl: m.user.avatar_url,
+      },
+      roleId: m.roleId,
+      role: m.roleEntity
+        ? { id: m.roleEntity.id, name: m.roleEntity.name }
+        : { id: null, name: m.role },
+      joinedAt: m.joined_at,
+    }));
+  }
+
+  /**
+   * 7. THÊM THÀNH VIÊN VÀO DỰ ÁN
+   */
+  async addProjectMember(identifier: string, dto: AddProjectMemberDto) {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const role = await this.roleRepository.findOne({
+      where: { id: dto.roleId, scope: RoleScope.PROJECT },
+    });
+    if (!role) {
+      throw new BadRequestException('Vai trò không hợp lệ cho Dự án!');
+    }
+
+    let user: User | null = null;
+    if (dto.userId) {
+      user = await this.userRepository.findOne({ where: { id: dto.userId } });
+    } else if (dto.email) {
+      user = await this.userRepository.findOne({
+        where: { email: dto.email.toLowerCase().trim() },
+      });
+    }
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng!');
+    }
+
+    // Kiểm tra user có phải thành viên của Workspace chứa Project không
+    const wsMember = await this.workspaceMemberRepository.findOne({
+      where: { workspace_id: project.workspace_id, user_id: user.id },
+    });
+    if (!wsMember) {
+      throw new BadRequestException(
+        'Người dùng phải là thành viên của Không gian làm việc trước khi thêm vào Dự án!',
+      );
+    }
+
+    const existingMember = await this.projectMemberRepository.findOne({
+      where: { project_id: project.id, user_id: user.id },
+    });
+    if (existingMember) {
+      throw new ConflictException('Người dùng đã là thành viên của dự án!');
+    }
+
+    const member = this.projectMemberRepository.create({
+      project_id: project.id,
+      user_id: user.id,
+      roleId: role.id,
+      role: role.name === 'VIEWER' ? ProjectRole.VIEWER : ProjectRole.MEMBER,
+    });
+    const saved = await this.projectMemberRepository.save(member);
+
+    return {
+      id: saved.id,
+      userId: user.id,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        avatarUrl: user.avatar_url,
+      },
+      roleId: role.id,
+      role: { id: role.id, name: role.name },
+      joinedAt: saved.joined_at,
+    };
+  }
+
+  /**
+   * 8. ĐỔI VAI TRÒ THÀNH VIÊN TRONG DỰ ÁN
+   */
+  async updateProjectMemberRole(
+    identifier: string,
+    targetUserId: string,
+    dto: UpdateProjectMemberRoleDto,
+  ) {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const member = await this.projectMemberRepository.findOne({
+      where: { project_id: project.id, user_id: targetUserId },
+      relations: { roleEntity: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Thành viên không tồn tại trong dự án!');
+    }
+
+    const newRole = await this.roleRepository.findOne({
+      where: { id: dto.roleId, scope: RoleScope.PROJECT },
+    });
+    if (!newRole) {
+      throw new BadRequestException('Vai trò mới không hợp lệ cho Dự án!');
+    }
+
+    if (newRole.name === 'OWNER') {
+      throw new BadRequestException(
+        'Không thể gán vai trò Chủ sở hữu qua API này. Vui lòng sử dụng tính năng chuyển quyền sở hữu!',
+      );
+    }
+
+    if (project.owner_id === targetUserId || member.role === ProjectRole.OWNER) {
+      throw new BadRequestException(
+        'Không thể đổi vai trò của Chủ sở hữu qua API này. Vui lòng chuyển quyền sở hữu trước!',
+      );
+    }
+
+    member.roleId = newRole.id;
+    member.role = newRole.name === 'VIEWER' ? ProjectRole.VIEWER : ProjectRole.MEMBER;
+    await this.projectMemberRepository.save(member);
+
+    return {
+      id: member.id,
+      userId: member.user_id,
+      roleId: newRole.id,
+      role: { id: newRole.id, name: newRole.name },
+    };
+  }
+
+  /**
+   * 9. XÓA THÀNH VIÊN KHỎI DỰ ÁN
+   */
+  async removeProjectMember(identifier: string, targetUserId: string) {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const member = await this.projectMemberRepository.findOne({
+      where: { project_id: project.id, user_id: targetUserId },
+    });
+    if (!member) {
+      throw new NotFoundException('Thành viên không tồn tại trong dự án!');
+    }
+
+    if (project.owner_id === targetUserId || member.role === ProjectRole.OWNER) {
+      throw new BadRequestException(
+        'Không thể xóa Chủ sở hữu khỏi dự án. Vui lòng chuyển quyền sở hữu trước!',
+      );
+    }
+
+    await this.projectMemberRepository.remove(member);
+    return { success: true, message: 'Đã xóa thành viên khỏi dự án thành công!' };
+  }
+
+  /**
+   * 10. CHUYỂN QUYỀN SỞ HỮU DỰ ÁN
+   */
+  async transferOwnership(
+    userId: string,
+    identifier: string,
+    dto: TransferOwnershipDto,
+  ) {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    if (project.owner_id === dto.targetUserId) {
+      throw new BadRequestException('Người dùng đã là Chủ sở hữu của dự án này!');
+    }
+
+    const targetMember = await this.projectMemberRepository.findOne({
+      where: { project_id: project.id, user_id: dto.targetUserId },
+    });
+    if (!targetMember) {
+      throw new BadRequestException(
+        'Người nhận chuyển giao quyền sở hữu phải là thành viên của dự án!',
+      );
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const ownerRole = await queryRunner.manager.findOne(Role, {
+        where: { name: 'OWNER', scope: RoleScope.PROJECT },
+      });
+      const memberRole = await queryRunner.manager.findOne(Role, {
+        where: { name: 'MEMBER', scope: RoleScope.PROJECT },
+      });
+
+      // 1. Cập nhật Project.owner_id
+      await queryRunner.manager.update(
+        Project,
+        { id: project.id },
+        { owner_id: dto.targetUserId },
+      );
+
+      // 2. Nâng targetUserId thành OWNER
+      await queryRunner.manager.update(
+        ProjectMember,
+        { project_id: project.id, user_id: dto.targetUserId },
+        {
+          role: ProjectRole.OWNER,
+          roleId: ownerRole ? ownerRole.id : null,
+        },
+      );
+
+      // 3. Hạ owner cũ xuống MEMBER
+      await queryRunner.manager.update(
+        ProjectMember,
+        { project_id: project.id, user_id: project.owner_id },
+        {
+          role: ProjectRole.MEMBER,
+          roleId: memberRole ? memberRole.id : null,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+      return { success: true, message: 'Chuyển quyền sở hữu dự án thành công!' };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 11. XÓA MỀM DỰ ÁN (THEO ID HOẶC KEY)
    */
   async delete(userId: string, identifier: string): Promise<void> {
     const project = await this.findProjectEntity(identifier);
@@ -314,11 +581,11 @@ export class ProjectsService {
       throw new ForbiddenException('Chỉ chủ sở hữu dự án hoặc Quản trị viên mới có quyền xóa dự án!');
     }
 
-    await this.projectRepository.remove(project);
+    await this.projectRepository.softRemove(project);
   }
 
   /**
-   * CẬP NHẬT CẤU HÌNH (SETTINGS) CỦA DỰ ÁN (Ví dụ: views, tabs, method)
+   * CẬP NHẬT CẤU HÌNH (SETTINGS) CỦA DỰ ÁN
    */
   async updateSettings(
     userId: string,
