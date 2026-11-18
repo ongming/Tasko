@@ -134,6 +134,16 @@ export class SprintsService {
       );
     }
 
+    // Chặn khi Sprint rỗng (0 task)
+    if (typeof this.taskRepository.count === 'function') {
+      const taskCount = await this.taskRepository.count({
+        where: { sprint_id: sprint.id },
+      });
+      if (taskCount === 0) {
+        throw new BadRequestException('Không thể bắt đầu Sprint rỗng. Vui lòng thêm ít nhất 1 công việc vào Sprint!');
+      }
+    }
+
     if (dto.name) sprint.name = dto.name.trim();
     if (dto.goal !== undefined) sprint.goal = dto.goal ? dto.goal.trim() : null;
     sprint.start_date = new Date(dto.startDate);
@@ -149,30 +159,53 @@ export class SprintsService {
       throw new NotFoundException('Sprint không tồn tại!');
     }
 
-    const tasks = await this.taskRepository.find({
-      where: { sprint_id: sprint.id },
-      relations: { status: true },
-    });
+    const execute = async (
+      taskFinder: (opts: any) => Promise<Task[]>,
+      taskSaver: (t: Task) => Promise<Task>,
+      sprintSaver: (s: Sprint) => Promise<Sprint>,
+    ) => {
+      const tasks = await taskFinder({
+        where: { sprint_id: sprint.id },
+        relations: { status: true },
+      });
 
-    const uncompletedTasks = tasks.filter((t) => t.status?.category !== StatusCategory.DONE);
+      const uncompletedTasks = tasks.filter((t) => t.status?.category !== StatusCategory.DONE);
 
-    if (uncompletedTasks.length > 0) {
-      const targetSprintId = dto.targetSprintId || null;
-      for (const task of uncompletedTasks) {
-        task.sprint_id = targetSprintId;
-        await this.taskRepository.save(task);
+      if (uncompletedTasks.length > 0) {
+        const targetSprintId = dto.targetSprintId || null;
+        for (const task of uncompletedTasks) {
+          task.sprint_id = targetSprintId;
+          await taskSaver(task);
+        }
       }
+
+      sprint.status = SprintStatus.COMPLETED;
+      const completedSprint = await sprintSaver(sprint);
+
+      return {
+        sprint: completedSprint,
+        completedTaskCount: tasks.length - uncompletedTasks.length,
+        uncompletedTaskCount: uncompletedTasks.length,
+        movedToSprintId: dto.targetSprintId || null,
+      };
+    };
+
+    const hasTransaction = Boolean(this.sprintRepository.manager?.transaction);
+    if (hasTransaction) {
+      return await this.sprintRepository.manager.transaction(async (manager) => {
+        return execute(
+          (opts) => manager.find(Task, opts),
+          (t) => manager.save(t),
+          (s) => manager.save(s),
+        );
+      });
     }
 
-    sprint.status = SprintStatus.COMPLETED;
-    const completedSprint = await this.sprintRepository.save(sprint);
-
-    return {
-      sprint: completedSprint,
-      completedTaskCount: tasks.length - uncompletedTasks.length,
-      uncompletedTaskCount: uncompletedTasks.length,
-      movedToSprintId: dto.targetSprintId || null,
-    };
+    return await execute(
+      (opts) => this.taskRepository.find(opts),
+      (t) => this.taskRepository.save(t),
+      (s) => this.sprintRepository.save(s),
+    );
   }
 
   async deleteSprint(userId: string, sprintId: string) {

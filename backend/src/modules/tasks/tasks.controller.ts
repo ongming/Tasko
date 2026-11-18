@@ -16,6 +16,7 @@ import {
   CreateTaskDto,
   UpdateTaskDto,
   MoveTaskDto,
+  TaskQueryDto,
 } from './dto/task.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
@@ -31,10 +32,19 @@ export class TasksController {
   @RequirePermission('PROJECT_VIEW_ONLY')
   async getTasks(
     @Param('projectId') projectId: string,
-    @Query('sprintId') sprintId?: string,
-    @Query('isBacklog') isBacklog?: string,
+    @Query() queryOrSprintId?: TaskQueryDto | string,
+    @Query('isBacklog') maybeIsBacklog?: string,
   ) {
-    return this.tasksService.getTasks(projectId, { sprintId, isBacklog });
+    let query: TaskQueryDto;
+    if (typeof queryOrSprintId === 'string' || maybeIsBacklog !== undefined) {
+      query = {
+        sprintId: typeof queryOrSprintId === 'string' ? queryOrSprintId : undefined,
+        isBacklog: maybeIsBacklog,
+      };
+    } else {
+      query = queryOrSprintId || {};
+    }
+    return this.tasksService.getTasks(projectId, query);
   }
 
   @Post()

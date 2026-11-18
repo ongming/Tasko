@@ -1,26 +1,137 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { taskService, CreateTaskPayload } from '@/services/taskService'
-import type { Task } from '@/types/task'
+import { taskService } from '@/services/taskService'
+import type {
+  Task,
+  TaskItem,
+  CreateTaskPayload,
+  UpdateTaskPayload,
+  MoveTaskPayload,
+  TaskFilterParams,
+} from '@/types/task'
 
 export const taskKeys = {
   all: ['tasks'] as const,
   byProject: (projectId?: string) => ['tasks', { projectId }] as const,
+  projectTasks: (projectIdOrKey?: string, params?: TaskFilterParams) =>
+    ['project-tasks', projectIdOrKey, params] as const,
+  projectTask: (projectIdOrKey?: string, taskId?: string) =>
+    ['project-task', projectIdOrKey, taskId] as const,
 }
 
 /**
- * Hook truy vấn danh sách công việc theo dự án
+ * Hook truy vấn danh sách công việc theo dự án (API chuẩn RESTful)
  */
-export function useTasks(projectId?: string) {
-  return useQuery({
-    queryKey: taskKeys.byProject(projectId),
-    queryFn: () => taskService.getTasks(projectId),
-    staleTime: 1000 * 60 * 3, // Cache 3 phút
+export function useProjectTasks(projectIdOrKey?: string, params?: TaskFilterParams) {
+  return useQuery<TaskItem[]>({
+    queryKey: taskKeys.projectTasks(projectIdOrKey, params),
+    queryFn: () =>
+      projectIdOrKey
+        ? taskService.getProjectTasks(projectIdOrKey, params)
+        : Promise.resolve([]),
+    enabled: Boolean(projectIdOrKey),
+    staleTime: 1000 * 60 * 2,
   })
 }
 
 /**
- * Hook tạo công việc mới với Optimistic Update tức thì
+ * Hook truy vấn chi tiết một Task
  */
+export function useProjectTask(projectIdOrKey?: string, taskId?: string | null) {
+  return useQuery<TaskItem>({
+    queryKey: taskKeys.projectTask(projectIdOrKey, taskId || undefined),
+    queryFn: () => {
+      if (!projectIdOrKey || !taskId) throw new Error('Tham số không hợp lệ')
+      return taskService.getTaskById(projectIdOrKey, taskId)
+    },
+    enabled: Boolean(projectIdOrKey && taskId),
+    staleTime: 1000 * 60 * 1,
+  })
+}
+
+/**
+ * Hook tạo công việc mới trong Project
+ */
+export function useCreateProjectTaskMutation(projectIdOrKey?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: CreateTaskPayload) => {
+      if (!projectIdOrKey) throw new Error('Mã dự án không hợp lệ')
+      return taskService.createProjectTask(projectIdOrKey, payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectIdOrKey] })
+      queryClient.invalidateQueries({ queryKey: ['project-sprints', projectIdOrKey] })
+    },
+  })
+}
+
+/**
+ * Hook cập nhật công việc trong Project
+ */
+export function useUpdateProjectTaskMutation(projectIdOrKey?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ taskId, payload }: { taskId: string; payload: UpdateTaskPayload }) => {
+      if (!projectIdOrKey) throw new Error('Mã dự án không hợp lệ')
+      return taskService.updateProjectTask(projectIdOrKey, taskId, payload)
+    },
+    onSuccess: (_, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectIdOrKey] })
+      queryClient.invalidateQueries({ queryKey: ['project-task', projectIdOrKey, taskId] })
+      queryClient.invalidateQueries({ queryKey: ['project-sprints', projectIdOrKey] })
+    },
+  })
+}
+
+/**
+ * Hook di chuyển công việc (moveTask)
+ */
+export function useMoveProjectTaskMutation(projectIdOrKey?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ taskId, payload }: { taskId: string; payload: MoveTaskPayload }) => {
+      if (!projectIdOrKey) throw new Error('Mã dự án không hợp lệ')
+      return taskService.moveProjectTask(projectIdOrKey, taskId, payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectIdOrKey] })
+      queryClient.invalidateQueries({ queryKey: ['project-sprints', projectIdOrKey] })
+    },
+  })
+}
+
+/**
+ * Hook xóa công việc trong Project
+ */
+export function useDeleteProjectTaskMutation(projectIdOrKey?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (taskId: string) => {
+      if (!projectIdOrKey) throw new Error('Mã dự án không hợp lệ')
+      return taskService.deleteProjectTask(projectIdOrKey, taskId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectIdOrKey] })
+      queryClient.invalidateQueries({ queryKey: ['project-sprints', projectIdOrKey] })
+    },
+  })
+}
+
+// ========================================================
+// LEGACY HOOKS (Duy trì tính tương thích ngược cho Overview)
+// ========================================================
+export function useTasks(projectId?: string) {
+  return useQuery({
+    queryKey: taskKeys.byProject(projectId),
+    queryFn: () => taskService.getTasks(projectId),
+    staleTime: 1000 * 60 * 3,
+  })
+}
+
 export function useCreateTaskMutation(projectId?: string) {
   const queryClient = useQueryClient()
   const currentKey = taskKeys.byProject(projectId)
@@ -44,7 +155,6 @@ export function useCreateTaskMutation(projectId?: string) {
         isDone: false,
       }
 
-      // Đẩy task mới lên đầu cache ngay lập tức (0ms delay)
       queryClient.setQueryData<Task[]>(currentKey, (old = []) => [
         optimisticTask,
         ...old,
@@ -53,69 +163,6 @@ export function useCreateTaskMutation(projectId?: string) {
       return { previousTasks }
     },
     onError: (_err, _newTask, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData(currentKey, context.previousTasks)
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: currentKey })
-    },
-  })
-}
-
-/**
- * Hook cập nhật trạng thái khi kéo thả thẻ Kanban (Optimistic Status Update)
- */
-export function useUpdateTaskStatusMutation(projectId?: string) {
-  const queryClient = useQueryClient()
-  const currentKey = taskKeys.byProject(projectId)
-
-  return useMutation({
-    mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
-      taskService.updateTaskStatus(taskId, status),
-    onMutate: async ({ taskId, status }) => {
-      await queryClient.cancelQueries({ queryKey: currentKey })
-      const previousTasks = queryClient.getQueryData<Task[]>(currentKey) || []
-
-      // Cập nhật trạng thái trực tiếp trong cache để thẻ nhảy cột ngay tức khắc
-      queryClient.setQueryData<Task[]>(currentKey, (old = []) =>
-        old.map((t) => (t.id === taskId ? { ...t, status } : t))
-      )
-
-      return { previousTasks }
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData(currentKey, context.previousTasks)
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: currentKey })
-    },
-  })
-}
-
-/**
- * Hook tick chọn hoàn thành task (Optimistic Checkbox Toggle)
- */
-export function useToggleTaskMutation(projectId?: string) {
-  const queryClient = useQueryClient()
-  const currentKey = taskKeys.byProject(projectId)
-
-  return useMutation({
-    mutationFn: ({ taskId, isDone }: { taskId: string; isDone: boolean }) =>
-      taskService.toggleTask(taskId, isDone),
-    onMutate: async ({ taskId, isDone }) => {
-      await queryClient.cancelQueries({ queryKey: currentKey })
-      const previousTasks = queryClient.getQueryData<Task[]>(currentKey) || []
-
-      queryClient.setQueryData<Task[]>(currentKey, (old = []) =>
-        old.map((t) => (t.id === taskId ? { ...t, isDone } : t))
-      )
-
-      return { previousTasks }
-    },
-    onError: (_err, _vars, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(currentKey, context.previousTasks)
       }

@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Index,
   type Relation,
@@ -93,9 +95,31 @@ export class Task {
   @Column({ type: 'integer', default: 1000 })
   position: number;
 
+  @Column({ name: 'parent_task_id', type: 'uuid', nullable: true })
+  parent_task_id: string | null;
+
+  @ManyToOne(() => Task, (t) => t.subtasks, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'parent_task_id' })
+  parentTask: Relation<Task> | null;
+
+  @OneToMany(() => Task, (t) => t.parentTask)
+  subtasks: Relation<Task>[];
+
+  @Column({ name: 'estimated_hours', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  estimated_hours: number | null;
+
+  @Column({ name: 'start_date', type: 'timestamp with time zone', nullable: true })
+  start_date: Date | null;
+
+  @Column({ name: 'due_date', type: 'timestamp with time zone', nullable: true })
+  due_date: Date | null;
+
   @CreateDateColumn({ type: 'timestamp with time zone' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamp with time zone' })
   updated_at: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp with time zone', nullable: true })
+  deleted_at: Date | null;
 }

@@ -5,22 +5,30 @@ import type {
   CreateTaskPayload,
   UpdateTaskPayload,
   MoveTaskPayload,
+  TaskFilterParams,
 } from '@/types/task'
 
-export type { CreateTaskPayload }
+export type { CreateTaskPayload, TaskFilterParams }
 
 export const taskService = {
   /**
-   * Lấy danh sách task của một dự án (hỗ trợ lọc theo sprintId hoặc isBacklog)
+   * Lấy danh sách task của một dự án (hỗ trợ lọc theo sprintId, isBacklog, search, workTypeId, statusId, assigneeId, priority, sort)
    */
   async getProjectTasks(
     projectIdOrKey: string,
-    params?: { sprintId?: string; isBacklog?: boolean },
+    params?: TaskFilterParams,
   ): Promise<TaskItem[]> {
     try {
       const query = new URLSearchParams()
       if (params?.sprintId) query.set('sprintId', params.sprintId)
       if (params?.isBacklog !== undefined) query.set('isBacklog', String(params.isBacklog))
+      if (params?.search) query.set('search', params.search)
+      if (params?.statusId) query.set('statusId', params.statusId)
+      if (params?.workTypeId) query.set('workTypeId', params.workTypeId)
+      if (params?.assigneeId) query.set('assigneeId', params.assigneeId)
+      if (params?.priority) query.set('priority', params.priority)
+      if (params?.sortBy) query.set('sortBy', params.sortBy)
+      if (params?.sortOrder) query.set('sortOrder', params.sortOrder)
       const qs = query.toString() ? `?${query.toString()}` : ''
 
       const res = await api.get<TaskItem[]>(`/projects/${projectIdOrKey}/tasks${qs}`)

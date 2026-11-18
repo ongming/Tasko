@@ -4,8 +4,10 @@ import {
   IsOptional,
   IsEnum,
   IsInt,
+  IsNumber,
   IsUUID,
   IsArray,
+  IsDateString,
 } from 'class-validator';
 import { TaskPriority } from '../entities/task.entity.js';
 
@@ -51,6 +53,22 @@ export class CreateTaskDto {
   @IsOptional()
   position?: number;
 
+  @IsUUID()
+  @IsOptional()
+  parentTaskId?: string;
+
+  @IsNumber()
+  @IsOptional()
+  estimatedHours?: number;
+
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
+
   @IsArray()
   @IsOptional()
   customFields?: TaskCustomFieldValueInput[];
@@ -93,6 +111,22 @@ export class UpdateTaskDto {
   @IsOptional()
   position?: number;
 
+  @IsUUID()
+  @IsOptional()
+  parentTaskId?: string | null;
+
+  @IsNumber()
+  @IsOptional()
+  estimatedHours?: number | null;
+
+  @IsDateString()
+  @IsOptional()
+  startDate?: string | null;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string | null;
+
   @IsArray()
   @IsOptional()
   customFields?: TaskCustomFieldValueInput[];
@@ -114,4 +148,41 @@ export class MoveTaskDto {
   @IsInt()
   @IsOptional()
   position?: number;
+}
+
+export class TaskQueryDto {
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsString()
+  @IsOptional()
+  sprintId?: string;
+
+  @IsOptional()
+  isBacklog?: boolean | string;
+
+  @IsUUID()
+  @IsOptional()
+  statusId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  workTypeId?: string;
+
+  @IsString()
+  @IsOptional()
+  assigneeId?: string;
+
+  @IsEnum(TaskPriority)
+  @IsOptional()
+  priority?: TaskPriority;
+
+  @IsString()
+  @IsOptional()
+  sortBy?: 'position' | 'dueDate' | 'priority' | 'createdAt';
+
+  @IsString()
+  @IsOptional()
+  sortOrder?: 'ASC' | 'DESC';
 }

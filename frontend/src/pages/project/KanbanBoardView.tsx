@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import {
   Plus,
@@ -20,9 +20,13 @@ import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { taskService } from '@/services/taskService'
 import type { Sprint } from '@/types/sprint'
-import type { TaskItem } from '@/types/task'
+import type { TaskItem, TaskFilterParams } from '@/types/task'
 import type { Project } from '@/types/workspace'
+import type { ProjectMember } from '@/types/member'
+import type { ProjectWorkType } from '@/types/projectConfig'
 import { CompleteSprintModal } from '@/components/project/CompleteSprintModal'
+import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
+import { TaskFilterBar } from '@/components/project/TaskFilterBar'
 
 export interface BoardColumn {
   id: string
@@ -38,19 +42,25 @@ export interface BoardColumn {
 
 export function KanbanBoardView() {
   const [columns, setColumns] = useState<BoardColumn[]>([])
+  const [allTasks, setAllTasks] = useState<TaskItem[]>([])
   const [project, setProject] = useState<Project | null>(null)
   const [sprints, setSprints] = useState<Sprint[]>([])
+  const [members, setMembers] = useState<ProjectMember[]>([])
+  const [workTypes, setWorkTypes] = useState<ProjectWorkType[]>([])
+  const [filters, setFilters] = useState<TaskFilterParams>({})
   const [selectedSprintId, setSelectedSprintId] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [quickAddColumnId, setQuickAddColumnId] = useState<string | null>(null)
   const [quickTaskTitle, setQuickTaskTitle] = useState('')
 
-  // Drag over tracking for columns
+  // Drag tracking to prevent card click opening drawer during drag
+  const isDraggingRef = useRef(false)
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null)
 
-  // Modal hoàn thành Sprint
+  // Modal hoàn thành Sprint & Task detail drawer
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
   const [searchParams] = useSearchParams()
@@ -61,19 +71,23 @@ export function KanbanBoardView() {
     project?.settings?.method_id === 'scrumban' ||
     project?.name?.toLowerCase().includes('scrum')
 
-  // 1. Tải thông tin dự án, cấu hình cột (Statuses), và Sprints
+  // 1. Tải thông tin dự án, cấu hình cột (Statuses), Sprints, Members, WorkTypes
   const loadInitialData = useCallback(async () => {
     if (!projectParam) return
     try {
       setIsLoading(true)
-      const [projData, statuses, loadedSprints] = await Promise.all([
+      const [projData, statuses, loadedSprints, loadedMembers, loadedWorkTypes] = await Promise.all([
         projectService.getProjectById(projectParam).catch(() => null),
         projectService.getProjectStatuses(projectParam).catch(() => []),
         sprintService.getSprints(projectParam).catch(() => []),
+        projectService.getProjectMembers(projectParam).catch(() => []),
+        projectService.getProjectWorkTypes(projectParam).catch(() => []),
       ])
 
       if (projData) setProject(projData)
       setSprints(loadedSprints)
+      setMembers(loadedMembers)
+      setWorkTypes(loadedWorkTypes)
 
       // Chỉ chọn Sprint đã BẮT ĐẦU (ACTIVE hoặc COMPLETED)
       const started = loadedSprints.filter((s) => s.status === 'ACTIVE' || s.status === 'COMPLETED')
@@ -127,19 +141,13 @@ export function KanbanBoardView() {
     loadInitialData()
   }, [loadInitialData])
 
-  // 2. Tải tasks cho bảng (nếu là Scrum thì lọc theo selectedSprintId)
+  // 2. Tải tasks cho bảng (nếu là Scrum thì lấy theo selectedSprintId)
   const loadTasksForBoard = useCallback(async () => {
     if (!projectParam) return
     try {
       const params = isScrum && selectedSprintId ? { sprintId: selectedSprintId } : {}
       const loadedTasks = await taskService.getProjectTasks(projectParam, params)
-
-      setColumns((prevCols) =>
-        prevCols.map((col) => ({
-          ...col,
-          tasks: loadedTasks.filter((t) => t.statusId === col.id),
-        })),
-      )
+      setAllTasks(loadedTasks)
     } catch (err) {
       console.error('Failed to load tasks for board:', err)
     }
@@ -151,6 +159,51 @@ export function KanbanBoardView() {
     }
   }, [columns.length, loadTasksForBoard])
 
+  // Lọc task theo search, assignee, priority, workType
+  const filterTask = useCallback(
+    (task: TaskItem) => {
+      // 1. Search (Title hoặc taskKey)
+      if (filters.search?.trim()) {
+        const q = filters.search.toLowerCase()
+        const matchTitle = task.title.toLowerCase().includes(q)
+        const matchKey = task.taskKey.toLowerCase().includes(q)
+        if (!matchTitle && !matchKey) return false
+      }
+
+      // 2. Assignee
+      if (filters.assigneeId) {
+        if (filters.assigneeId === 'unassigned') {
+          if (task.assigneeId) return false
+        } else if (task.assigneeId !== filters.assigneeId) {
+          return false
+        }
+      }
+
+      // 3. Priority
+      if (filters.priority && task.priority !== filters.priority) {
+        return false
+      }
+
+      // 4. WorkType
+      if (filters.workTypeId && task.typeId !== filters.workTypeId) {
+        return false
+      }
+
+      return true
+    },
+    [filters],
+  )
+
+  const filteredTasks = useMemo(() => allTasks.filter(filterTask), [allTasks, filterTask])
+
+  // Cột hiển thị kèm tasks đã lọc
+  const displayedColumns = useMemo(() => {
+    return columns.map((col) => ({
+      ...col,
+      tasks: filteredTasks.filter((t) => t.statusId === col.id),
+    }))
+  }, [columns, filteredTasks])
+
   // Danh sách các Sprint ĐÃ BẮT ĐẦU (ACTIVE hoặc COMPLETED)
   const startedSprints = sprints.filter((s) => s.status === 'ACTIVE' || s.status === 'COMPLETED')
   const currentSprint =
@@ -159,7 +212,14 @@ export function KanbanBoardView() {
 
   // Kéo thả task giữa các cột với Optimistic UI & Auto-Rollback khi lỗi (WIP limit / Workflow Transition)
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    isDraggingRef.current = true
     e.dataTransfer.setData('taskId', taskId)
+  }
+
+  const handleDragEnd = () => {
+    setTimeout(() => {
+      isDraggingRef.current = false
+    }, 100)
   }
 
   const handleDragOver = (e: React.DragEvent, colId: string) => {
@@ -177,29 +237,13 @@ export function KanbanBoardView() {
     const taskId = e.dataTransfer.getData('taskId')
     if (!taskId || !projectParam) return
 
-    // Lưu snapshot trạng thái trước khi di chuyển để rollback khi API trả lỗi
-    const previousColumns = columns
+    // Lưu snapshot trước khi cập nhật
+    const previousTasks = allTasks
 
     // Optimistic UI update
-    setColumns((prev) => {
-      let movedTask: TaskItem | undefined
-      const withoutMoved = prev.map((col) => {
-        const found = col.tasks.find((t) => t.id === taskId)
-        if (found) movedTask = { ...found, statusId: targetColumnId }
-        return {
-          ...col,
-          tasks: col.tasks.filter((t) => t.id !== taskId),
-        }
-      })
-      if (!movedTask) return prev
-
-      return withoutMoved.map((col) => {
-        if (col.id === targetColumnId && movedTask) {
-          return { ...col, tasks: [...col.tasks, movedTask] }
-        }
-        return col
-      })
-    })
+    setAllTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, statusId: targetColumnId } : t)),
+    )
 
     try {
       await taskService.moveProjectTask(projectParam, taskId, {
@@ -207,8 +251,8 @@ export function KanbanBoardView() {
       })
     } catch (err: any) {
       console.error('Failed to move task:', err)
-      // Tự động hoàn tác (Rollback) lại vị trí cột ban đầu
-      setColumns(previousColumns)
+      // Rollback
+      setAllTasks(previousTasks)
 
       // Trích xuất thông báo lỗi chi tiết từ backend (WIP Limit hoặc Workflow Transition)
       const detailMsg =
@@ -249,7 +293,7 @@ export function KanbanBoardView() {
     return <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
   }
 
-  const totalTasksCount = columns.reduce((acc, col) => acc + col.tasks.length, 0)
+  const totalTasksCount = allTasks.length
 
   const backlogLink =
     workspaceSlug && projectKey
@@ -282,7 +326,11 @@ export function KanbanBoardView() {
         <div className="flex items-center gap-2.5">
           <div className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
             <Eye className="w-3.5 h-3.5 text-slate-400" />
-            <span>{totalTasksCount} công việc trên bảng</span>
+            <span>
+              {filteredTasks.length === totalTasksCount
+                ? `${totalTasksCount} công việc trên bảng`
+                : `${filteredTasks.length} / ${totalTasksCount} công việc (đã lọc)`}
+            </span>
           </div>
         </div>
 
@@ -335,6 +383,16 @@ export function KanbanBoardView() {
         )}
       </div>
 
+      {/* 2. Thanh lọc công việc (Search, Assignee, Priority, WorkType) */}
+      <TaskFilterBar
+        filters={filters}
+        onFilterChange={setFilters}
+        members={members}
+        workTypes={workTypes}
+        totalCount={totalTasksCount}
+        filteredCount={filteredTasks.length}
+      />
+
       {isLoading && (
         <div className="py-16 flex flex-col items-center justify-center gap-2.5 text-slate-500 text-xs">
           <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
@@ -342,10 +400,10 @@ export function KanbanBoardView() {
         </div>
       )}
 
-      {/* 2. Modern Flat Kanban Board Canvas */}
+      {/* 3. Modern Flat Kanban Board Canvas */}
       {!isLoading && (
         <div className="flex-1 flex gap-3.5 overflow-x-auto pb-4 items-start select-none">
-          {columns.map((column) => {
+          {displayedColumns.map((column) => {
             const isDropTarget = dragOverColumnId === column.id
             const columnPoints = column.tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
             const hasWipLimit = column.wipLimit !== null && column.wipLimit !== undefined && column.wipLimit > 0
@@ -449,7 +507,12 @@ export function KanbanBoardView() {
                         key={task.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, task.id)}
-                        className="group bg-white p-3 rounded-lg border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing flex flex-col gap-2"
+                        onDragEnd={handleDragEnd}
+                        onClick={() => {
+                          if (isDraggingRef.current) return
+                          setSelectedTaskId(task.id)
+                        }}
+                        className="group bg-white p-3 rounded-lg border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer flex flex-col gap-2"
                       >
                         {/* Title */}
                         <div className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">
@@ -511,6 +574,18 @@ export function KanbanBoardView() {
             setIsCompleteModalOpen(false)
             await loadInitialData()
           }}
+        />
+      )}
+
+      {/* Task Detail Drawer */}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          isOpen={Boolean(selectedTaskId)}
+          onClose={() => setSelectedTaskId(null)}
+          projectIdOrKey={projectParam}
+          taskId={selectedTaskId}
+          onTaskUpdated={loadTasksForBoard}
+          onTaskDeleted={loadTasksForBoard}
         />
       )}
     </div>

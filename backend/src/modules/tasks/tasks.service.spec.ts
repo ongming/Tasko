@@ -183,6 +183,46 @@ describe('TasksService - Unit Tests', () => {
       expect(customFieldValueRepo.save).toHaveBeenCalled();
       expect(result.id).toBe(mockTaskId);
     });
+
+    it('ném NotFoundException khi parentTaskId không tồn tại', async () => {
+      vi.mocked(taskRepo.findOne!).mockResolvedValue(null);
+
+      await expect(
+        service.createTask('user-1', mockProjectId, {
+          title: 'Subtask thất bại',
+          parentTaskId: 'non-existent-parent',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('ném BadRequestException khi công việc cha không thuộc dự án này', async () => {
+      vi.mocked(taskRepo.findOne!).mockResolvedValue({
+        id: 'parent-other-proj',
+        project_id: 'different-project-id',
+      } as Task);
+
+      await expect(
+        service.createTask('user-1', mockProjectId, {
+          title: 'Subtask khác dự án',
+          parentTaskId: 'parent-other-proj',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ném BadRequestException khi công việc cha đã là subtask', async () => {
+      vi.mocked(taskRepo.findOne!).mockResolvedValue({
+        id: 'parent-subtask',
+        project_id: mockProjectId,
+        parent_task_id: 'grandparent-task',
+      } as Task);
+
+      await expect(
+        service.createTask('user-1', mockProjectId, {
+          title: 'Subtask lồng 2 cấp',
+          parentTaskId: 'parent-subtask',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('moveTask', () => {
@@ -321,6 +361,58 @@ describe('TasksService - Unit Tests', () => {
 
       expect(result.statusId).toBe('status-in-progress');
       expect(result.position).toBe(3000);
+    });
+  });
+
+  describe('updateTask', () => {
+    it('ném BadRequestException khi cập nhật statusId vi phạm WorkflowTransition', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'To Do' },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-strict-1' },
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-done',
+        name: 'Done',
+        project_id: mockProjectId,
+      } as Status);
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue(null);
+
+      await expect(
+        service.updateTask('user-1', mockTaskId, {
+          statusId: 'status-done',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ném BadRequestException khi cập nhật statusId vượt quá WIP limit', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'To Do' },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-1' },
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-in-progress',
+        name: 'In Progress',
+        project_id: mockProjectId,
+        wipLimit: 2,
+      } as Status);
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue({} as any);
+      vi.mocked(taskRepo.count!).mockResolvedValue(2); // đã đủ 2
+
+      await expect(
+        service.updateTask('user-1', mockTaskId, {
+          statusId: 'status-in-progress',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

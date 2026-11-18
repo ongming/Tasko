@@ -34,6 +34,7 @@ describe('SprintsService - Unit Tests', () => {
       find: vi.fn(),
       save: vi.fn(async (entity: any) => entity),
       update: vi.fn(),
+      count: vi.fn().mockResolvedValue(1),
     };
 
     projectRepo = {
@@ -166,6 +167,20 @@ describe('SprintsService - Unit Tests', () => {
         endDate: '2026-01-14',
       });
       expect(result.status).toBe(SprintStatus.ACTIVE);
+    });
+
+    it('ném BadRequestException khi sprint rỗng (0 task)', async () => {
+      const mockSprint = { id: mockSprintId, project_id: mockProjectId } as Sprint;
+      vi.mocked(sprintRepo.findOne!).mockResolvedValueOnce(mockSprint);
+      vi.mocked(sprintRepo.findOne!).mockResolvedValueOnce(null);
+      vi.mocked(taskRepo.count!).mockResolvedValueOnce(0);
+
+      await expect(
+        service.startSprint('user-1', mockSprintId, {
+          startDate: '2026-01-01',
+          endDate: '2026-01-14',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('ném BadRequestException khi đã có sprint đang hoạt động', async () => {
