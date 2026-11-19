@@ -11,34 +11,28 @@ import type { Project } from '@/types/workspace'
 export function ProjectLayout() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
-  const [project, setProject] = useState<Project | null>(null)
   const { projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId')
   const { user } = useAuthStore()
 
-  useEffect(() => {
-    if (!projectParam) {
-      setProject(null)
-      return
-    }
-
-    projectService
-      .getProjectById(projectParam)
-      .then((data) => {
-        setProject(data)
-        // Nếu URL vẫn đang dùng projectId=UUID cũ, tự động chuẩn hóa sang ?project=KEY đẹp như Jira
-        if (data.key && searchParams.get('projectId')) {
-          const newParams = new URLSearchParams(searchParams)
-          newParams.delete('projectId')
-          newParams.set('project', data.key)
-          setSearchParams(newParams, { replace: true })
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load project details:', err)
-      })
-  }, [projectParam])
+  // Tải chi tiết Dự án sử dụng useQuery để tự động đồng bộ khi cập nhật settings.views
+  const { data: project = null } = useQuery<Project | null>({
+    queryKey: ['project', projectParam],
+    queryFn: async () => {
+      if (!projectParam) return null
+      const data = await projectService.getProjectById(projectParam)
+      // Nếu URL vẫn đang dùng projectId=UUID cũ, tự động chuẩn hóa sang ?project=KEY đẹp như Jira
+      if (data.key && searchParams.get('projectId')) {
+        const newParams = new URLSearchParams(searchParams)
+        newParams.delete('projectId')
+        newParams.set('project', data.key)
+        setSearchParams(newParams, { replace: true })
+      }
+      return data
+    },
+    enabled: !!projectParam,
+  })
 
   // Lấy danh sách thành viên thực tế của dự án để hiển thị avatar trên Header
   const { data: members = [] } = useQuery({
@@ -139,8 +133,8 @@ export function ProjectLayout() {
           </div>
         </div>
 
-        {/* Thanh Tab chuyển đổi chế độ xem: Control Board | Bảng | Backlog (nếu Scrum)... */}
-        <ProjectTabBar project={project} />
+        {/* Thanh Tab chuyển đổi chế độ xem: gắn key={projectParam} để mỗi dự án luôn unmount & render độc lập */}
+        <ProjectTabBar key={projectParam} project={project} />
       </div>
 
       {/* 2. Vùng nội dung cuộn bên dưới: Thay đổi linh hoạt theo Tab đang chọn */}

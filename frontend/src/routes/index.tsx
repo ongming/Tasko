@@ -36,9 +36,9 @@ const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'))
 // Project View Pages (Lazy Loaded Chunks)
 const KanbanBoardView = lazy(() => import('@/pages/project/KanbanBoardView'))
 const BacklogView = lazy(() => import('@/pages/project/BacklogView'))
+const ListView = lazy(() => import('@/pages/project/ListView'))
 const TimelineView = lazy(() => import('@/pages/project/TimelineView'))
 const CalendarView = lazy(() => import('@/pages/project/CalendarView'))
-const GanttView = lazy(() => import('@/pages/project/GanttView'))
 const ControlBoardView = lazy(() => import('@/pages/project/ControlBoardView'))
 const ProjectSettingsPage = lazy(() => import('@/pages/project/ProjectSettingsPage'))
 
@@ -172,6 +172,10 @@ export const router = createBrowserRouter([
             element: withSuspense(BacklogView),
           },
           {
+            path: 'list',
+            element: withSuspense(ListView),
+          },
+          {
             path: 'timeline',
             element: withSuspense(TimelineView),
           },
@@ -181,7 +185,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'gantt',
-            element: withSuspense(GanttView),
+            element: withSuspense(TimelineView),
           },
           {
             path: 'settings',
@@ -231,6 +235,10 @@ export const router = createBrowserRouter([
             element: withSuspense(BacklogView),
           },
           {
+            path: 'list',
+            element: withSuspense(ListView),
+          },
+          {
             path: 'timeline',
             element: withSuspense(TimelineView),
           },
@@ -240,7 +248,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'gantt',
-            element: withSuspense(GanttView),
+            element: withSuspense(TimelineView),
           },
           {
             path: 'project-settings',

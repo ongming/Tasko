@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { 
   Kanban, 
   ListTodo, 
   CalendarRange, 
   Calendar, 
-  BarChart3, 
   Sliders, 
   Plus, 
   X,
-  Settings
+  Settings,
+  List
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import type { Project, ProjectViewType } from '@/types/workspace'
@@ -42,28 +43,28 @@ export const ALL_VIEW_TYPES: ProjectViewType[] = [
     description: 'Lập kế hoạch Sprint, chia nhỏ công việc và ước lượng Story Points'
   },
   { 
+    id: 'list', 
+    label: 'Danh sách', 
+    path: '/workspace/list', 
+    icon: List, 
+    isCore: false,
+    description: 'Xem toàn bộ công việc dạng danh sách dòng kẻ, quét nhanh và lọc dễ dàng'
+  },
+  { 
     id: 'timeline', 
-    label: 'Timeline', 
+    label: 'Lộ trình', 
     path: '/workspace/timeline', 
     icon: CalendarRange, 
     isCore: false,
-    description: 'Lộ trình phát triển và dòng thời gian tổng thể các mốc dự án'
+    description: 'Lộ trình tiến độ tổng thể các mốc thời gian và công việc của dự án'
   },
   { 
     id: 'calendar', 
-    label: 'Calendar', 
+    label: 'Lịch', 
     path: '/workspace/calendar', 
     icon: Calendar, 
     isCore: false,
-    description: 'Xem các hạn chót và lịch trình phát hành theo ngày/tháng'
-  },
-  { 
-    id: 'gantt', 
-    label: 'Gantt Chart', 
-    path: '/workspace/gantt', 
-    icon: BarChart3, 
-    isCore: false,
-    description: 'Biểu đồ tiến độ chi tiết và mối quan hệ phụ thuộc giữa các công việc'
+    description: 'Theo dõi các hạn chót và lịch bàn giao theo ngày/tháng'
   },
 ]
 
@@ -72,6 +73,7 @@ export interface ProjectTabBarProps {
 }
 
 export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
+  const queryClient = useQueryClient()
   const location = useLocation()
   const navigate = useNavigate()
   const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
@@ -138,33 +140,29 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     return defaultCoreIds
   })
 
-  // Tự động đồng bộ tabs khi project.settings.views từ database được tải về
+  // Tự động đồng bộ tabs khi project thay đổi hoặc project.settings.views từ database được tải về
   useEffect(() => {
-    if (project?.settings?.views && Array.isArray(project.settings.views)) {
-      setPinnedViewIds(project.settings.views)
+    if (project) {
+      if (Array.isArray(project.settings?.views) && project.settings.views.length > 0) {
+        const validViews = project.settings.views.filter((id) => {
+          const view = ALL_VIEW_TYPES.find((v) => v.id === id)
+          if (!view) return false
+          if (view.onlyScrum && !isScrum) return false
+          return true
+        })
+        setPinnedViewIds(validViews)
+      } else {
+        setPinnedViewIds(isScrum ? ['control', 'board', 'backlog'] : ['control', 'board'])
+      }
     }
-  }, [project?.settings?.views])
+  }, [project?.id, isScrum, JSON.stringify(project?.settings?.views)])
 
-  // Tự động đồng bộ tabs khi method của dự án thay đổi (ví dụ khi load xong thông tin project)
+  // Nếu dự án là Kanban mà đang mở URL backlog thì tự chuyển về board
   useEffect(() => {
-    setPinnedViewIds((prev) => {
-      const valid = prev.filter((id) => {
-        const view = ALL_VIEW_TYPES.find((v) => v.id === id)
-        if (!view) return false
-        if (view.onlyScrum && !isScrum) return false
-        return true
-      })
-      defaultCoreIds.forEach((id) => {
-        if (!valid.includes(id)) valid.push(id)
-      })
-      return valid
-    })
-
-    // Nếu dự án là Kanban mà đang mở URL backlog thì tự chuyển về board
     if (!isScrum && location.pathname.endsWith('/backlog')) {
       navigate(getTabPath('board'), { replace: true })
     }
-  }, [isScrum, location.pathname, location.search, navigate])
+  }, [isScrum, location.pathname])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -189,17 +187,29 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     (v) => (v.isCore && (!v.onlyScrum || isScrum)) || pinnedViewIds.includes(v.id),
   )
 
+  // Chỉ hiển thị trong Popup các View chưa có trên thanh Tab
+  const unpinnedViews = availableViewTypes.filter(
+    (v) => !visibleTabs.some((tab) => tab.id === v.id),
+  )
+
   const handleSelectView = async (view: ProjectViewType) => {
     let nextPinned = pinnedViewIds
     if (!pinnedViewIds.includes(view.id)) {
       nextPinned = [...pinnedViewIds, view.id]
       setPinnedViewIds(nextPinned)
 
-      // Lưu cập nhật vào Database
+      // Lưu cập nhật views theo từng project vào Database
       const targetProjectId = project?.id || activeKey
       if (targetProjectId) {
         try {
-          await projectService.updateProjectSettings(targetProjectId, { views: nextPinned })
+          await projectService.updateProjectSettings(targetProjectId, {
+            settings: {
+              ...(project?.settings || {}),
+              views: nextPinned,
+            },
+            views: nextPinned,
+          })
+          queryClient.invalidateQueries({ queryKey: ['project'] })
         } catch (err) {
           console.error('Failed to persist pinned view to database:', err)
         }
@@ -215,11 +225,18 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     const nextPinned = pinnedViewIds.filter((id) => id !== viewId)
     setPinnedViewIds(nextPinned)
 
-    // Lưu cập nhật vào Database
+    // Lưu cập nhật views theo từng project vào Database
     const targetProjectId = project?.id || activeKey
     if (targetProjectId) {
       try {
-        await projectService.updateProjectSettings(targetProjectId, { views: nextPinned })
+        await projectService.updateProjectSettings(targetProjectId, {
+          settings: {
+            ...(project?.settings || {}),
+            views: nextPinned,
+          },
+          views: nextPinned,
+        })
+        queryClient.invalidateQueries({ queryKey: ['project'] })
       } catch (err) {
         console.error('Failed to persist unpinned view to database:', err)
       }
@@ -232,108 +249,107 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
   }
 
   return (
-    <div className="relative">
-      <nav className="px-4 sm:px-6 flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto scrollbar-none">
-        {visibleTabs.map((tab) => {
-          const Icon = tab.icon
-          const isActive = isTabActive(tab.id)
+    <div className="relative z-30">
+      <nav className="px-4 sm:px-6 flex items-center justify-between border-b border-slate-200">
+        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          {/* Danh sách các Tab đang hiển thị (cuộn ngang nếu quá nhiều tab trên màn hình hẹp) */}
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none py-1">
+            {visibleTabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = isTabActive(tab.id)
 
-          return (
-            <div key={tab.id} className="relative group/tab flex items-center">
-              <Link
-                to={getTabPath(tab.id)}
-                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'border-indigo-600 text-indigo-600 font-semibold '
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-              </Link>
+              return (
+                <div key={tab.id} className="relative group/tab flex items-center">
+                  <Link
+                    to={getTabPath(tab.id)}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-1 whitespace-nowrap transition-all ${
+                      isActive
+                        ? 'border-indigo-600 text-indigo-600 font-semibold'
+                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span>{tab.label}</span>
+                  </Link>
 
-              {/* Close button for non-core views */}
-              {!tab.isCore && (
-                <button
-                  type="button"
-                  onClick={(e) => handleRemoveTab(e, tab.id)}
-                  className="opacity-0 group-hover/tab:opacity-100 -ml-1 mr-1 p-0.5 text-slate-400 hover:text-rose-500 rounded transition-opacity"
-                  title={`Đóng chế độ xem ${tab.label}`}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )
-        })}
-
-        {/* The '+' Add View Button */}
-        <div className="relative flex items-center" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`p-1.5 rounded-lg transition-all ${
-              isDropdownOpen
-                ? 'bg-indigo-50 text-indigo-600 ring-2 ring-indigo-100'
-                : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
-            }`}
-            title="Thêm chế độ xem"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          {/* Add View Dropdown Menu */}
-          {isDropdownOpen && (
-            <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                  Thêm chế độ xem vào dự án
-                </span>
-                <span className="text-[11px] text-slate-400 block mt-0.5">
-                  Chọn định dạng hiển thị phù hợp với giai đoạn quản lý
-                </span>
-              </div>
-
-              <div className="py-1 flex flex-col gap-1 max-h-80 overflow-y-auto">
-                {availableViewTypes.map((view) => {
-                  const Icon = view.icon
-                  const isPinned = pinnedViewIds.includes(view.id) || view.isCore
-
-                  return (
+                  {/* Nút đóng dành cho các view phụ không phải Core */}
+                  {!tab.isCore && (
                     <button
-                      key={view.id}
                       type="button"
-                      onClick={() => handleSelectView(view)}
-                      className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                      onClick={(e) => handleRemoveTab(e, tab.id)}
+                      className="opacity-0 group-hover/tab:opacity-100 -ml-1 mr-1 p-0.5 text-slate-400 hover:text-rose-500 rounded transition-opacity"
+                      title={`Đóng chế độ xem ${tab.label}`}
                     >
-                      <div className="p-2 rounded-lg bg-slate-100 group-hover:bg-indigo-50 text-slate-600 group-hover:text-indigo-600 shrink-0 transition-colors">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                            {view.label}
-                          </span>
-                          {isPinned && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-500">
-                              Đang mở
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1 leading-snug">
-                          {view.description}
-                        </p>
-                      </div>
+                      <X className="w-3 h-3" />
                     </button>
-                  )
-                })}
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Nút '+' Thêm View - Đặt ngoài scroll container để popup KHÔNG BAO GIỜ bị overflow clip */}
+          <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                isDropdownOpen
+                  ? 'bg-indigo-50 text-indigo-600 ring-2 ring-indigo-200 shadow-2xs'
+                  : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
+              }`}
+              title="Thêm chế độ xem"
+              aria-label="Thêm chế độ xem"
+              aria-expanded={isDropdownOpen}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
+            {/* Popup Menu chọn Chế độ xem */}
+            {isDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-slate-200/90 shadow-xl p-1.5 z-50 animate-in fade-in duration-100">
+                <div className="flex flex-col gap-0.5 max-h-80 overflow-y-auto">
+                  {unpinnedViews.length > 0 ? (
+                    unpinnedViews.map((view) => {
+                      const Icon = view.icon
+
+                      return (
+                        <button
+                          key={view.id}
+                          type="button"
+                          onClick={() => handleSelectView(view)}
+                          className="w-full flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                        >
+                          <div className="p-1.5 rounded-md bg-slate-100 group-hover:bg-indigo-50 text-slate-600 group-hover:text-indigo-600 shrink-0 transition-colors">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors block">
+                              {view.label}
+                            </span>
+                            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1 leading-snug">
+                              {view.description}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <div className="p-3 text-center">
+                      <p className="text-xs font-medium text-slate-600">Đã mở tất cả chế độ xem</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Tất cả chế độ xem đã có trên thanh điều hướng.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Nút Cài đặt dự án */}
-        <div className="ml-auto flex items-center pl-2">
+        <div className="shrink-0 flex items-center pl-2">
           <Link
             to={getTabPath('settings')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${

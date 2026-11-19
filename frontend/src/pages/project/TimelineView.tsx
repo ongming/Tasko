@@ -1,198 +1,285 @@
-import React, { useState } from 'react'
-import { 
-  Star, 
-  Share2, 
-  Plus, 
-  Search
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import {
+  CalendarRange,
+  Loader2,
+  Package,
+  Bug,
+  CheckSquare,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
 } from 'lucide-react'
-import ProjectTabBar from '@/components/project/ProjectTabBar'
-
-interface TimelineTask {
-  id: string;
-  name: string;
-  dates: string;
-  start: string;
-  width: string;
-  color: string;
-}
-
-interface TimelineModule {
-  module: string;
-  color: string;
-  badgeClass: string;
-  startCol: string;
-  widthCol: string;
-  progress: number;
-  tasks: TimelineTask[];
-}
+import { taskService } from '@/services/taskService'
+import { sprintService } from '@/services/sprintService'
+import type { TaskItem } from '@/types/task'
+import type { Sprint } from '@/types/sprint'
 
 export function TimelineView() {
-  const [isFavorite, setIsFavorite] = useState<boolean>(true)
-  const [scale, setScale] = useState<'weeks' | 'months' | 'quarters'>('months')
+  const { projectKey } = useParams<{ projectKey?: string }>()
+  const [searchParams] = useSearchParams()
+  const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId') || ''
 
-  const timelineItems: TimelineModule[] = []
+  const [tasks, setTasks] = useState<TaskItem[]>([])
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const months = ['Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7']
+  // Timeline window: default to 4 weeks centered on current date
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 7) // 1 week ago
+    return d
+  })
+
+  const loadData = useCallback(async () => {
+    if (!projectParam) return
+    try {
+      setIsLoading(true)
+      const [loadedTasks, loadedSprints] = await Promise.all([
+        taskService.getProjectTasks(projectParam).catch(() => []),
+        sprintService.getSprints(projectParam).catch(() => []),
+      ])
+      setTasks(loadedTasks)
+      setSprints(loadedSprints)
+    } catch (err) {
+      console.error('Failed to load timeline data:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [projectParam])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Total days to display on timeline (28 days / 4 weeks)
+  const totalDays = 28
+
+  const daysList = useMemo(() => {
+    const list: Array<{ date: Date; dateStr: string; dayNumber: number; isToday: boolean; isWeekend: boolean }> = []
+    const todayStr = new Date().toISOString().split('T')[0]
+
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      const dateStr = d.toISOString().split('T')[0]
+      const dayOfWeek = d.getDay() // 0 = CN, 6 = T7
+
+      list.push({
+        date: d,
+        dateStr,
+        dayNumber: d.getDate(),
+        isToday: dateStr === todayStr,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+      })
+    }
+    return list
+  }, [startDate, totalDays])
+
+  const handlePrevRange = () => {
+    setStartDate((prev) => {
+      const d = new Date(prev)
+      d.setDate(d.getDate() - 14)
+      return d
+    })
+  }
+
+  const handleNextRange = () => {
+    setStartDate((prev) => {
+      const d = new Date(prev)
+      d.setDate(d.getDate() + 14)
+      return d
+    })
+  }
+
+  const handleToday = () => {
+    const d = new Date()
+    d.setDate(d.getDate() - 7)
+    setStartDate(d)
+  }
+
+  // Helper tính vị trí % thanh ngang trên timeline
+  const calculateBarPosition = (task: TaskItem) => {
+    const startWindow = startDate.getTime()
+    const endWindow = startWindow + totalDays * 24 * 60 * 60 * 1000
+
+    // Mặc định: nếu không có dueDate thì lấy thời gian tạo + 3 ngày
+    const taskStart = new Date(task.dueDate || new Date()).getTime()
+    const taskEnd = task.dueDate ? new Date(task.dueDate).getTime() : taskStart + 3 * 24 * 60 * 60 * 1000
+
+    // Tỉ lệ %
+    const leftPercent = Math.max(0, Math.min(100, ((taskStart - startWindow) / (endWindow - startWindow)) * 100))
+    const rightPercent = Math.max(leftPercent + 3, Math.min(100, ((taskEnd - startWindow) / (endWindow - startWindow)) * 100))
+    const widthPercent = Math.max(3, rightPercent - leftPercent)
+
+    return { leftPercent, widthPercent }
+  }
+
+  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => {
+    const iconName = type?.icon?.toLowerCase() || ''
+    if (iconName.includes('package') || type?.name?.toLowerCase().includes('module')) {
+      return <Package className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+    }
+    if (iconName.includes('bug') || type?.name?.toLowerCase().includes('bug')) {
+      return <Bug className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+    }
+    return <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+  }
+
+  const rangeLabel = useMemo(() => {
+    const first = daysList[0]?.date
+    const last = daysList[daysList.length - 1]?.date
+    if (!first || !last) return ''
+    return `${first.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - ${last.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  }, [daysList])
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto">
-      {/* 1. Project Ribbon Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Website Redesign
-            </h1>
+    <div className="flex flex-col gap-4 w-full flex-1 max-w-full pb-10">
+      {/* 1. Header Toolbar */}
+      <div className="flex items-center justify-between flex-wrap gap-3 py-1">
+        {/* Navigation */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-white border border-slate-200/90 rounded-lg p-0.5 shadow-2xs">
             <button
               type="button"
-              onClick={() => setIsFavorite(!isFavorite)}
-              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Đánh dấu dự án yêu thích"
+              onClick={handlePrevRange}
+              className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              title="2 tuần trước"
             >
-              <Star className={`w-5 h-5 transition-colors ${isFavorite ? 'fill-amber-400 text-amber-500' : 'text-slate-400'}`} />
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-xs font-semibold">
-              WR-2024
+            <span className="text-xs font-bold text-slate-800 px-3 select-none">
+              {rangeLabel}
             </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center -space-x-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white">NA</div>
-              <div className="w-8 h-8 rounded-full bg-blue-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white">TB</div>
-              <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white">LC</div>
-              <div className="w-8 h-8 rounded-full bg-teal-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white">PD</div>
-              <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center ring-2 ring-white">+5</div>
-            </div>
-            <button type="button" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-xs">
-              <Share2 className="w-4 h-4" />
-              <span>Chia sẻ</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Project Tabs */}
-        <ProjectTabBar />
-      </div>
-
-      {/* 2. Timeline Controls Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <div className="relative w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm công việc trên Timeline..."
-              className="w-full h-8.5 pl-9 pr-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-            />
-          </div>
-        </div>
-
-        {/* Scale Switcher: Tuần / Tháng / Quý */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 shadow-2xs">
             <button
               type="button"
-              onClick={() => setScale('weeks')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${scale === 'weeks' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600'}`}
+              onClick={handleNextRange}
+              className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              title="2 tuần sau"
             >
-              Tuần
-            </button>
-            <button
-              type="button"
-              onClick={() => setScale('months')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${scale === 'months' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600'}`}
-            >
-              Tháng
-            </button>
-            <button
-              type="button"
-              onClick={() => setScale('quarters')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${scale === 'quarters' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600'}`}
-            >
-              Quý
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs"
+            onClick={handleToday}
+            className="h-8 px-2.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Thêm Module / Mốc</span>
+            Hôm nay
           </button>
         </div>
+
+        {/* Info */}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
+          <span>
+            <strong className="text-slate-800 font-semibold">{tasks.length}</strong> công việc trên lộ trình
+          </span>
+        </div>
       </div>
 
-      {/* 3. Timeline Gantt Roadmap Matrix */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-        {/* Timeline Header Row */}
-        <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50/80 py-2.5 px-4 text-xs font-bold text-slate-600">
-          <div className="col-span-4 border-r border-slate-200 pr-4">
-            Module / Công việc
+      {isLoading && (
+        <div className="py-20 flex flex-col items-center justify-center gap-2.5 text-slate-500 text-xs">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+          <span className="font-medium">Đang tải lộ trình dự án...</span>
+        </div>
+      )}
+
+      {/* 2. Timeline Grid & Horizontal Bars */}
+      {!isLoading && (
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+          {/* Timeline Time Ruler */}
+          <div className="flex border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-bold text-slate-500 select-none">
+            {/* Task Title Column (Fixed Left) */}
+            <div className="w-64 min-w-[250px] shrink-0 px-4 py-2 border-r border-slate-200/80 uppercase tracking-wider">
+              Công việc
+            </div>
+
+            {/* Days Ruler */}
+            <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))` }}>
+              {daysList.map((d) => (
+                <div
+                  key={d.dateStr}
+                  className={`text-center py-2 border-r border-slate-100 last:border-r-0 ${
+                    d.isToday
+                      ? 'bg-indigo-50/70 text-indigo-700 font-bold'
+                      : d.isWeekend
+                        ? 'bg-slate-100/50 text-slate-400'
+                        : 'text-slate-600'
+                  }`}
+                >
+                  <span>{d.dayNumber}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="col-span-8 grid grid-cols-4 text-center divide-x divide-slate-200">
-            {months.map((m) => (
-              <span key={m}>{m}</span>
-            ))}
+
+          {/* Task Rows with Bars */}
+          <div className="divide-y divide-slate-100">
+            {tasks.length === 0 ? (
+              <div className="py-16 text-center text-xs text-slate-400">
+                Chưa có công việc nào trên lộ trình
+              </div>
+            ) : (
+              tasks.map((task) => {
+                const { leftPercent, widthPercent } = calculateBarPosition(task)
+
+                return (
+                  <div key={task.id} className="flex items-center hover:bg-slate-50/60 transition-colors group">
+                    {/* Left Task Key & Title */}
+                    <div className="w-64 min-w-[250px] shrink-0 px-4 py-2.5 border-r border-slate-100 flex items-center gap-2 min-w-0">
+                      {renderWorkTypeIcon(task.type)}
+                      <span className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 shrink-0">
+                        {task.taskKey}
+                      </span>
+                      <span className="text-xs font-medium text-slate-800 truncate" title={task.title}>
+                        {task.title}
+                      </span>
+                    </div>
+
+                    {/* Right Timeline Bar Track */}
+                    <div className="flex-1 relative h-9 flex items-center px-1">
+                      {/* Background Day Columns */}
+                      <div
+                        className="absolute inset-0 grid pointer-events-none"
+                        style={{ gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))` }}
+                      >
+                        {daysList.map((d) => (
+                          <div
+                            key={d.dateStr}
+                            className={`border-r border-slate-100/60 last:border-r-0 ${
+                              d.isToday ? 'bg-indigo-50/30' : d.isWeekend ? 'bg-slate-50/40' : ''
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Interactive Horizontal Bar */}
+                      <div
+                        style={{
+                          left: `${leftPercent}%`,
+                          width: `${widthPercent}%`,
+                        }}
+                        className="relative h-6 rounded-md bg-indigo-500 hover:bg-indigo-600 text-white px-2 flex items-center justify-between text-[10px] font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer truncate"
+                        title={`${task.taskKey}: ${task.title}`}
+                      >
+                        <span className="truncate">{task.title}</span>
+                        {task.storyPoints !== null && task.storyPoints !== undefined && (
+                          <span className="ml-1 px-1 rounded bg-indigo-700/60 text-[9px] font-mono shrink-0">
+                            {task.storyPoints} SP
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
-
-        {/* Timeline Items */}
-        {timelineItems.length === 0 ? (
-          <div className="py-12 px-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-slate-700">Chưa có Module hoặc công việc nào trên Lộ trình (Timeline)</p>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
-              Nhấn nút &ldquo;Thêm Module / Mốc&rdquo; để thiết lập các giai đoạn phát triển cho dự án của bạn.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {timelineItems.map((item, idx) => (
-              <div key={idx} className="flex flex-col">
-                {/* Module Parent Bar */}
-                <div className="grid grid-cols-12 items-center py-3 px-4 bg-slate-50/40 hover:bg-slate-50 transition-colors">
-                  <div className="col-span-4 border-r border-slate-200 pr-4 flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded ${item.color} shrink-0`} />
-                    <span className="text-xs font-bold text-slate-900 truncate">{item.module}</span>
-                    <span className="text-[10px] font-bold text-indigo-600 ml-auto shrink-0">{item.progress}%</span>
-                  </div>
-                  <div className="col-span-8 pl-4 relative h-7 flex items-center">
-                    <div 
-                      className={`absolute h-5.5 rounded-md ${item.color} opacity-90 shadow-2xs text-white text-[10px] font-bold px-2 flex items-center justify-between overflow-hidden`}
-                      style={{ left: item.startCol, width: item.widthCol }}
-                    >
-                      <span className="truncate">{item.module}</span>
-                      <span>{item.progress}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sub-tasks in this Module */}
-                {item.tasks.map((task) => (
-                  <div key={task.id} className="grid grid-cols-12 items-center py-2 px-4 hover:bg-slate-50/70 transition-colors">
-                    <div className="col-span-4 border-r border-slate-200 pr-4 pl-6 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono text-[11px] font-semibold text-slate-400">{task.id}</span>
-                        <span className="text-slate-700 truncate font-medium text-[11px]">{task.name}</span>
-                      </div>
-                    </div>
-                    <div className="col-span-8 pl-4 relative h-6 flex items-center">
-                      <div 
-                        className={`absolute h-4 rounded-md ${task.color} text-white text-[9px] font-bold px-2 flex items-center truncate shadow-2xs`}
-                        style={{ left: task.start, width: task.width }}
-                        title={`${task.name} (${task.dates})`}
-                      >
-                        {task.name}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

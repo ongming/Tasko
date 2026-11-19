@@ -1195,6 +1195,10 @@ export class ProjectsService {
       }
     }
 
+    if (dto.views !== undefined) {
+      cleanSettings['views'] = dto.views;
+    }
+
     project.settings = {
       ...project.settings,
       ...cleanSettings,

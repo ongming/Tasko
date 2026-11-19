@@ -228,5 +228,8 @@ export class UpdateProjectSettingsDto {
   methodology?: ProjectMethodology;
 
   @IsOptional()
+  views?: string[];
+
+  @IsOptional()
   settings?: Record<string, any>;
 }

@@ -24,6 +24,11 @@ import {
   Bookmark,
   Shield,
   Tag,
+  Calendar,
+  CalendarRange,
+  List,
+  Sliders,
+  Check,
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import type {
@@ -90,6 +95,7 @@ export function ProjectSettingsPage() {
   const [generalStartDate, setGeneralStartDate] = useState('')
   const [generalEndDate, setGeneralEndDate] = useState('')
   const [generalMethodology, setGeneralMethodology] = useState<'KANBAN' | 'SCRUM' | 'SCRUMBAN'>('KANBAN')
+  const [generalViews, setGeneralViews] = useState<string[]>([])
 
   // Modal Xóa Dự án
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -101,14 +107,22 @@ export function ProjectSettingsPage() {
       setGeneralDescription(project.description || '')
       setGeneralStartDate(project.startDate ? project.startDate.split('T')[0] : '')
       setGeneralEndDate(project.endDate ? project.endDate.split('T')[0] : '')
-      setGeneralMethodology(
+      const method =
         (project.methodology as 'KANBAN' | 'SCRUM' | 'SCRUMBAN') ||
-          (project.settings?.method_id === 'scrum'
-            ? 'SCRUM'
-            : project.settings?.method_id === 'scrumban'
-            ? 'SCRUMBAN'
-            : 'KANBAN'),
-      )
+        (project.settings?.method_id === 'scrum'
+          ? 'SCRUM'
+          : project.settings?.method_id === 'scrumban'
+          ? 'SCRUMBAN'
+          : 'KANBAN')
+      setGeneralMethodology(method)
+
+      const savedViews = Array.isArray(project.settings?.views) ? project.settings.views : []
+      if (savedViews.length > 0) {
+        setGeneralViews(savedViews)
+      } else {
+        const isScrum = method === 'SCRUM' || method === 'SCRUMBAN'
+        setGeneralViews(isScrum ? ['control', 'board', 'backlog'] : ['control', 'board'])
+      }
     }
   }, [project])
 
@@ -120,9 +134,11 @@ export function ProjectSettingsPage() {
         startDate: generalStartDate || null,
         endDate: generalEndDate || null,
         methodology: generalMethodology,
+        views: generalViews,
         settings: {
           ...project?.settings,
           method_id: generalMethodology.toLowerCase(),
+          views: generalViews,
         },
       }),
     onSuccess: () => {
@@ -730,6 +746,124 @@ export function ProjectSettingsPage() {
                 <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
                 <span>Việc chuyển đổi phương pháp quản lý sẽ không làm mất dữ liệu công việc hiện có.</span>
               </p>
+            </div>
+
+            {/* Cấu hình các Chế độ xem hiển thị (Project Views) */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Chế độ xem dự án (Views)
+              </label>
+              <p className="text-[11px] text-slate-500 mb-3">
+                Cấu hình các chế độ xem hiển thị mặc định trên thanh điều hướng cho các thành viên trong dự án này.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  {
+                    id: 'control',
+                    label: 'Control Board',
+                    icon: Sliders,
+                    desc: 'Bảng điều khiển tổng quan dự án',
+                    isCore: true,
+                  },
+                  {
+                    id: 'board',
+                    label: 'Bảng (Board)',
+                    icon: Kanban,
+                    desc: 'Bảng Kanban theo các cột trạng thái',
+                    isCore: true,
+                  },
+                  {
+                    id: 'backlog',
+                    label: 'Backlog',
+                    icon: ListTodo,
+                    desc: 'Kế hoạch Sprint và ước lượng Story Points',
+                    isCore: true,
+                    onlyScrum: true,
+                  },
+                  {
+                    id: 'list',
+                    label: 'Danh sách',
+                    icon: List,
+                    desc: 'Xem danh sách dòng kẻ, lọc và quét nhanh',
+                  },
+                  {
+                    id: 'timeline',
+                    label: 'Lộ trình',
+                    icon: CalendarRange,
+                    desc: 'Dòng thời gian tiến độ tổng thể các mốc dự án',
+                  },
+                  {
+                    id: 'calendar',
+                    label: 'Lịch',
+                    icon: Calendar,
+                    desc: 'Theo dõi hạn chót và lịch bàn giao theo ngày/tháng',
+                  },
+                ]
+                  .filter(
+                    (v) =>
+                      !v.onlyScrum ||
+                      generalMethodology === 'SCRUM' ||
+                      generalMethodology === 'SCRUMBAN',
+                  )
+                  .map((view) => {
+                    const Icon = view.icon
+                    const isSelected = generalViews.includes(view.id)
+                    const isCore = view.isCore
+
+                    const toggleView = () => {
+                      if (isCore) return // Không cho tắt các view mặc định
+                      if (isSelected) {
+                        setGeneralViews((prev) => prev.filter((id) => id !== view.id))
+                      } else {
+                        setGeneralViews((prev) => [...prev, view.id])
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={view.id}
+                        onClick={toggleView}
+                        className={`p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
+                          isCore ? 'cursor-default' : 'cursor-pointer hover:border-slate-300'
+                        } ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/30 ring-1 ring-indigo-500/40 shadow-2xs'
+                            : 'border-slate-200 bg-slate-50/50 opacity-60'
+                        }`}
+                      >
+                        <div
+                          className={`p-1.5 rounded-lg shrink-0 ${
+                            isSelected ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200/70 text-slate-500'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-slate-800 truncate">
+                              {view.label}
+                            </span>
+                            {isCore ? (
+                              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Mặc định
+                              </span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={toggleView}
+                                className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                              />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1 leading-snug">
+                            {view.desc}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
             </div>
 
             <div className="flex justify-end pt-3">
