@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -91,5 +92,17 @@ export class UsersController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(userId, changePasswordDto);
+  }
+
+  /**
+   * 5. TÌM KIẾM NGƯỜI DÙNG BẰNG EMAIL HOẶC HỌ TÊN (AUTOSUGGEST)
+   * GET /api/v1/users/search?q=...
+   */
+  @Get('search')
+  async searchUsers(
+    @CurrentUser('id') currentUserId: string,
+    @Query('q') query: string,
+  ) {
+    return this.usersService.searchUsers(query, currentUserId);
   }
 }

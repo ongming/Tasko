@@ -58,6 +58,11 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
   const navigate = useNavigate()
   const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
   const user = useAuthStore((state) => state.user)
+  const [avatarError, setAvatarError] = useState(false)
+
+  useEffect(() => {
+    setAvatarError(false)
+  }, [user?.avatar_url, user?.avatarUrl])
 
   // Danh sách Workspaces và trạng thái chọn
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>(INITIAL_WORKSPACES)
@@ -661,14 +666,15 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
             title="Cài đặt & Hồ sơ cá nhân"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              {user?.avatar_url || user?.avatarUrl ? (
+              {(user?.avatar_url || user?.avatarUrl) && !avatarError ? (
                 <img
                   src={user.avatar_url || user.avatarUrl || ''}
                   alt={user.full_name || user.fullName || 'User'}
+                  onError={() => setAvatarError(true)}
                   className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-200 shadow-2xs shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs select-none">
                   {user?.full_name || user?.fullName ? (user.full_name || user.fullName)!.slice(0, 2).toUpperCase() : 'U'}
                 </div>
               )}

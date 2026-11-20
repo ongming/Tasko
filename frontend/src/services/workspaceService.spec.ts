@@ -6,6 +6,8 @@ vi.mock('@/lib/api', () => ({
   api: {
     post: vi.fn(),
     get: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
@@ -66,5 +68,32 @@ describe('workspaceService - Unit Tests', () => {
 
     expect(api.get).toHaveBeenCalledWith('/workspaces/phong-cong-nghe')
     expect(result).toEqual(mockDetail)
+  })
+
+  it('gọi đúng endpoint PATCH /workspaces/:wsId khi cập nhật workspace', async () => {
+    const wsId = 'ws-123'
+    const payload = { name: 'New Name' }
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: wsId, name: 'New Name' } })
+
+    await workspaceService.update(wsId, payload)
+    expect(api.patch).toHaveBeenCalledWith('/workspaces/ws-123', payload)
+  })
+
+  it('gọi đúng endpoint POST /workspaces/:wsId/members khi thêm thành viên', async () => {
+    const wsId = 'ws-123'
+    const payload = { email: 'user@example.com', roleId: 'role-1' }
+    vi.mocked(api.post).mockResolvedValue({ data: { id: 'wm-1' } })
+
+    await workspaceService.addMember(wsId, payload)
+    expect(api.post).toHaveBeenCalledWith('/workspaces/ws-123/members', payload)
+  })
+
+  it('gọi đúng endpoint DELETE /workspaces/:wsId/members/:userId khi xóa thành viên', async () => {
+    const wsId = 'ws-123'
+    const userId = 'user-456'
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } })
+
+    await workspaceService.removeMember(wsId, userId)
+    expect(api.delete).toHaveBeenCalledWith('/workspaces/ws-123/members/user-456')
   })
 })

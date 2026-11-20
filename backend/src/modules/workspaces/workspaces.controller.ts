@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
+import { UpdateWorkspaceDto } from './dto/update-workspace.dto.js';
 import {
   AddWorkspaceMemberDto,
   UpdateWorkspaceMemberRoleDto,
@@ -56,6 +57,19 @@ export class WorkspacesController {
     @Param('slug') slug: string,
   ) {
     return this.workspacesService.findBySlug(userId, slug);
+  }
+
+  /**
+   * PATCH /api/v1/workspaces/:wsId - Cập nhật thông tin workspace
+   */
+  @Patch(':wsId')
+  @RequirePermission('WORKSPACE_ADMIN')
+  async update(
+    @CurrentUser('id') userId: string,
+    @Param('wsId') wsId: string,
+    @Body() updateWorkspaceDto: UpdateWorkspaceDto,
+  ) {
+    return this.workspacesService.update(wsId, userId, updateWorkspaceDto);
   }
 
   /**

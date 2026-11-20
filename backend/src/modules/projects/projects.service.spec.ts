@@ -99,6 +99,8 @@ describe('ProjectsService - Unit Tests', () => {
     memberRepo = {
       findOne: vi.fn(),
       find: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'wm-mock-id' })),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'wm-mock-id' })),
     };
 
     userRepo = {
@@ -476,15 +478,16 @@ describe('ProjectsService - Unit Tests', () => {
       expect(projectMemberRepo.save).toHaveBeenCalled();
     });
 
-    it('addProjectMember: ném BadRequestException khi người dùng chưa thuộc Workspace', async () => {
+    it('addProjectMember: tự động bổ sung vào Workspace nếu người dùng chưa thuộc Workspace', async () => {
       vi.mocked(projectRepo.findOne!).mockResolvedValue({ id: projId, workspace_id: mockWorkspaceId } as Project);
       vi.mocked(roleRepo.findOne!).mockResolvedValue({ id: roleId, name: 'MEMBER', scope: RoleScope.PROJECT } as Role);
       vi.mocked(userRepo.findOne!).mockResolvedValue({ id: targetUserId, email: 'outsider@example.com' } as User);
       vi.mocked(memberRepo.findOne!).mockResolvedValue(null); // Chưa thuộc workspace!
 
-      await expect(
-        service.addProjectMember(projId, { userId: targetUserId, roleId }),
-      ).rejects.toThrow('Người dùng phải là thành viên của Không gian làm việc trước khi thêm vào Dự án!');
+      const res = await service.addProjectMember(projId, { userId: targetUserId, roleId });
+      expect(res.userId).toBe(targetUserId);
+      expect(memberRepo.save).toHaveBeenCalled();
+      expect(projectMemberRepo.save).toHaveBeenCalled();
     });
 
     it('updateProjectMemberRole: chặn đổi sang role OWNER qua API này', async () => {

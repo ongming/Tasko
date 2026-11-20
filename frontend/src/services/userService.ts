@@ -6,7 +6,21 @@ import type {
   SimpleMessageResponse,
 } from '@/types/auth'
 
+export interface UserSearchItem {
+  id: string
+  email: string
+  fullName: string
+  avatarUrl?: string | null
+}
+
 export const userService = {
+  /**
+   * Tìm kiếm người dùng trong hệ thống bằng email hoặc họ tên
+   * GET /api/v1/users/search?q=...
+   */
+  searchUsers: (query: string) =>
+    api.get<UserSearchItem[]>(`/users/search?q=${encodeURIComponent(query)}`),
+
   /**
    * Lấy thông tin hồ sơ tài khoản hiện tại
    * GET /api/v1/users/me

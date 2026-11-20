@@ -4,11 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProjectMembersModal } from './ProjectMembersModal'
 import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
+import { userService } from '@/services/userService'
 import { useAuthStore } from '@/stores/authStore'
 import type { ProjectMember, Role } from '@/types/member'
 
 vi.mock('@/services/projectService')
 vi.mock('@/services/workspaceService')
+vi.mock('@/services/userService')
 vi.mock('@/stores/authStore')
 
 describe('ProjectMembersModal - Component Tests', () => {
@@ -198,18 +200,31 @@ describe('ProjectMembersModal - Component Tests', () => {
     expect(screen.queryByLabelText(/Chuyển quyền sở hữu cho Alice Member/i)).not.toBeInTheDocument()
   })
 
-  it('thêm thành viên mới thành công từ danh sách thành viên Workspace', async () => {
+  it('thêm thành viên mới thành công từ danh sách tìm kiếm Autosuggest', async () => {
     vi.mocked(projectService.addProjectMember).mockResolvedValue({} as any)
+    vi.mocked(userService.searchUsers).mockResolvedValue([
+      {
+        id: 'user-new',
+        email: 'bob@tasko.dev',
+        fullName: 'Bob New',
+        avatarUrl: null,
+      },
+    ])
 
     renderModal()
 
     expect(await screen.findByText('Thêm thành viên mới')).toBeInTheDocument()
 
-    // Chọn thành viên từ dropdown workspace members
-    const selectWorkspaceMember = await screen.findByDisplayValue(
-      '-- Chọn thành viên từ Workspace --',
-    )
-    fireEvent.change(selectWorkspaceMember, { target: { value: 'user-new' } })
+    // Nhập từ khóa tìm kiếm vào ô input
+    const searchInput = screen.getByPlaceholderText('Nhập email hoặc họ tên thành viên...')
+    fireEvent.change(searchInput, { target: { value: 'bob@tasko.dev' } })
+
+    // Đợi popup gợi ý hiển thị kết quả sau khi debounce
+    const userOption = await screen.findByText('Bob New')
+    expect(userOption).toBeInTheDocument()
+
+    // Bấm chọn user từ popup
+    fireEvent.click(userOption)
 
     const addBtn = screen.getByRole('button', { name: /Thêm vào dự án/i })
     fireEvent.click(addBtn)

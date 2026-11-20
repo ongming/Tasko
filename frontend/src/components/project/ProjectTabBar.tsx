@@ -249,7 +249,7 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
   }
 
   return (
-    <div className="relative z-30">
+    <div className="relative z-10">
       <nav className="px-4 sm:px-6 flex items-center justify-between border-b border-slate-200">
         <div className="flex items-center gap-1 sm:gap-2 min-w-0">
           {/* Danh sách các Tab đang hiển thị (cuộn ngang nếu quá nhiều tab trên màn hình hẹp) */}

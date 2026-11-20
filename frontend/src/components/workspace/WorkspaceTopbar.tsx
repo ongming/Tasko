@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { 
   Search, 
   Bell, 
@@ -20,10 +20,18 @@ export interface WorkspaceTopbarProps {
 export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps) {
   const { user, clearAuth } = useAuthStore()
   const navigate = useNavigate()
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
+  const settingsPath = workspaceSlug ? `/${workspaceSlug}/settings` : '/workspace/settings'
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [avatarError, setAvatarError] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Tự động khôi phục cờ lỗi ảnh khi avatar URL thay đổi
+  useEffect(() => {
+    setAvatarError(false)
+  }, [user?.avatar_url, user?.avatarUrl])
 
   // Bắt phím tắt Ctrl + K / Cmd + K để focus nhanh vào thanh tìm kiếm
   useEffect(() => {
@@ -72,7 +80,7 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
   }
 
   return (
-    <header className="w-full h-14 shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-5 flex items-center justify-between gap-3 shadow-2xs">
+    <header className="w-full h-14 shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-5 flex items-center justify-between gap-3 shadow-2xs">
       {/* 1. Left: Mobile menu toggle + App Switcher + Brand Logo (Trải dài toàn màn hình như Jira) */}
       <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
         {/* Mobile toggle */}
@@ -130,7 +138,7 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
 
         {/* Settings */}
         <Link
-          to="/workspace/settings"
+          to={settingsPath}
           className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           title="Cài đặt không gian"
           aria-label="Cài đặt không gian làm việc"
@@ -151,14 +159,15 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
             aria-expanded={isDropdownOpen}
             aria-label="Menu tài khoản cá nhân"
           >
-            {user?.avatar_url || user?.avatarUrl ? (
+            {(user?.avatar_url || user?.avatarUrl) && !avatarError ? (
               <img
                 src={user.avatar_url || user.avatarUrl || ''}
                 alt={user.full_name || user.fullName || 'User'}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-xs"
+                onError={() => setAvatarError(true)}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-xs shrink-0"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-semibold text-xs flex items-center justify-center ring-2 ring-white shadow-xs shrink-0 select-none">
                 {getInitials(user?.full_name || user?.fullName)}
               </div>
             )}
@@ -181,7 +190,7 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
               {/* Menu items */}
               <div className="py-1">
                 <Link
-                  to="/workspace/settings"
+                  to={settingsPath}
                   onClick={() => setIsDropdownOpen(false)}
                   className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                 >

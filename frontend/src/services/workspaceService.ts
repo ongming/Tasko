@@ -29,6 +29,35 @@ export const workspaceService = {
    */
   getMembers: (wsId: string) =>
     api.get<WorkspaceMemberItem[]>(`/workspaces/${encodeURIComponent(wsId)}/members`),
+
+  /**
+   * Cập nhật thông tin workspace (tên, mô tả)
+   */
+  update: (wsId: string, payload: { name?: string; description?: string }) =>
+    api.patch<WorkspaceResponse>(`/workspaces/${encodeURIComponent(wsId)}`, payload),
+
+  /**
+   * Thêm thành viên mới vào workspace bằng email và roleId
+   */
+  addMember: (wsId: string, payload: { email: string; roleId: string }) =>
+    api.post<WorkspaceMemberItem>(`/workspaces/${encodeURIComponent(wsId)}/members`, payload),
+
+  /**
+   * Cập nhật vai trò thành viên trong workspace
+   */
+  updateMemberRole: (wsId: string, userId: string, payload: { roleId: string }) =>
+    api.patch<WorkspaceMemberItem>(
+      `/workspaces/${encodeURIComponent(wsId)}/members/${encodeURIComponent(userId)}/role`,
+      payload
+    ),
+
+  /**
+   * Xóa thành viên khỏi workspace
+   */
+  removeMember: (wsId: string, userId: string) =>
+    api.delete<{ success: boolean; message: string }>(
+      `/workspaces/${encodeURIComponent(wsId)}/members/${encodeURIComponent(userId)}`
+    ),
 }
 
 export default workspaceService

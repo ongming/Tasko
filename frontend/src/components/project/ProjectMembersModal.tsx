@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   X,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
+import { userService, type UserSearchItem } from '@/services/userService'
 import { useAuthStore } from '@/stores/authStore'
 import type { ProjectMember, Role } from '@/types/member'
 
@@ -35,9 +36,15 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuthStore()
 
-  // Form states
+  // Form states & User search with debounce
   const [selectedUserEmail, setSelectedUserEmail] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<UserSearchItem | null>(null)
+  const [searchUserQuery, setSearchUserQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
+  const [isSearchPopupOpen, setIsSearchPopupOpen] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+
   const [selectedRoleId, setSelectedRoleId] = useState<string>('')
   const [searchMemberQuery, setSearchMemberQuery] = useState('')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -112,11 +119,45 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
     return workspaceMembers.filter((wm) => !existingUserIds.has(wm.userId))
   }, [workspaceMembers, projectMembers])
 
+  // Debounce search query 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchUserQuery.trim())
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchUserQuery])
+
+  // Click outside để đóng popup gợi ý tìm kiếm
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchPopupOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Query tìm kiếm người dùng từ Database theo từ khóa debounced
+  const { data: searchResults = [], isFetching: isSearchingUsers } = useQuery({
+    queryKey: ['users-search', debouncedSearchQuery],
+    queryFn: () => userService.searchUsers(debouncedSearchQuery),
+    enabled: isOpen && debouncedSearchQuery.length >= 1,
+    staleTime: 1000 * 30,
+  })
+
   // Reset form khi mở modal
   useEffect(() => {
     if (isOpen) {
       setSelectedUserEmail('')
       setSelectedUserId(null)
+      setSelectedUser(null)
+      setSearchUserQuery('')
+      setDebouncedSearchQuery('')
+      setIsSearchPopupOpen(false)
       setSearchMemberQuery('')
       setFeedback(null)
       setTransferTarget(null)
@@ -141,8 +182,15 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
       projectService.addProjectMember(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      if (effectiveWorkspaceId) {
+        queryClient.invalidateQueries({ queryKey: ['workspace-members', effectiveWorkspaceId] })
+      }
       setSelectedUserEmail('')
       setSelectedUserId(null)
+      setSelectedUser(null)
+      setSearchUserQuery('')
+      setDebouncedSearchQuery('')
+      setIsSearchPopupOpen(false)
       setFeedback({ type: 'success', message: 'Thêm thành viên vào dự án thành công!' })
       setTimeout(() => setFeedback(null), 4000)
     },
@@ -209,14 +257,17 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
       return
     }
 
-    if (!selectedUserId && !selectedUserEmail.trim()) {
-      setFeedback({ type: 'error', message: 'Vui lòng chọn hoặc nhập email thành viên!' })
+    const targetUserId = selectedUser?.id || selectedUserId
+    const targetEmail = selectedUser?.email || selectedUserEmail.trim() || searchUserQuery.trim()
+
+    if (!targetUserId && !targetEmail) {
+      setFeedback({ type: 'error', message: 'Vui lòng tìm và chọn thành viên cần thêm!' })
       return
     }
 
     addMemberMutation.mutate({
-      userId: selectedUserId || undefined,
-      email: !selectedUserId ? selectedUserEmail.trim() : undefined,
+      userId: targetUserId || undefined,
+      email: !targetUserId ? targetEmail : undefined,
       roleId: selectedRoleId,
     })
   }
@@ -300,48 +351,169 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
 
               <form onSubmit={handleAddMember} className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                  {/* Chọn thành viên Workspace HOẶC nhập Email */}
-                  <div className="sm:col-span-8 space-y-1.5">
-                    {availableWorkspaceMembers.length > 0 ? (
-                      <div>
-                        <select
-                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
-                          value={selectedUserId || ''}
+                  {/* Tìm kiếm thành viên qua Email với Debounce + Popup gợi ý */}
+                  <div className="sm:col-span-8 relative">
+                    {selectedUser ? (
+                      <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/70 border border-indigo-200/90 rounded-lg shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {selectedUser.avatarUrl ? (
+                            <img
+                              src={selectedUser.avatarUrl}
+                              alt={selectedUser.fullName}
+                              className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-white"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs">
+                              {selectedUser.fullName ? selectedUser.fullName.slice(0, 2).toUpperCase() : 'U'}
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs font-semibold text-indigo-950 truncate">
+                              {selectedUser.fullName}
+                            </span>
+                            <span className="text-[10px] text-indigo-700/80 truncate">
+                              {selectedUser.email}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedUser(null)
+                            setSelectedUserId(null)
+                            setSelectedUserEmail('')
+                            setSearchUserQuery('')
+                            setDebouncedSearchQuery('')
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-indigo-100/60 rounded-md transition-colors cursor-pointer"
+                          title="Đổi thành viên khác"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative" ref={searchContainerRef}>
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Nhập email hoặc họ tên thành viên..."
+                          value={searchUserQuery}
                           onChange={(e) => {
-                            const val = e.target.value
-                            setSelectedUserId(val || null)
-                            if (val) {
-                              const found = availableWorkspaceMembers.find((m) => m.userId === val)
-                              if (found) setSelectedUserEmail(found.user.email)
-                            } else {
-                              setSelectedUserEmail('')
+                            setSearchUserQuery(e.target.value)
+                            setSelectedUserEmail(e.target.value)
+                            setSelectedUserId(null)
+                            setIsSearchPopupOpen(true)
+                          }}
+                          onFocus={() => {
+                            if (searchUserQuery.trim().length >= 1) {
+                              setIsSearchPopupOpen(true)
                             }
                           }}
-                        >
-                          <option value="">-- Chọn thành viên từ Workspace --</option>
-                          {availableWorkspaceMembers.map((wm) => (
-                            <option key={wm.userId} value={wm.userId}>
-                              {wm.user.fullName} ({wm.user.email})
-                            </option>
-                          ))}
-                        </select>
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          Hoặc nhập email bên dưới nếu chưa có trong danh sách trên:
-                        </div>
-                      </div>
-                    ) : null}
+                          className="w-full text-xs pl-8 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                        />
+                        {isSearchingUsers ? (
+                          <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
+                        ) : searchUserQuery ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchUserQuery('')
+                              setSelectedUserEmail('')
+                              setDebouncedSearchQuery('')
+                              setIsSearchPopupOpen(false)
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        ) : null}
 
-                    {(!selectedUserId || availableWorkspaceMembers.length === 0) && (
-                      <input
-                        type="email"
-                        placeholder="Nhập email thành viên thuộc Workspace..."
-                        value={selectedUserEmail}
-                        onChange={(e) => {
-                          setSelectedUserEmail(e.target.value)
-                          setSelectedUserId(null)
-                        }}
-                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      />
+                        {/* Popup gợi ý nho nhỏ bên dưới ô tìm kiếm - Tự cập nhật khi tìm kiếm tiếp */}
+                        {isSearchPopupOpen && debouncedSearchQuery.length >= 1 && (
+                          <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-xl border border-slate-200/90 shadow-xl p-1.5 z-50 animate-in fade-in duration-100 max-h-56 overflow-y-auto">
+                            {isSearchingUsers ? (
+                              <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-400">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                                <span>Đang tìm kiếm trong hệ thống...</span>
+                              </div>
+                            ) : searchResults.length > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                {searchResults.map((user) => {
+                                  const isAlreadyMember = projectMembers.some((m) => m.userId === user.id)
+                                  const isSelf = user.id === currentUser?.id
+                                  const isWorkspaceMember = workspaceMembers.some((wm) => wm.userId === user.id)
+                                  const initials = user.fullName ? user.fullName.slice(0, 2).toUpperCase() : 'U'
+
+                                  return (
+                                    <button
+                                      key={user.id}
+                                      type="button"
+                                      disabled={isAlreadyMember || isSelf}
+                                      onClick={() => {
+                                        setSelectedUser(user)
+                                        setSelectedUserId(user.id)
+                                        setSelectedUserEmail(user.email)
+                                        setIsSearchPopupOpen(false)
+                                      }}
+                                      className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
+                                        isAlreadyMember || isSelf
+                                          ? 'opacity-40 cursor-not-allowed bg-slate-50/60'
+                                          : 'hover:bg-indigo-50/50 hover:text-indigo-900 cursor-pointer'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        {user.avatarUrl ? (
+                                          <img
+                                            src={user.avatarUrl}
+                                            alt={user.fullName}
+                                            className="w-6 h-6 rounded-full object-cover shrink-0 shadow-2xs"
+                                          />
+                                        ) : (
+                                          <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs">
+                                            {initials}
+                                          </div>
+                                        )}
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="text-xs font-semibold text-slate-800 truncate">
+                                            {user.fullName}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400 truncate">
+                                            {user.email}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="shrink-0 ml-2">
+                                        {isSelf ? (
+                                          <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            Bạn
+                                          </span>
+                                        ) : isAlreadyMember ? (
+                                          <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            Đã trong dự án
+                                          </span>
+                                        ) : isWorkspaceMember ? (
+                                          <span className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                            Workspace
+                                          </span>
+                                        ) : (
+                                          <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                                            Thành viên mới
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="py-3 px-2 text-center text-xs text-slate-400">
+                                Không tìm thấy người dùng phù hợp với "{debouncedSearchQuery}"
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 

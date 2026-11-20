@@ -426,13 +426,21 @@ export class ProjectsService {
       throw new NotFoundException('Người dùng không tồn tại trong hệ thống!');
     }
 
+    // Nếu người dùng chưa thuộc Không gian làm việc, tự động bổ sung vào Workspace để có thể truy cập dự án
     const wsMember = await this.workspaceMemberRepository.findOne({
       where: { workspace_id: project.workspace_id, user_id: targetUser.id },
     });
     if (!wsMember) {
-      throw new BadRequestException(
-        'Người dùng phải là thành viên của Không gian làm việc trước khi thêm vào Dự án!',
-      );
+      const wsMemberRole = await this.roleRepository.findOne({
+        where: { name: 'MEMBER', scope: RoleScope.WORKSPACE },
+      });
+      const newWsMember = this.workspaceMemberRepository.create({
+        workspace_id: project.workspace_id,
+        user_id: targetUser.id,
+        role: WorkspaceRole.MEMBER,
+        roleId: wsMemberRole?.id || null,
+      });
+      await this.workspaceMemberRepository.save(newWsMember);
     }
 
     const existing = await this.projectMemberRepository.findOne({

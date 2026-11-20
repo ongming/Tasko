@@ -46,6 +46,7 @@ describe('WorkspacesService - Unit Tests', () => {
 
     workspaceRepo = {
       findOne: vi.fn(),
+      save: vi.fn(async (w: any) => w),
     };
 
     memberRepo = {
@@ -404,6 +405,55 @@ describe('WorkspacesService - Unit Tests', () => {
 
       await expect(service.removeMember(wsId, userId)).rejects.toThrow(
         'Không thể xóa Quản trị viên duy nhất của Không gian làm việc!',
+      );
+    });
+
+    it('update: thành công cập nhật tên và mô tả workspace khi là OWNER/ADMIN', async () => {
+      const mockWorkspace = {
+        id: wsId,
+        name: 'Old Name',
+        slug: 'old-slug',
+        description: 'Old desc',
+        owner_id: userId,
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as Workspace;
+
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(mockWorkspace);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({
+        id: 'm-1',
+        workspace_id: wsId,
+        user_id: userId,
+        role: WorkspaceRole.OWNER,
+      } as any);
+      vi.mocked(workspaceRepo.save!).mockImplementation(async (w: any) => w);
+      vi.mocked(memberRepo.count!).mockResolvedValue(3);
+
+      const res = await service.update(wsId, userId, { name: 'New Name', description: 'New desc' });
+      expect(res.name).toBe('New Name');
+      expect(res.description).toBe('New desc');
+      expect(workspaceRepo.save).toHaveBeenCalled();
+    });
+
+    it('update: ném NotFoundException nếu workspace không tồn tại', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.update('non-existent', userId, { name: 'Name' })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('update: ném ForbiddenException nếu người dùng không có quyền quản lý', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue({ id: wsId } as Workspace);
+      vi.mocked(memberRepo.findOne!).mockResolvedValue({
+        id: 'm-1',
+        workspace_id: wsId,
+        user_id: userId,
+        role: WorkspaceRole.MEMBER,
+      } as any);
+
+      await expect(service.update(wsId, userId, { name: 'Name' })).rejects.toThrow(
+        'Chỉ Quản trị viên hoặc Chủ sở hữu mới được cập nhật không gian làm việc!',
       );
     });
   });

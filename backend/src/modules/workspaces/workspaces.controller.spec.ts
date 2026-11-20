@@ -28,6 +28,7 @@ describe('WorkspacesController - Create Workspace', () => {
     create: vi.fn().mockResolvedValue(mockResponse),
     findAllByUser: vi.fn(),
     findBySlug: vi.fn(),
+    update: vi.fn().mockResolvedValue(mockResponse),
   };
 
   beforeEach(async () => {
@@ -66,6 +67,19 @@ describe('WorkspacesController - Create Workspace', () => {
       const result = await controller.create(userId, dto);
 
       expect(service.create).toHaveBeenCalledWith(userId, dto);
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('update()', () => {
+    it('nên gọi workspacesService.update với đúng wsId, userId và DTO', async () => {
+      const wsId = 'ws-mock-id';
+      const userId = 'user-123';
+      const dto = { name: 'Updated Name', description: 'Updated Desc' };
+
+      const result = await controller.update(userId, wsId, dto);
+
+      expect(service.update).toHaveBeenCalledWith(wsId, userId, dto);
       expect(result).toEqual(mockResponse);
     });
   });

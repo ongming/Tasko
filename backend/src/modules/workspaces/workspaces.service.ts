@@ -12,6 +12,7 @@ import { WorkspaceMember } from './entities/workspace-member.entity.js';
 import { User } from '../auth/entities/user.entity.js';
 import { Role, RoleScope } from '../rbac/entities/role.entity.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
+import { UpdateWorkspaceDto } from './dto/update-workspace.dto.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { WorkspaceResponseDto } from './dto/workspace-response.dto.js';
 import {
@@ -154,6 +155,58 @@ export class WorkspacesService {
       memberCount,
       createdAt: workspace.created_at,
       updatedAt: workspace.updated_at,
+    };
+  }
+
+  /**
+   * Cập nhật thông tin Workspace (Tên, Mô tả)
+   */
+  async update(wsId: string, userId: string, dto: UpdateWorkspaceDto): Promise<WorkspaceResponseDto> {
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: wsId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Không tìm thấy không gian làm việc!');
+    }
+
+    const membership = await this.memberRepo.findOne({
+      where: { workspace_id: wsId, user_id: userId },
+      relations: { roleEntity: true },
+    });
+    if (!membership) {
+      throw new ForbiddenException('Bạn không có quyền truy cập không gian làm việc này!');
+    }
+    const canManage =
+      membership.role === WorkspaceRole.OWNER ||
+      membership.role === WorkspaceRole.ADMIN ||
+      membership.roleEntity?.name === 'ADMIN';
+
+    if (!canManage) {
+      throw new ForbiddenException('Chỉ Quản trị viên hoặc Chủ sở hữu mới được cập nhật không gian làm việc!');
+    }
+
+    if (dto.name !== undefined) {
+      workspace.name = dto.name.trim();
+    }
+    if (dto.description !== undefined) {
+      workspace.description = dto.description.trim() || null;
+    }
+
+    const saved = await this.workspaceRepo.save(workspace);
+    const memberCount = await this.memberRepo.count({
+      where: { workspace_id: wsId },
+    });
+
+    return {
+      id: saved.id,
+      name: saved.name,
+      slug: saved.slug,
+      description: saved.description,
+      role: membership.role,
+      ownerId: saved.owner_id,
+      memberCount,
+      createdAt: saved.created_at,
+      updatedAt: saved.updated_at,
     };
   }
 

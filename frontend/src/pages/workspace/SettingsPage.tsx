@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   User as UserIcon,
   ShieldCheck,
@@ -11,11 +13,19 @@ import {
   Mail,
   Sparkles,
   Info,
+  Users,
+  Copy,
+  Check,
+  Save,
+  Globe,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { userService } from '@/services/userService'
+import { workspaceService } from '@/services/workspaceService'
+import { WorkspaceMembersTab } from '@/components/workspace/WorkspaceMembersTab'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 import { ApiError } from '@/types/api'
+import type { WorkspaceResponse } from '@/types/workspace'
 
 function getInitials(name?: string | null): string {
   if (!name) return 'U'
@@ -29,9 +39,83 @@ function getInitials(name?: string | null): string {
 export function SettingsPage() {
   const user = useAuthStore((state) => state.user)
   const updateUser = useAuthStore((state) => state.updateUser)
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'workspace'>('profile')
+  // Tab State: 'profile' | 'workspace' | 'members'
+  const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'members'>('profile')
+
+  // Lấy danh sách Không gian làm việc của người dùng
+  const { data: myWorkspaces = [], isLoading: isLoadingWorkspaces } = useQuery<WorkspaceResponse[]>({
+    queryKey: ['my-workspaces'],
+    queryFn: async () => {
+      const res = await workspaceService.getMyWorkspaces()
+      return (res as any)?.data || res || []
+    },
+  })
+
+  // Xác định Workspace đang được cấu hình
+  const activeWorkspace =
+    myWorkspaces.find((w) => w.slug === workspaceSlug) ||
+    myWorkspaces[0] ||
+    null
+
+  const canManageWorkspace =
+    activeWorkspace?.role === 'OWNER' ||
+    activeWorkspace?.role === 'ADMIN' ||
+    activeWorkspace?.ownerId === user?.id
+
+  // Form State cho Tab Không gian làm việc
+  const [wsName, setWsName] = useState('')
+  const [wsDescription, setWsDescription] = useState('')
+  const [wsSuccess, setWsSuccess] = useState<string | null>(null)
+  const [wsError, setWsError] = useState<string | null>(null)
+  const [isCopiedSlug, setIsCopiedSlug] = useState(false)
+
+  useEffect(() => {
+    if (activeWorkspace) {
+      setWsName(activeWorkspace.name || '')
+      setWsDescription(activeWorkspace.description || '')
+    }
+  }, [activeWorkspace?.id, activeWorkspace?.name, activeWorkspace?.description])
+
+  // Mutation cập nhật Workspace
+  const updateWorkspaceMutation = useMutation({
+    mutationFn: (payload: { name?: string; description?: string }) =>
+      workspaceService.update(activeWorkspace!.id, payload),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['my-workspaces'] })
+      queryClient.invalidateQueries({ queryKey: ['workspace', activeWorkspace?.slug] })
+      setWsSuccess('Cập nhật cấu hình không gian làm việc thành công!')
+      setTimeout(() => setWsSuccess(null), 3500)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật không gian làm việc'
+      setWsError(msg)
+    },
+  })
+
+  const handleUpdateWorkspace = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!wsName.trim()) {
+      setWsError('Tên không gian làm việc không được để trống')
+      return
+    }
+    setWsError(null)
+    setWsSuccess(null)
+    updateWorkspaceMutation.mutate({
+      name: wsName.trim(),
+      description: wsDescription.trim() || undefined,
+    })
+  }
+
+  const handleCopySlug = () => {
+    if (!activeWorkspace?.slug) return
+    navigator.clipboard.writeText(`${window.location.origin}/${activeWorkspace.slug}`)
+    setIsCopiedSlug(true)
+    setTimeout(() => setIsCopiedSlug(false), 2000)
+  }
 
   // Profile Form State
   const [fullName, setFullName] = useState(user?.full_name || user?.fullName || '')
@@ -269,6 +353,18 @@ export function SettingsPage() {
         >
           <Building2 className="w-4 h-4" />
           <span>Không gian làm việc</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('members')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'members'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Thành viên</span>
         </button>
       </div>
 
@@ -571,55 +667,231 @@ export function SettingsPage() {
       )}
 
       {/* ========================================================= */}
-      {/* TAB 2: KHÔNG GIAN LÀM VIỆC (WORKSPACE CONFIG) */}
+      {/* KHỐI CHỌN WORKSPACE (Dành cho Tab Không gian làm việc & Thành viên) */}
       {/* ========================================================= */}
-      {activeTab === 'workspace' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs divide-y divide-slate-100 overflow-hidden">
-          <div className="p-6 flex flex-col gap-4">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-indigo-600" />
-              <span>Thông tin chung Workspace</span>
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">
-                  Tên Workspace
-                </label>
-                <input
-                  type="text"
-                  defaultValue="Marketing Team"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-medium"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">
-                  Mã định danh URL
-                </label>
-                <input
-                  type="text"
-                  defaultValue="marketing-team"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-medium"
-                />
-              </div>
+      {(activeTab === 'workspace' || activeTab === 'members') && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+              {activeWorkspace?.name ? activeWorkspace.name.slice(0, 2).toUpperCase() : 'WS'}
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Không gian làm việc hiện tại</p>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>{activeWorkspace?.name || 'Chưa chọn Không gian'}</span>
+                {activeWorkspace?.role && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    {activeWorkspace.role === 'OWNER'
+                      ? 'Chủ sở hữu'
+                      : activeWorkspace.role === 'ADMIN'
+                      ? 'Quản trị viên'
+                      : 'Thành viên'}
+                  </span>
+                )}
+              </h3>
             </div>
           </div>
 
-          <div className="p-6 flex items-center justify-between">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 mt-0.5">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Tích hợp Tasko Gemini AI</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tự động gợi ý phân rã User Story và dự báo rủi ro Sprint theo tiến độ thực tế.
-                </p>
-              </div>
+          {myWorkspaces.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Đổi Không gian:</span>
+              <select
+                value={activeWorkspace?.id || ''}
+                onChange={(e) => {
+                  const target = myWorkspaces.find((w) => w.id === e.target.value)
+                  if (target) {
+                    navigate(`/${target.slug}/settings`)
+                  }
+                }}
+                className="text-xs font-semibold py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
+              >
+                {myWorkspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.slug})
+                  </option>
+                ))}
+              </select>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Đang kích hoạt
-            </span>
-          </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 2: KHÔNG GIAN LÀM VIỆC (WORKSPACE CONFIG) */}
+      {/* ========================================================= */}
+      {activeTab === 'workspace' && (
+        <div className="flex flex-col gap-6">
+          {/* Thông báo kết quả cập nhật */}
+          {wsSuccess && (
+            <div className="flex items-center gap-2 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{wsSuccess}</span>
+            </div>
+          )}
+          {wsError && (
+            <div className="flex items-center gap-2 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold animate-in fade-in duration-200">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{wsError}</span>
+            </div>
+          )}
+
+          {!activeWorkspace ? (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-xs text-slate-400">
+              Bạn chưa tham gia không gian làm việc nào.
+            </div>
+          ) : (
+            <>
+              {/* Form Cập nhật thông tin Workspace */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs divide-y divide-slate-100 overflow-hidden">
+                <form onSubmit={handleUpdateWorkspace} className="p-6 flex flex-col gap-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-indigo-600" />
+                        <span>Cấu hình Không gian làm việc</span>
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Chỉnh sửa tên và thông tin nhận diện của Không gian làm việc này.
+                      </p>
+                    </div>
+
+                    {!canManageWorkspace && (
+                      <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
+                        Chỉ xem (Không có quyền sửa)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Tên Không gian làm việc <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={wsName}
+                        onChange={(e) => setWsName(e.target.value)}
+                        disabled={!canManageWorkspace || updateWorkspaceMutation.isPending}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-medium disabled:bg-slate-50 disabled:cursor-not-allowed transition-all shadow-2xs"
+                        placeholder="Nhập tên không gian làm việc..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Đường dẫn định danh (URL Slug)
+                      </label>
+                      <div className="flex items-center">
+                        <div className="relative w-full">
+                          <input
+                            type="text"
+                            value={activeWorkspace.slug}
+                            readOnly
+                            disabled
+                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500 font-mono font-medium cursor-default"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCopySlug}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            title="Sao chép liên kết Không gian làm việc"
+                          >
+                            {isCopiedSlug ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Mô tả Không gian làm việc
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={wsDescription}
+                      onChange={(e) => setWsDescription(e.target.value)}
+                      disabled={!canManageWorkspace || updateWorkspaceMutation.isPending}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-medium disabled:bg-slate-50 disabled:cursor-not-allowed transition-all shadow-2xs resize-none"
+                      placeholder="Nhập mô tả ngắn gọn về không gian làm việc này..."
+                    />
+                  </div>
+
+                  {canManageWorkspace && (
+                    <div className="flex items-center justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={updateWorkspaceMutation.isPending}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow transition-all duration-200 cursor-pointer disabled:opacity-50"
+                      >
+                        {updateWorkspaceMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        <span>Lưu thay đổi</span>
+                      </button>
+                    </div>
+                  )}
+                </form>
+
+                {/* Thống kê & Gemini AI */}
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/50">
+                  <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+                      Thành viên
+                    </span>
+                    <p className="text-lg font-bold text-slate-900">
+                      {activeWorkspace.memberCount || 1} người
+                    </p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+                      Vai trò của bạn
+                    </span>
+                    <p className="text-lg font-bold text-indigo-600">
+                      {activeWorkspace.role === 'OWNER'
+                        ? 'Chủ sở hữu'
+                        : activeWorkspace.role === 'ADMIN'
+                        ? 'Quản trị viên'
+                        : 'Thành viên'}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+                      Tasko Gemini AI
+                    </span>
+                    <p className="text-sm font-bold text-emerald-600 flex items-center gap-1.5 mt-1">
+                      <Sparkles className="w-4 h-4 text-emerald-500" />
+                      <span>Đang kích hoạt</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 3: THÀNH VIÊN KHÔNG GIAN LÀM VIỆC (WORKSPACE MEMBERS) */}
+      {/* ========================================================= */}
+      {activeTab === 'members' && (
+        <div className="flex flex-col gap-6">
+          {!activeWorkspace ? (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-xs text-slate-400">
+              Bạn chưa tham gia không gian làm việc nào.
+            </div>
+          ) : (
+            <WorkspaceMembersTab
+              workspace={activeWorkspace}
+              canManage={canManageWorkspace}
+            />
+          )}
         </div>
       )}
     </div>

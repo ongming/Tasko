@@ -156,4 +156,38 @@ export class UsersService {
 
     return { message: 'Đổi mật khẩu thành công.' };
   }
+
+  /**
+   * 5. TÌM KIẾM NGƯỜI DÙNG BẰNG EMAIL HOẶC HỌ TÊN (REAL-TIME AUTOSUGGEST)
+   */
+  async searchUsers(
+    query: string,
+    currentUserId?: string,
+    limit: number = 10,
+  ): Promise<Array<{ id: string; email: string; fullName: string; avatarUrl: string | null }>> {
+    const q = query?.trim();
+    if (!q || q.length < 1) {
+      return [];
+    }
+
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.is_active = :isActive', { isActive: true })
+      .andWhere('(user.email ILIKE :q OR user.full_name ILIKE :q)', {
+        q: `%${q}%`,
+      });
+
+    if (currentUserId) {
+      qb.andWhere('user.id != :currentUserId', { currentUserId });
+    }
+
+    const users = await qb.take(limit).getMany();
+
+    return users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      fullName: u.full_name,
+      avatarUrl: u.avatar_url,
+    }));
+  }
 }
