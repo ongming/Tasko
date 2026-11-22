@@ -1,25 +1,25 @@
-# Graph Report - Tasko  (2026-11-20)
+# Graph Report - Tasko  (2026-11-22)
 
 ## Corpus Check
-- 224 files · ~117,828 words
+- 232 files · ~122,130 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 9 file(s) not represented in the graph (top: (none) 6, .example 1, .css 1)
 
 ## Summary
-- 1505 nodes · 3873 edges · 76 communities (56 shown, 20 thin omitted)
+- 1522 nodes · 3941 edges · 82 communities (57 shown, 25 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 75 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4e3ab5ce`
+- Built from commit: `8607a886`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - CreateProjectPage.tsx
-- AuthController
-- workspaces.service.ts
-- react
+- AuthService
+- WorkspacesService
+- users.service.ts
 - Project Management System (Jira/Trello-like, Scrum/Kanban)
 - frontend/package.json
 - compilerOptions
@@ -32,76 +32,81 @@
 - useOverview.ts
 - backend-ci.yml
 - scripts
-- Task
+- main.ts
 - compilerOptions
 - app.module.ts
-- AuthService
+- ProjectMember
 - backend/README.md
-- SprintsService
-- projects.service.ts
+- @nestjs/common
+- LoginDto
 - vite.config.ts
 - .oxlintrc.json
 - tsconfig.build.json
 - nest-cli.json
 - utils.ts
-- auth.service.spec.ts
+- ProjectsService
 - vite-env.d.ts
 - projectService.ts
 - scripts
 - frontend/tsconfig.json
 - frontend-ci.yml
-- ref_vitest
-- useTasksQuery.ts
+- Project
+- SprintsService
 - dependencies
-- typeorm
-- backend/package.json
-- frontend/package.json
-- authService.ts
-- main.ts
-- users.service.ts
+- projects.controller.ts
+- WorkType
+- useDragAndDrop.ts
+- KanbanBoardView.tsx
+- AuthService
+- task.ts
 - ref_vitest
-- Status
-- AppService
-- useSprintsQuery.ts
-- projects.controller.spec.ts
-- react
+- Task
+- authService.ts
+- EmailVerification
+- CurrentUser
+- ForgotPasswordPage.tsx
 - RequirePermission
 - @nestjs/config
-- ProjectRole
+- backend/package.json
 - BacklogView.tsx
-- main.tsx
+- UpdateSprintDto
 - react
-- auth.service.ts
-- transform.interceptor.ts
-- ProjectConfigForm.tsx
-- LoginDto
-- workspace.ts
-- @testing-library/jest-dom
+- auth.service.spec.ts
+- lib/api.ts
+- AppService
+- RegisterPage.tsx
+- WorkspaceSidebar.tsx
+- LoginPage.tsx
 - devDependencies
-- @nestjs/schematics@^12.0.0
+- CreateProjectDto
+- AddProjectMemberDto
+- transform.interceptor.ts
+- ProjectRole
+- projects.service.ts
+- @testing-library/jest-dom
+- passport@^0.7.0
+- streamifier
+- supertest
 - @types/cookie-parser@^1.4.10
+- @types/express@^5.0.0
 - @types/multer@^2.3.0
-- Workspace
-- source-map-support@^0.5.21
 - @types/streamifier@^0.1.2
-- AuthModule
 - @types/supertest@^7.0.0
+- AuthModule
 - UsersModule
 - WorkspacesModule
-- @types/express@^5.0.0
-- vitest@^4.1.2
 - Product
 - Tasko Design Guidelines
 
 ## God Nodes (most connected - your core abstractions)
-1. `react` - 74 edges
-2. `lucide-react` - 55 edges
+1. `react` - 77 edges
+2. `lucide-react` - 56 edges
 3. `RequirePermission()` - 49 edges
 4. `@nestjs/common` - 46 edges
 5. `Project` - 44 edges
 6. `User` - 40 edges
-7. `useAuthStore` - 40 edges
-8. `react-router-dom` - 39 edges
+7. `react-router-dom` - 40 edges
+8. `useAuthStore` - 40 edges
 9. `typeorm` - 38 edges
 10. `ProjectsService` - 38 edges
 
@@ -120,27 +125,27 @@
 ## Import Cycles
 - None detected.
 
-## Communities (76 total, 20 thin omitted)
+## Communities (82 total, 25 thin omitted)
 
 ### Community 0 - "CreateProjectPage.tsx"
+Cohesion: 0.10
+Nodes (36): AiCreateModal(), AGILE_METHODS, BUSINESS_DOMAINS, DEFAULT_WORK_TYPES, generateProjectKey(), METHOD_DETAILS, DomainSelectorGrid(), DomainSelectorGridProps (+28 more)
+
+### Community 2 - "WorkspacesService"
 Cohesion: 0.12
-Nodes (33): AiCreateModal(), AGILE_METHODS, BUSINESS_DOMAINS, DEFAULT_WORK_TYPES, generateProjectKey(), METHOD_DETAILS, DomainSelectorGrid(), DomainSelectorGridProps (+25 more)
+Nodes (3): AddWorkspaceMemberDto, UpdateWorkspaceMemberRoleDto, WorkspacesController
 
-### Community 2 - "workspaces.service.ts"
-Cohesion: 0.07
-Nodes (12): CreateWorkspaceDto, UpdateWorkspaceDto, AddWorkspaceMemberDto, UpdateWorkspaceMemberRoleDto, WorkspaceResponseDto, WorkspaceRole, ADMIN, MEMBER (+4 more)
-
-### Community 3 - "react"
-Cohesion: 0.20
-Nodes (11): AiCreateModalProps, Footer(), Header(), Logo(), LogoProps, WorkspaceTopbarProps, MainLayout(), MainLayoutProps (+3 more)
+### Community 3 - "users.service.ts"
+Cohesion: 0.05
+Nodes (11): Session, CloudinaryModule, CloudinaryService, CLOUDINARY_SERVICE, ICloudinaryService, ChangePasswordDto, UpdateProfileDto, UsersController (+3 more)
 
 ### Community 4 - "Project Management System (Jira/Trello-like, Scrum/Kanban)"
 Cohesion: 0.09
 Nodes (22): API and auth, API conventions, Architecture & Dependency Inversion (Interface Scalability), Auth & permissions, Backend structure, Code standards, Commands, Do NOT (+14 more)
 
 ### Community 5 - "frontend/package.json"
-Cohesion: 0.11
-Nodes (18): devDependencies, autoprefixer@^10.6.1, jsdom@^31.0.0, postcss@^8.5.30, tailwindcss@^4.3.3, @testing-library/react@^16.3.3, @types/react-dom@^19.3.0, typescript@^7.0.2 (+10 more)
+Cohesion: 0.10
+Nodes (26): devDependencies, autoprefixer@^10.6.1, jsdom@^31.0.0, postcss@^8.5.30, tailwindcss@^4.3.3, @testing-library/react@^16.3.3, @types/node@^26.6.5, @types/react@^19.3.0 (+18 more)
 
 ### Community 6 - "compilerOptions"
 Cohesion: 0.10
@@ -148,31 +153,31 @@ Nodes (20): compilerOptions, allowSyntheticDefaultImports, declaration, emitDeco
 
 ### Community 7 - "dependencies"
 Cohesion: 0.11
-Nodes (19): dependencies, date-fns@^4.4.0, @dnd-kit/core@^6.3.1, @dnd-kit/sortable@^10.0.0, @dnd-kit/utilities@^3.2.2, @hookform/resolvers@^5.9.1, lucide-react@^1.57.0, react@^19.2.8 (+11 more)
+Nodes (19): dependencies, date-fns@^4.4.0, @dnd-kit/sortable@^10.0.0, @dnd-kit/utilities@^3.2.2, @hookform/resolvers@^5.9.1, lucide-react@^1.57.0, react@^19.2.8, react-dom@^19.2.8 (+11 more)
 
 ### Community 8 - "compilerOptions"
 Cohesion: 0.10
 Nodes (19): compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib, module, moduleDetection, moduleResolution (+11 more)
 
 ### Community 9 - "tasks.controller.ts"
-Cohesion: 0.13
-Nodes (10): CreateTaskDto, MoveTaskDto, TaskQueryDto, UpdateTaskDto, TaskPriority, HIGH, LOW, MEDIUM (+2 more)
+Cohesion: 0.12
+Nodes (11): CreateTaskDto, MoveTaskDto, TaskCustomFieldValueInput, TaskQueryDto, UpdateTaskDto, TaskPriority, HIGH, LOW (+3 more)
 
 ### Community 10 - "LandingPage.tsx"
-Cohesion: 0.31
-Nodes (7): DoodleArrowLeft(), DoodleProps, DoodleSparksRight(), GithubIcon(), LandingPage(), LinkedinIcon(), QuoteIcon()
+Cohesion: 0.18
+Nodes (12): DoodleArrowLeft(), DoodleProps, DoodleSparksRight(), Logo(), LogoProps, VerifyEmailPage(), GithubIcon(), LandingPage() (+4 more)
 
 ### Community 11 - "Role"
-Cohesion: 0.10
-Nodes (10): Permission, Role, RoleScope, PROJECT, WORKSPACE, RolePermission, RbacController, PermissionSeed (+2 more)
+Cohesion: 0.09
+Nodes (12): Permission, Role, RoleScope, PROJECT, WORKSPACE, RolePermission, RbacController, PermissionSeed (+4 more)
 
 ### Community 12 - "README: Hệ thống quản lý dự án và công việc cho doanh nghiệp"
 Cohesion: 0.12
 Nodes (15): 10. Các điểm còn mở (hỏi người dùng khi cần), 1. Bối cảnh, 2. Công nghệ và kiến trúc, 3. Xác thực và phân quyền, 4. Danh sách chức năng (theo phân hệ), 5. Mô hình dữ liệu (tóm tắt), 6. NHIỆM VỤ CỦA BẠN, 7. Activity Diagram: danh sách 18 sơ đồ (đã có bản nháp) (+7 more)
 
 ### Community 13 - "useOverview.ts"
-Cohesion: 0.09
-Nodes (32): ActiveProjectsGrid(), ActiveProjectsGridProps, ActivityTimelineStream(), ActivityTimelineStreamProps, ExecutiveStatsRibbon(), ExecutiveStatsRibbonProps, MyTasksTracker(), MyTasksTrackerProps (+24 more)
+Cohesion: 0.12
+Nodes (26): ActiveProjectsGrid(), ActiveProjectsGridProps, ActivityTimelineStream(), ActivityTimelineStreamProps, ExecutiveStatsRibbon(), MyTasksTracker(), MyTasksTrackerProps, NoWorkspaceEmptyState() (+18 more)
 
 ### Community 14 - "backend-ci.yml"
 Cohesion: 0.07
@@ -182,9 +187,9 @@ Nodes (27): defaults, runs-on, steps, concurrency, cancel-in-progress, group, ru
 Cohesion: 0.14
 Nodes (14): scripts, build, deploy, format, lint, start, start:debug, start:dev (+6 more)
 
-### Community 16 - "Task"
-Cohesion: 0.09
-Nodes (4): Project, Sprint, Task, @nestjs/typeorm
+### Community 16 - "main.ts"
+Cohesion: 0.20
+Nodes (6): cookie-parser@^1.4.7, AppModule, ObserveInstrument, HttpExceptionFilter, bootstrap(), cookie-parser
 
 ### Community 17 - "compilerOptions"
 Cohesion: 0.15
@@ -198,13 +203,9 @@ Nodes (10): @nestjs/observe@^0.3.0, ObserveModule, cloudinaryConfig, databaseCon
 Cohesion: 0.18
 Nodes (10): Compile and run the project, Deployment, Description, License, Observability, Project setup, Resources, Run tests (+2 more)
 
-### Community 21 - "SprintsService"
-Cohesion: 0.09
-Nodes (11): JwtAuthGuard, CompleteSprintDto, CreateSprintDto, StartSprintDto, UpdateSprintDto, SprintStatus, ACTIVE, COMPLETED (+3 more)
-
-### Community 22 - "projects.service.ts"
-Cohesion: 0.16
-Nodes (22): CreateCustomFieldDto, CreateStatusDto, CreateWorkflowDto, CreateWorkTypeDto, DeleteStatusDto, DeleteWorkTypeDto, TransitionItemDto, UpdateCustomFieldDto (+14 more)
+### Community 21 - "@nestjs/common"
+Cohesion: 0.17
+Nodes (7): PERMISSIONS_KEY, JwtAuthGuard, RbacPermissionGuard, UpdateWorkspaceDto, @nestjs/common, @nestjs/core, @nestjs/testing
 
 ### Community 23 - "vite.config.ts"
 Cohesion: 0.22
@@ -226,17 +227,13 @@ Nodes (5): collection, compilerOptions, deleteOutDir, $schema, sourceRoot
 Cohesion: 0.33
 Nodes (4): clsx@^2.1.1, tailwind-merge@^3.7.0, clsx, tailwind-merge
 
-### Community 28 - "auth.service.spec.ts"
-Cohesion: 0.09
-Nodes (7): ForgotPasswordDto, GoogleLoginDto, RegisterDto, ResendVerificationDto, ResetPasswordDto, VerifyOtpDto, class-validator
-
 ### Community 29 - "vite-env.d.ts"
 Cohesion: 0.40
 Nodes (4): *.jpeg, *.jpg, *.png, *.svg
 
 ### Community 30 - "projectService.ts"
-Cohesion: 0.18
-Nodes (16): ProjectSettingsPage(), SettingsTab, mockNavigate, ProjectSettingsPage, CreateCustomFieldPayload, CreateStatusPayload, CreateWorkTypePayload, CustomField (+8 more)
+Cohesion: 0.10
+Nodes (26): ALL_VIEW_TYPES, ProjectTabBarProps, WorkspaceItem, projectKeys, ProjectSettingsPage(), SettingsTab, mockNavigate, CreateProjectPayload (+18 more)
 
 ### Community 31 - "scripts"
 Cohesion: 0.40
@@ -246,97 +243,109 @@ Nodes (5): scripts, build, dev, preview, test
 Cohesion: 0.07
 Nodes (27): concurrency, cancel-in-progress, group, run, defaults, runs-on, steps, jobs (+19 more)
 
-### Community 34 - "ref_vitest"
-Cohesion: 0.25
-Nodes (4): api, refreshAccessToken(), request(), RequestOptions
+### Community 34 - "Project"
+Cohesion: 0.10
+Nodes (17): CustomField, CustomFieldType, DATE, NUMBER, SELECT, TEXT, Project, ProjectMethodology (+9 more)
 
 ### Community 36 - "dependencies"
 Cohesion: 0.07
-Nodes (29): dependencies, bcrypt@^6.0.0, class-transformer@^0.5.1, class-validator@^0.15.1, google-auth-library@^11.3.1, multer@^2.5.0, @nestjs/common@^12.0.1, @nestjs/config@^12.0.1 (+21 more)
+Nodes (28): dependencies, bcrypt@^6.0.0, class-transformer@^0.5.1, class-validator@^0.15.1, cloudinary@^2.11.0, google-auth-library@^11.3.1, multer@^2.5.0, @nestjs/common@^12.0.1 (+20 more)
 
-### Community 37 - "typeorm"
-Cohesion: 0.18
-Nodes (4): CustomField, Status, TaskCustomFieldValueInput, typeorm
+### Community 37 - "projects.controller.ts"
+Cohesion: 0.23
+Nodes (13): CreateCustomFieldDto, CreateStatusDto, CreateWorkflowDto, CreateWorkTypeDto, DeleteStatusDto, DeleteWorkTypeDto, TransitionItemDto, UpdateCustomFieldDto (+5 more)
 
-### Community 38 - "backend/package.json"
-Cohesion: 0.12
-Nodes (15): author, cloudinary@^2.11.0, description, oxlint-tsgolint@^7.0.2001, prettier@^3.4.2, @types/passport-jwt@^4.0.1, license, name (+7 more)
+### Community 38 - "WorkType"
+Cohesion: 0.08
+Nodes (3): WorkType, Workflow, WorkflowTransition
 
-### Community 39 - "frontend/package.json"
-Cohesion: 0.15
-Nodes (12): react-hook-form@^7.90.0, zod@^4.6.7, @types/node@^26.6.5, @types/react@^19.3.0, @types/node, name, private, type (+4 more)
+### Community 39 - "useDragAndDrop.ts"
+Cohesion: 0.29
+Nodes (6): @dnd-kit/core@^6.3.1, MockTask, useDragAndDrop(), UseDragAndDropOptions, UseDragAndDropReturn, @dnd-kit/core
 
-### Community 40 - "authService.ts"
-Cohesion: 0.16
-Nodes (18): LoginDto, RegisterDto, AuthState, ChangePasswordPayload, ForgotPasswordPayload, GoogleLoginPayload, LoginPayload, LoginResponse (+10 more)
+### Community 40 - "KanbanBoardView.tsx"
+Cohesion: 0.21
+Nodes (16): KanbanCard(), KanbanCardProps, KanbanColumn(), KanbanColumnProps, CompleteSprintModal(), CompleteSprintModalProps, CreateTaskModal(), CreateTaskModalProps (+8 more)
 
-### Community 41 - "main.ts"
-Cohesion: 0.20
-Nodes (6): cookie-parser@^1.4.7, AppModule, ObserveInstrument, HttpExceptionFilter, bootstrap(), cookie-parser
-
-### Community 42 - "users.service.ts"
-Cohesion: 0.06
-Nodes (9): CloudinaryModule, CloudinaryService, CLOUDINARY_SERVICE, ICloudinaryService, ChangePasswordDto, UpdateProfileDto, UsersController, SanitizedUser (+1 more)
+### Community 42 - "task.ts"
+Cohesion: 0.13
+Nodes (10): TaskFilterBarProps, taskKeys, ProjectMember, Assignee, CreateTaskPayload, MoveTaskPayload, Task, TaskCustomFieldValue (+2 more)
 
 ### Community 43 - "ref_vitest"
-Cohesion: 0.16
-Nodes (22): ProjectMembersModalProps, WorkspaceMembersTab(), WorkspaceMembersTabProps, EMPTY_STATS, mockNavigate, getInitials(), SettingsPage(), projectService (+14 more)
-
-### Community 44 - "Status"
-Cohesion: 0.06
-Nodes (5): WorkType, Workflow, WorkflowTransition, CustomFieldValue, Column
-
-### Community 47 - "projects.controller.spec.ts"
 Cohesion: 0.12
-Nodes (6): RbacPermissionGuard, CreateProjectDto, ProjectMethodology, KANBAN, SCRUM, SCRUMBAN
+Nodes (22): PasswordInput(), PasswordInputProps, ProjectMembersModalProps, WorkspaceMembersTab(), WorkspaceMembersTabProps, mockNavigate, getInitials(), SettingsPage() (+14 more)
 
-### Community 48 - "react"
-Cohesion: 0.11
-Nodes (31): AlertBanner(), AlertBannerProps, AlertVariant, variantStyles, AuthLayout(), AuthLayoutProps, GoogleButton(), GoogleButtonProps (+23 more)
+### Community 44 - "Task"
+Cohesion: 0.07
+Nodes (3): Status, CustomFieldValue, Task
 
-### Community 49 - "RequirePermission"
-Cohesion: 0.06
-Nodes (9): CurrentUser, RequirePermission(), AddProjectMemberDto, TransferOwnershipDto, UpdateProjectMemberRoleDto, ProjectResponseDto, ProjectsController, ProjectsService (+1 more)
+### Community 45 - "authService.ts"
+Cohesion: 0.19
+Nodes (16): LoginDto, RegisterDto, AuthState, ForgotPasswordPayload, GoogleLoginPayload, LoginPayload, LoginResponse, RegisterPayload (+8 more)
+
+### Community 48 - "ForgotPasswordPage.tsx"
+Cohesion: 0.17
+Nodes (16): AlertBanner(), AlertBannerProps, AlertVariant, variantStyles, AuthLayout(), AuthLayoutProps, TextField(), TextFieldProps (+8 more)
 
 ### Community 50 - "@nestjs/config"
-Cohesion: 0.20
-Nodes (5): IMailService, MAIL_SERVICE, MailModule, MailService, @nestjs/config
+Cohesion: 0.15
+Nodes (9): AuthTokensResult, JwtPayload, IMailService, MAIL_SERVICE, MailModule, MailService, @nestjs/config, @nestjs/jwt (+1 more)
 
-### Community 51 - "ProjectRole"
-Cohesion: 0.50
-Nodes (4): ProjectRole, MEMBER, OWNER, VIEWER
+### Community 51 - "backend/package.json"
+Cohesion: 0.12
+Nodes (15): author, description, @nestjs/mau@^0.2.6, prettier@^3.4.2, vite@^8.0.0, @vitest/coverage-v8@^4.1.2, vite, license (+7 more)
 
 ### Community 52 - "BacklogView.tsx"
-Cohesion: 0.13
-Nodes (32): CompleteSprintModal(), CompleteSprintModalProps, CreateTaskModal(), CreateTaskModalProps, StartSprintModal(), StartSprintModalProps, TaskDetailDrawer(), TaskDetailDrawerProps (+24 more)
+Cohesion: 0.15
+Nodes (14): StartSprintModal(), StartSprintModalProps, TaskDetailDrawerProps, sprintKeys, projectService, sprintService, taskService, ProjectStatus (+6 more)
 
-### Community 53 - "main.tsx"
-Cohesion: 0.40
-Nodes (3): @react-oauth/google@^0.13.5, rootElement, @react-oauth/google
+### Community 53 - "UpdateSprintDto"
+Cohesion: 0.23
+Nodes (8): CompleteSprintDto, CreateSprintDto, StartSprintDto, UpdateSprintDto, SprintStatus, ACTIVE, COMPLETED, PLANNED
 
 ### Community 54 - "react"
-Cohesion: 0.08
-Nodes (30): App(), GuestRoute(), GuestRouteProps, ProtectedRoute(), ProtectedRouteProps, ProjectMembersModal(), ProjectTabBar(), WorkspaceSidebar() (+22 more)
+Cohesion: 0.07
+Nodes (42): App(), GuestRoute(), GuestRouteProps, ProtectedRoute(), ProtectedRouteProps, AiCreateModalProps, Footer(), Header() (+34 more)
 
-### Community 55 - "auth.service.ts"
-Cohesion: 0.08
-Nodes (8): AuthTokensResult, EmailVerification, PasswordResetToken, Session, JwtPayload, bcrypt, @nestjs/jwt, @nestjs/passport
+### Community 55 - "auth.service.spec.ts"
+Cohesion: 0.09
+Nodes (7): ForgotPasswordDto, GoogleLoginDto, RegisterDto, ResendVerificationDto, ResetPasswordDto, VerifyOtpDto, class-validator
 
-### Community 56 - "transform.interceptor.ts"
+### Community 56 - "lib/api.ts"
+Cohesion: 0.22
+Nodes (8): api, refreshAccessToken(), request(), RequestOptions, ApiError, ApiResponse, ChangePasswordPayload, UpdateProfilePayload
+
+### Community 58 - "RegisterPage.tsx"
+Cohesion: 0.31
+Nodes (7): GoogleButton(), GoogleButtonProps, GoogleIcon(), FormStatus, useRegister(), RegisterPage(), RegisterPage
+
+### Community 59 - "WorkspaceSidebar.tsx"
+Cohesion: 0.15
+Nodes (9): CreateWorkspaceData, CreateWorkspaceModal(), CreateWorkspaceModalProps, INITIAL_WORKSPACES, StarredItem, WorkspaceSidebar(), WorkspaceSidebarProps, rootElement (+1 more)
+
+### Community 60 - "LoginPage.tsx"
+Cohesion: 0.33
+Nodes (6): @react-oauth/google@^0.13.5, FormStatus, useLogin(), LoginPage(), LoginPage, @react-oauth/google
+
+### Community 61 - "devDependencies"
+Cohesion: 0.08
+Nodes (24): devDependencies, @nestjs/cli@^12.0.0, @nestjs/schematics@^12.0.0, @nestjs/testing@^12.0.1, oxlint@^1.58.0, oxlint-tsgolint@^7.0.2001, source-map-support@^0.5.21, @types/bcrypt@^6.0.0 (+16 more)
+
+### Community 63 - "AddProjectMemberDto"
+Cohesion: 0.39
+Nodes (3): AddProjectMemberDto, TransferOwnershipDto, UpdateProjectMemberRoleDto
+
+### Community 65 - "transform.interceptor.ts"
 Cohesion: 0.29
 Nodes (4): rxjs@^7.8.1, ApiResponse, TransformInterceptor, rxjs
 
-### Community 59 - "workspace.ts"
-Cohesion: 0.11
-Nodes (15): ALL_VIEW_TYPES, ProjectTabBarProps, INITIAL_WORKSPACES, StarredItem, WorkspaceItem, WorkspaceSidebarProps, projectKeys, ProjectsPage() (+7 more)
+### Community 66 - "ProjectRole"
+Cohesion: 0.50
+Nodes (4): ProjectRole, MEMBER, OWNER, VIEWER
 
-### Community 61 - "devDependencies"
-Cohesion: 0.09
-Nodes (22): devDependencies, @nestjs/cli@^12.0.0, @nestjs/mau@^0.2.6, @nestjs/testing@^12.0.1, oxlint@^1.58.0, supertest@^7.0.0, @types/bcrypt@^6.0.0, @types/node@^24.0.0 (+14 more)
-
-### Community 67 - "Workspace"
-Cohesion: 0.09
-Nodes (9): PERMISSIONS_KEY, User, ProjectMember, Workspace, WorkspaceMember, class-transformer, @nestjs/common, @nestjs/core (+1 more)
+### Community 67 - "projects.service.ts"
+Cohesion: 0.08
+Nodes (11): User, CreateWorkspaceDto, WorkspaceResponseDto, Workspace, WorkspaceMember, WorkspaceRole, ADMIN, MEMBER (+3 more)
 
 ### Community 93 - "Product"
 Cohesion: 0.29
@@ -348,23 +357,23 @@ Nodes (5): 1. Anti-AI Slop Mandates, 2. Typography & Hierarchy, 3. Cards & Surfa
 
 ## Knowledge Gaps
 - **27 isolated node(s):** `TEXT`, `NUMBER`, `DATE`, `SELECT`, `OWNER` (+22 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 560 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 564 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **25 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `@nestjs/common` connect `Workspace` to `workspaces.service.ts`, `dependencies`, `typeorm`, `backend/package.json`, `main.ts`, `users.service.ts`, `Role`, `AppService`, `Task`, `app.module.ts`, `@nestjs/config`, `SprintsService`, `projects.service.ts`, `auth.service.ts`, `transform.interceptor.ts`, `auth.service.spec.ts`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `CreateProjectPage.tsx`, `frontend/package.json`, `dependencies`, `KanbanBoardView.tsx`, `useDragAndDrop.ts`, `LandingPage.tsx`, `ref_vitest`, `task.ts`, `useOverview.ts`, `ForgotPasswordPage.tsx`, `BacklogView.tsx`, `RegisterPage.tsx`, `WorkspaceSidebar.tsx`, `LoginPage.tsx`, `projectService.ts`?**
+  _High betweenness centrality (0.082) - this node is a cross-community bridge._
 - **What connects `TEXT`, `NUMBER`, `DATE` to the rest of the system?**
   _27 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `CreateProjectPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.11818181818181818 - nodes in this community are weakly interconnected._
-- **Why does `react` connect `react` to `CreateProjectPage.tsx`, `dependencies`, `frontend/package.json`, `LandingPage.tsx`, `ref_vitest`, `useOverview.ts`, `react`, `BacklogView.tsx`, `main.tsx`, `react`, `ProjectConfigForm.tsx`, `workspace.ts`, `projectService.ts`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
-- **Should `workspaces.service.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07272727272727272 - nodes in this community are weakly interconnected._
-- **Why does `Column` connect `Status` to `Workspace`, `typeorm`, `Role`, `Task`, `BacklogView.tsx`, `auth.service.ts`?**
-  _High betweenness centrality (0.064) - this node is a cross-community bridge._
-- **Should `Project Management System (Jira/Trello-like, Scrum/Kanban)` be split into smaller, more focused modules?**
-  _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09959183673469388 - nodes in this community are weakly interconnected._
+- **Why does `@nestjs/common` connect `@nestjs/common` to `transform.interceptor.ts`, `Project`, `users.service.ts`, `dependencies`, `projects.controller.ts`, `projects.service.ts`, `Role`, `main.ts`, `app.module.ts`, `backend/package.json`, `@nestjs/config`, `auth.service.spec.ts`, `AppService`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+- **Should `WorkspacesService` be split into smaller, more focused modules?**
+  _Cohesion score 0.11965811965811966 - nodes in this community are weakly interconnected._
+- **Why does `Column` connect `Role` to `Project`, `projects.service.ts`, `users.service.ts`, `WorkType`, `task.ts`, `Task`, `EmailVerification`, `ProjectMember`?**
+  _High betweenness centrality (0.060) - this node is a cross-community bridge._
+- **Should `users.service.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.05336538461538461 - nodes in this community are weakly interconnected._
