@@ -1,17 +1,154 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import {
+  DndContext,
+  DragOverlay,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
   Loader2,
-  Clock,
-  CheckSquare,
-  Bug,
-  Package,
 } from 'lucide-react'
 import { taskService } from '@/services/taskService'
 import type { TaskItem } from '@/types/task'
+import { useDragAndDrop } from '@/hooks/useDragAndDrop'
+import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
+import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { formatLocalDateKey } from '@/utils/dateFormat'
+
+interface CalendarTaskPillProps {
+  task: TaskItem
+  renderWorkTypeIcon: (type?: { name: string; icon: string } | null) => React.ReactNode
+  onClickTask?: (taskId: string) => void
+  isOverlay?: boolean
+}
+
+function CalendarTaskPill({
+  task,
+  renderWorkTypeIcon,
+  onClickTask,
+  isOverlay = false,
+}: CalendarTaskPillProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+    disabled: isOverlay,
+  })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+  }
+
+  if (isOverlay) {
+    return (
+      <div className="px-2 py-1 rounded bg-white border-2 border-indigo-500 shadow-xl flex items-center gap-1.5 w-[160px] cursor-grabbing select-none">
+        {renderWorkTypeIcon(task.type)}
+        <span className="font-mono text-[10px] font-bold text-indigo-600 shrink-0">
+          {task.taskKey}
+        </span>
+        <span className="text-[11px] text-slate-800 font-semibold truncate flex-1">
+          {task.title}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={() => onClickTask?.(task.id)}
+      className={`px-1.5 py-1 rounded bg-slate-50 hover:bg-indigo-50/80 border border-slate-200/70 hover:border-indigo-200 text-left transition-all cursor-pointer active:cursor-grabbing group flex items-center gap-1 shadow-2xs select-none ${
+        isDragging ? 'opacity-30 border-dashed border-indigo-400' : ''
+      }`}
+      title={`${task.taskKey}: ${task.title}`}
+    >
+      {renderWorkTypeIcon(task.type)}
+      <span className="font-mono text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 shrink-0">
+        {task.taskKey}
+      </span>
+      <span className="text-[11px] text-slate-800 font-medium truncate flex-1">
+        {task.title}
+      </span>
+    </div>
+  )
+}
+
+interface CalendarDayCellProps {
+  dateKey: string
+  dayNumber: number
+  isCurrentMonth: boolean
+  isToday: boolean
+  dayTasks: TaskItem[]
+  renderWorkTypeIcon: (type?: { name: string; icon: string } | null) => React.ReactNode
+  onClickTask: (taskId: string) => void
+}
+
+function CalendarDayCell({
+  dateKey,
+  dayNumber,
+  isCurrentMonth,
+  isToday,
+  dayTasks,
+  renderWorkTypeIcon,
+  onClickTask,
+}: CalendarDayCellProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateKey,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`p-1.5 sm:p-2 min-h-[105px] flex flex-col transition-colors ${
+        isOver
+          ? 'bg-indigo-50/70 ring-2 ring-inset ring-indigo-300'
+          : isCurrentMonth
+            ? 'bg-white hover:bg-slate-50/50'
+            : 'bg-slate-50/40 text-slate-300'
+      }`}
+    >
+      {/* Ngày & Badge hôm nay */}
+      <div className="flex items-center justify-between mb-1.5 select-none">
+        <span
+          className={`text-xs font-semibold inline-flex items-center justify-center ${
+            isToday
+              ? 'w-5 h-5 rounded-full bg-indigo-600 text-white font-bold'
+              : isCurrentMonth
+                ? 'text-slate-700'
+                : 'text-slate-400'
+          }`}
+        >
+          {dayNumber}
+        </span>
+
+        {dayTasks.length > 0 && (
+          <span className="text-[10px] font-bold px-1 rounded bg-indigo-50 text-indigo-600">
+            {dayTasks.length}
+          </span>
+        )}
+      </div>
+
+      {/* Danh sách Thẻ công việc trong ngày */}
+      <div className="flex flex-col gap-1 overflow-y-auto max-h-[120px] scrollbar-none">
+        {dayTasks.map((t) => (
+          <CalendarTaskPill
+            key={t.id}
+            task={t}
+            renderWorkTypeIcon={renderWorkTypeIcon}
+            onClickTask={onClickTask}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function CalendarView() {
   const { projectKey } = useParams<{ projectKey?: string }>()
@@ -20,6 +157,11 @@ export function CalendarView() {
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const previousTasksRef = useRef<TaskItem[]>([])
+  const scheduleDebouncedRef = useRef<
+    (key: string, action: () => Promise<void> | void, delayMs?: number) => void
+  >(() => {})
 
   // Current viewed month and year
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -82,13 +224,13 @@ export function CalendarView() {
       dateKey: string // "YYYY-MM-DD"
     }> = []
 
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = formatLocalDateKey(new Date())
 
     // 1. Các ngày của tháng trước đệm vào đầu
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = daysInPrevMonth - i
       const dateObj = new Date(year, month - 1, d)
-      const dateKey = dateObj.toISOString().split('T')[0]
+      const dateKey = formatLocalDateKey(dateObj)
       cells.push({
         date: dateObj,
         dayNumber: d,
@@ -101,8 +243,7 @@ export function CalendarView() {
     // 2. Các ngày của tháng hiện tại
     for (let d = 1; d <= daysInMonth; d++) {
       const dateObj = new Date(year, month, d)
-      // Format YYYY-MM-DD
-      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const dateKey = formatLocalDateKey(dateObj)
       cells.push({
         date: dateObj,
         dayNumber: d,
@@ -117,7 +258,7 @@ export function CalendarView() {
     if (remaining < 7) {
       for (let d = 1; d <= remaining; d++) {
         const dateObj = new Date(year, month + 1, d)
-        const dateKey = dateObj.toISOString().split('T')[0]
+        const dateKey = formatLocalDateKey(dateObj)
         cells.push({
           date: dateObj,
           dayNumber: d,
@@ -148,20 +289,66 @@ export function CalendarView() {
     return map
   }, [tasks])
 
-  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => {
-    const iconName = type?.icon?.toLowerCase() || ''
-    if (iconName.includes('package') || type?.name?.toLowerCase().includes('module')) {
-      return <Package className="w-3 h-3 text-purple-600 shrink-0" />
-    }
-    if (iconName.includes('bug') || type?.name?.toLowerCase().includes('bug')) {
-      return <Bug className="w-3 h-3 text-rose-600 shrink-0" />
-    }
-    return <CheckSquare className="w-3 h-3 text-blue-600 shrink-0" />
-  }
+  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => (
+    <WorkTypeIcon type={type} sizeClass="w-3 h-3" />
+  )
 
   const tasksWithDueDateCount = useMemo(() => {
     return tasks.filter((t) => !!t.dueDate).length
   }, [tasks])
+
+  const handleStartDrag = useCallback(() => {
+    previousTasksRef.current = [...tasks]
+  }, [tasks])
+
+  const handleDropMove = useCallback(
+    (activeId: string, overId: string, activeTaskItem: TaskItem) => {
+      // overId là dateKey dạng "YYYY-MM-DD"
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(overId)) return
+      const currentDateKey = activeTaskItem.dueDate ? activeTaskItem.dueDate.split('T')[0] : null
+      if (currentDateKey === overId) return
+
+      const pristineTasks = previousTasksRef.current
+      const newDueDate = `${overId}T00:00:00.000Z`
+
+      // Optimistic Update tức thì trên Lịch
+      setTasks((prev) =>
+        prev.map((t) => (t.id === activeId ? { ...t, dueDate: newDueDate } : t)),
+      )
+
+      // Debounce 600ms mới gọi API cập nhật dueDate
+      scheduleDebouncedRef.current(activeId, async () => {
+        if (!projectParam) return
+        try {
+          await taskService.updateProjectTask(projectParam, activeId, {
+            dueDate: newDueDate,
+          })
+        } catch (err) {
+          console.error('Failed to persist calendar task dueDate:', err)
+          setTasks(pristineTasks)
+        }
+      })
+    },
+    [projectParam],
+  )
+
+  const {
+    sensors,
+    activeItem: activeTask,
+    shouldIgnoreClick,
+    scheduleDebounced,
+    handleDragStart,
+    handleDragEnd,
+    handleDragCancel,
+  } = useDragAndDrop<TaskItem>({
+    items: tasks,
+    getItemId: (t) => t.id,
+    onStartDrag: handleStartDrag,
+    onDropMove: handleDropMove,
+    debounceMs: 600,
+  })
+
+  scheduleDebouncedRef.current = scheduleDebounced
 
   return (
     <div className="flex flex-col gap-4 w-full flex-1 max-w-full pb-10">
@@ -216,72 +403,68 @@ export function CalendarView() {
         </div>
       )}
 
-      {/* 2. Lưới Lịch Công việc phẳng chuẩn Impeccable */}
+      {/* 2. Lưới Lịch Công việc phẳng chuẩn Impeccable (hỗ trợ kéo thả đổi ngày hạn chót) */}
       {!isLoading && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
-          {/* Header 7 Ngày trong tuần */}
-          <div className="grid grid-cols-7 border-b border-slate-200/80 bg-slate-50/70 text-center py-2 text-xs font-bold text-slate-600 select-none">
-            {weekDays.map((day) => (
-              <div key={day}>{day}</div>
-            ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+            {/* Header 7 Ngày trong tuần */}
+            <div className="grid grid-cols-7 border-b border-slate-200/80 bg-slate-50/70 text-center py-2 text-xs font-bold text-slate-600 select-none">
+              {weekDays.map((day) => (
+                <div key={day}>{day}</div>
+              ))}
+            </div>
+
+            {/* Lưới các ô Ngày */}
+            <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 min-h-[580px]">
+              {calendarCells.map((cell) => {
+                const dayTasks = tasksByDate.get(cell.dateKey) || []
+
+                return (
+                  <CalendarDayCell
+                    key={cell.dateKey}
+                    dateKey={cell.dateKey}
+                    dayNumber={cell.dayNumber}
+                    isCurrentMonth={cell.isCurrentMonth}
+                    isToday={cell.isToday}
+                    dayTasks={dayTasks}
+                    renderWorkTypeIcon={renderWorkTypeIcon}
+                    onClickTask={(taskId) => {
+                      if (!shouldIgnoreClick()) setSelectedTaskId(taskId)
+                    }}
+                  />
+                )
+              })}
+            </div>
           </div>
 
-          {/* Lưới các ô Ngày */}
-          <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 min-h-[580px]">
-            {calendarCells.map((cell) => {
-              const dayTasks = tasksByDate.get(cell.dateKey) || []
+          <DragOverlay>
+            {activeTask ? (
+              <CalendarTaskPill
+                task={activeTask}
+                renderWorkTypeIcon={renderWorkTypeIcon}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
-              return (
-                <div
-                  key={cell.dateKey}
-                  className={`p-1.5 sm:p-2 min-h-[105px] flex flex-col transition-colors ${
-                    cell.isCurrentMonth ? 'bg-white hover:bg-slate-50/50' : 'bg-slate-50/40 text-slate-300'
-                  }`}
-                >
-                  {/* Ngày & Badge hôm nay */}
-                  <div className="flex items-center justify-between mb-1.5 select-none">
-                    <span
-                      className={`text-xs font-semibold inline-flex items-center justify-center ${
-                        cell.isToday
-                          ? 'w-5 h-5 rounded-full bg-indigo-600 text-white font-bold'
-                          : cell.isCurrentMonth
-                            ? 'text-slate-700'
-                            : 'text-slate-400'
-                      }`}
-                    >
-                      {cell.dayNumber}
-                    </span>
-
-                    {dayTasks.length > 0 && (
-                      <span className="text-[10px] font-bold px-1 rounded bg-indigo-50 text-indigo-600">
-                        {dayTasks.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Danh sách Thẻ công việc trong ngày */}
-                  <div className="flex flex-col gap-1 overflow-y-auto max-h-[120px] scrollbar-none">
-                    {dayTasks.map((t) => (
-                      <div
-                        key={t.id}
-                        className="px-1.5 py-1 rounded bg-slate-50 hover:bg-indigo-50/80 border border-slate-200/70 hover:border-indigo-200 text-left transition-all cursor-pointer group flex items-center gap-1 shadow-2xs"
-                        title={`${t.taskKey}: ${t.title}`}
-                      >
-                        {renderWorkTypeIcon(t.type)}
-                        <span className="font-mono text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 shrink-0">
-                          {t.taskKey}
-                        </span>
-                        <span className="text-[11px] text-slate-800 font-medium truncate flex-1">
-                          {t.title}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+      {/* Task Detail Drawer */}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          isOpen={Boolean(selectedTaskId)}
+          onClose={() => setSelectedTaskId(null)}
+          projectIdOrKey={projectParam}
+          taskId={selectedTaskId}
+          onTaskUpdated={loadTasks}
+          onTaskDeleted={loadTasks}
+        />
       )}
     </div>
   )

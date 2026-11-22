@@ -139,4 +139,90 @@ describe('useDragAndDrop - Generic Hook Tests', () => {
     expect(result.current.activeItem).toBeNull()
     expect(result.current.isDragging).toBe(false)
   })
+
+  it('6. Gọi onStartDrag khi bắt đầu kéo và onCancelDrag khi thả ra ngoài (!over) hoặc hủy', async () => {
+    const onDropMove = vi.fn()
+    const onStartDrag = vi.fn()
+    const onCancelDrag = vi.fn()
+
+    const { result } = renderHook(() =>
+      useDragAndDrop({
+        items: mockTasks,
+        getItemId: (t) => t.id,
+        onStartDrag,
+        onDropMove,
+        onCancelDrag,
+      }),
+    )
+
+    act(() => {
+      result.current.handleDragStart({
+        active: { id: 'task-1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+      } as any)
+    })
+
+    expect(onStartDrag).toHaveBeenCalledWith('task-1', mockTasks[0])
+    expect(result.current.shouldIgnoreClick()).toBe(true)
+
+    await act(async () => {
+      await result.current.handleDragEnd({
+        active: { id: 'task-1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+        over: null,
+      } as any)
+    })
+
+    expect(onDropMove).not.toHaveBeenCalled()
+    expect(onCancelDrag).toHaveBeenCalledTimes(1)
+  })
+
+  it('7. scheduleDebounced chỉ thực thi 1 lần cuối cùng sau khoảng delay khi kéo liên tiếp', () => {
+    vi.useFakeTimers()
+    const onDropMove = vi.fn()
+    const persistFn1 = vi.fn()
+    const persistFn2 = vi.fn()
+
+    const { result, unmount } = renderHook(() =>
+      useDragAndDrop({
+        items: mockTasks,
+        getItemId: (t) => t.id,
+        onDropMove,
+        debounceMs: 600,
+      }),
+    )
+
+    act(() => {
+      result.current.scheduleDebounced('task-1', persistFn1)
+    })
+
+    // Sau 300ms kéo lại lần nữa -> phải hủy persistFn1
+    act(() => {
+      vi.advanceTimersByTime(300)
+      result.current.scheduleDebounced('task-1', persistFn2)
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(599)
+    })
+    expect(persistFn1).not.toHaveBeenCalled()
+    expect(persistFn2).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(persistFn1).not.toHaveBeenCalled()
+    expect(persistFn2).toHaveBeenCalledTimes(1)
+
+    // Test cleanup khi unmount không bị rò rỉ timer
+    const persistFn3 = vi.fn()
+    act(() => {
+      result.current.scheduleDebounced('task-2', persistFn3)
+    })
+    unmount()
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(persistFn3).not.toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
 })

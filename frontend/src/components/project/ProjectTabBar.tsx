@@ -80,6 +80,7 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
   const activeKey = projectKey || project?.key
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const closingViewRef = useRef<string | null>(null)
 
   // Hàm sinh đường dẫn linh hoạt (hỗ trợ cả RESTful /:workspace/:key/tab và /workspace/tab?project=...)
   const getTabPath = (tabId: string) => {
@@ -175,10 +176,18 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Auto-pin view if user navigates to it
+  // Auto-pin view if user navigates to it (skip if user just clicked X to close this tab)
   useEffect(() => {
     const matchedView = availableViewTypes.find((v) => location.pathname.endsWith('/' + v.id) || v.path === location.pathname)
-    if (matchedView && !pinnedViewIds.includes(matchedView.id)) {
+    if (!matchedView) {
+      closingViewRef.current = null
+      return
+    }
+    if (closingViewRef.current === matchedView.id) {
+      return
+    }
+    closingViewRef.current = null
+    if (!pinnedViewIds.includes(matchedView.id)) {
       setPinnedViewIds((prev) => [...prev, matchedView.id])
     }
   }, [location.pathname, pinnedViewIds, availableViewTypes])
@@ -222,8 +231,14 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
   const handleRemoveTab = async (e: React.MouseEvent, viewId: string) => {
     e.preventDefault()
     e.stopPropagation()
+    closingViewRef.current = viewId
     const nextPinned = pinnedViewIds.filter((id) => id !== viewId)
     setPinnedViewIds(nextPinned)
+
+    // If the active tab was removed, navigate to board immediately
+    if (location.pathname.endsWith('/' + viewId)) {
+      navigate(getTabPath('board'), { replace: true })
+    }
 
     // Lưu cập nhật views theo từng project vào Database
     const targetProjectId = project?.id || activeKey
@@ -240,11 +255,6 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
       } catch (err) {
         console.error('Failed to persist unpinned view to database:', err)
       }
-    }
-
-    // If the active tab was removed, navigate to board
-    if (location.pathname.endsWith('/' + viewId)) {
-      navigate(getTabPath('board'))
     }
   }
 

@@ -6,9 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  CheckSquare,
-  Bug,
-  Package,
   Calendar,
   AlertCircle,
   Filter,
@@ -23,6 +20,8 @@ import { taskService } from '@/services/taskService'
 import type { TaskItem, TaskPriority } from '@/types/task'
 import type { Sprint } from '@/types/sprint'
 import type { Project } from '@/types/workspace'
+import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
+import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
 
 export function ListView() {
   const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
@@ -43,10 +42,11 @@ export function ListView() {
   // Collapsible status groups
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
 
-  // Quick inline add task
+  // Quick inline add task & detail drawer
   const [activeQuickAddStatusId, setActiveQuickAddStatusId] = useState<string | null>(null)
   const [quickTaskTitle, setQuickTaskTitle] = useState('')
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const isScrum =
     project?.settings?.method_id === 'scrum' ||
@@ -185,16 +185,9 @@ export function ListView() {
   }
 
   // Render Icon loại công việc
-  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => {
-    const iconName = type?.icon?.toLowerCase() || ''
-    if (iconName.includes('package') || type?.name?.toLowerCase().includes('module')) {
-      return <Package className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-    }
-    if (iconName.includes('bug') || type?.name?.toLowerCase().includes('bug')) {
-      return <Bug className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-    }
-    return <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-  }
+  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => (
+    <WorkTypeIcon type={type} />
+  )
 
   // Render Badge độ ưu tiên
   const renderPriorityBadge = (priority?: TaskPriority) => {
@@ -243,7 +236,7 @@ export function ListView() {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Tìm theo tiêu đề hoặc mã STD..."
+              placeholder="Tìm theo tiêu đề hoặc mã công việc..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-8.5 pl-8 pr-3 rounded-lg border border-slate-200/90 bg-white hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-xs text-slate-800 placeholder-slate-400 transition-all shadow-2xs"
@@ -409,7 +402,8 @@ export function ListView() {
                       {groupTasks.map((task) => (
                         <div
                           key={task.id}
-                          className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center hover:bg-slate-50/70 transition-colors group/row"
+                          onClick={() => setSelectedTaskId(task.id)}
+                          className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center hover:bg-slate-50/70 transition-colors group/row cursor-pointer"
                         >
                           {/* Col 1: Icon, TaskKey, Title */}
                           <div className="col-span-6 sm:col-span-5 flex items-center gap-2.5 min-w-0">
@@ -417,13 +411,16 @@ export function ListView() {
                             <span className="font-mono text-xs font-bold text-slate-500 group-hover/row:text-indigo-600 transition-colors shrink-0">
                               {task.taskKey}
                             </span>
-                            <span className="text-xs sm:text-sm font-medium text-slate-800 truncate" title={task.title}>
+                            <span className="text-xs sm:text-sm font-medium text-slate-800 truncate group-hover/row:text-indigo-600 transition-colors" title={task.title}>
                               {task.title}
                             </span>
                           </div>
 
                           {/* Col 2: Status Dropdown */}
-                          <div className="col-span-3 sm:col-span-2">
+                          <div
+                            className="col-span-3 sm:col-span-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <select
                               value={task.statusId}
                               onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
@@ -515,6 +512,18 @@ export function ListView() {
               )
             })}
         </div>
+      )}
+
+      {/* Task Detail Drawer */}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          isOpen={Boolean(selectedTaskId)}
+          onClose={() => setSelectedTaskId(null)}
+          projectIdOrKey={projectParam}
+          taskId={selectedTaskId}
+          onTaskUpdated={loadData}
+          onTaskDeleted={loadData}
+        />
       )}
     </div>
   )

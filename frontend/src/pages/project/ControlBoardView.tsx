@@ -48,11 +48,18 @@ export function ControlBoardView() {
       .finally(() => setIsLoading(false))
   }, [projectParam])
 
+  const isScrum =
+    project?.settings?.method_id === 'scrum' ||
+    project?.settings?.method_id === 'scrumban' ||
+    project?.name?.toLowerCase().includes('scrum')
+
   const activeSprint = sprints.find((s) => s.status === 'ACTIVE') || null
   const completedTasks = tasks.filter((t) => t.status?.category === 'DONE')
   const inProgressTasks = tasks.filter((t) => t.status?.category === 'IN_PROGRESS')
   const todoTasks = tasks.filter((t) => t.status?.category === 'TODO' || !t.status?.category)
   const totalTasks = tasks.length
+  const totalProjectPoints = tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
+  const completedProjectPoints = completedTasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0)
 
   const metrics = [
     {
@@ -80,9 +87,13 @@ export function ControlBoardView() {
       iconBg: 'bg-blue-50',
     },
     {
-      value: activeSprint?.totalPoints || 0,
+      value: isScrum ? activeSprint?.totalPoints || 0 : totalProjectPoints,
       label: 'Story Points',
-      subtext: activeSprint ? `của ${activeSprint.name}` : 'chưa có sprint chạy',
+      subtext: isScrum
+        ? activeSprint
+          ? `của ${activeSprint.name}`
+          : 'chưa có sprint chạy'
+        : 'tổng điểm toàn bảng',
       icon: CalendarClock,
       iconColor: 'text-amber-600',
       iconBg: 'bg-amber-50',
@@ -173,75 +184,106 @@ export function ControlBoardView() {
 
       {/* 3. Khối nội dung chính: Tiến độ Sprint & Tổng quan trạng thái */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Cột trái: Tiến độ Active Sprint */}
+        {/* Cột trái: Tiến độ Active Sprint (Scrum) hoặc Tiến độ Kanban */}
         <div className="lg:col-span-6 bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col gap-4">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Repeat className="w-4 h-4 text-indigo-600" />
-                <span>Tiến độ Sprint hiện tại</span>
+                <span>{isScrum ? 'Tiến độ Sprint hiện tại' : 'Tiến độ hoàn thành bảng'}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {activeSprint ? activeSprint.name : 'Chưa có Sprint nào đang chạy'}
+                {isScrum
+                  ? activeSprint
+                    ? activeSprint.name
+                    : 'Chưa có Sprint nào đang chạy'
+                  : 'Theo dõi luồng công việc Kanban liên tục'}
               </p>
             </div>
             <Link
-              to={backlogLink}
+              to={isScrum ? backlogLink : boardLink}
               className="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1"
             >
-              <span>Chi tiết Backlog</span>
+              <span>{isScrum ? 'Chi tiết Backlog' : 'Mở Bảng Kanban'}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          {activeSprint ? (
-            <div className="flex flex-col gap-3 py-2">
-              {activeSprint.goal && (
-                <div className="p-3 rounded-lg bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
-                  <span className="font-semibold block mb-0.5">Mục tiêu Sprint (Goal):</span>
-                  <p className="italic">{activeSprint.goal}</p>
-                </div>
-              )}
+          {isScrum ? (
+            activeSprint ? (
+              <div className="flex flex-col gap-3 py-2">
+                {activeSprint.goal && (
+                  <div className="p-3 rounded-lg bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
+                    <span className="font-semibold block mb-0.5">Mục tiêu Sprint (Goal):</span>
+                    <p className="italic">{activeSprint.goal}</p>
+                  </div>
+                )}
 
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Hoàn thành Story Points:</span>
+                  <span className="font-bold font-mono text-slate-900">
+                    {activeSprint.completedPoints || 0} / {activeSprint.totalPoints || 0} SP
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{
+                      width: `${
+                        activeSprint.totalPoints && activeSprint.totalPoints > 0
+                          ? Math.min(100, Math.round(((activeSprint.completedPoints || 0) / activeSprint.totalPoints) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                  <span>Số công việc: {activeSprint.taskCount || 0}</span>
+                  <span>
+                    Đã xong: {activeSprint.completedTaskCount || 0} (
+                    {activeSprint.taskCount && activeSprint.taskCount > 0
+                      ? Math.round(((activeSprint.completedTaskCount || 0) / activeSprint.taskCount) * 100)
+                      : 0}
+                    %)
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-slate-400">
+                Chưa kích hoạt Sprint nào. Hãy vào tab{' '}
+                <Link to={backlogLink} className="text-indigo-600 font-semibold hover:underline">
+                  Backlog
+                </Link>{' '}
+                để lên kế hoạch và bấm Bắt đầu Sprint!
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col gap-3 py-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 font-medium">Hoàn thành Story Points:</span>
+                <span className="text-slate-600 font-medium">Tỷ lệ hoàn thành công việc:</span>
                 <span className="font-bold font-mono text-slate-900">
-                  {activeSprint.completedPoints || 0} / {activeSprint.totalPoints || 0} SP
+                  {completedTasks.length} / {totalTasks} việc
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 transition-all duration-300"
                   style={{
-                    width: `${
-                      activeSprint.totalPoints && activeSprint.totalPoints > 0
-                        ? Math.min(100, Math.round(((activeSprint.completedPoints || 0) / activeSprint.totalPoints) * 100))
-                        : 0
-                    }%`,
+                    width: `${totalTasks > 0 ? Math.min(100, Math.round((completedTasks.length / totalTasks) * 100)) : 0}%`,
                   }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                <span>Số công việc: {activeSprint.taskCount || 0}</span>
+                <span>Đang xử lý: {inProgressTasks.length}</span>
                 <span>
-                  Đã xong: {activeSprint.completedTaskCount || 0} (
-                  {activeSprint.taskCount && activeSprint.taskCount > 0
-                    ? Math.round(((activeSprint.completedTaskCount || 0) / activeSprint.taskCount) * 100)
-                    : 0}
-                  %)
+                  Đã hoàn thành: {completedProjectPoints} / {totalProjectPoints} SP
                 </span>
               </div>
-            </div>
-          ) : (
-            <div className="py-8 text-center text-xs text-slate-400">
-              Chưa kích hoạt Sprint nào. Hãy vào tab{' '}
-              <Link to={backlogLink} className="text-indigo-600 font-semibold hover:underline">
-                Backlog
-              </Link>{' '}
-              để lên kế hoạch và bấm Bắt đầu Sprint!
             </div>
           )}
         </div>

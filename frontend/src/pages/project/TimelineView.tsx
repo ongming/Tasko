@@ -3,9 +3,6 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import {
   CalendarRange,
   Loader2,
-  Package,
-  Bug,
-  CheckSquare,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -15,6 +12,9 @@ import { taskService } from '@/services/taskService'
 import { sprintService } from '@/services/sprintService'
 import type { TaskItem } from '@/types/task'
 import type { Sprint } from '@/types/sprint'
+import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
+import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { formatLocalDateKey } from '@/utils/dateFormat'
 
 export function TimelineView() {
   const { projectKey } = useParams<{ projectKey?: string }>()
@@ -24,6 +24,7 @@ export function TimelineView() {
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   // Timeline window: default to 4 weeks centered on current date
   const [startDate, setStartDate] = useState(() => {
@@ -58,12 +59,12 @@ export function TimelineView() {
 
   const daysList = useMemo(() => {
     const list: Array<{ date: Date; dateStr: string; dayNumber: number; isToday: boolean; isWeekend: boolean }> = []
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = formatLocalDateKey(new Date())
 
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(startDate)
       d.setDate(d.getDate() + i)
-      const dateStr = d.toISOString().split('T')[0]
+      const dateStr = formatLocalDateKey(d)
       const dayOfWeek = d.getDay() // 0 = CN, 6 = T7
 
       list.push({
@@ -99,33 +100,40 @@ export function TimelineView() {
     setStartDate(d)
   }
 
-  // Helper tính vị trí % thanh ngang trên timeline
+  // Helper tính vị trí % thanh ngang trên timeline dựa trên startDate và dueDate
   const calculateBarPosition = (task: TaskItem) => {
     const startWindow = startDate.getTime()
-    const endWindow = startWindow + totalDays * 24 * 60 * 60 * 1000
+    const windowDuration = totalDays * 24 * 60 * 60 * 1000
+    const endWindow = startWindow + windowDuration
+    const defaultDuration = 3 * 24 * 60 * 60 * 1000
 
-    // Mặc định: nếu không có dueDate thì lấy thời gian tạo + 3 ngày
-    const taskStart = new Date(task.dueDate || new Date()).getTime()
-    const taskEnd = task.dueDate ? new Date(task.dueDate).getTime() : taskStart + 3 * 24 * 60 * 60 * 1000
+    let taskStart: number
+    let taskEnd: number
 
-    // Tỉ lệ %
-    const leftPercent = Math.max(0, Math.min(100, ((taskStart - startWindow) / (endWindow - startWindow)) * 100))
-    const rightPercent = Math.max(leftPercent + 3, Math.min(100, ((taskEnd - startWindow) / (endWindow - startWindow)) * 100))
+    if (task.startDate && task.dueDate) {
+      taskStart = new Date(task.startDate).getTime()
+      taskEnd = Math.max(taskStart + 24 * 60 * 60 * 1000, new Date(task.dueDate).getTime())
+    } else if (task.startDate) {
+      taskStart = new Date(task.startDate).getTime()
+      taskEnd = taskStart + defaultDuration
+    } else if (task.dueDate) {
+      taskEnd = new Date(task.dueDate).getTime()
+      taskStart = taskEnd - defaultDuration
+    } else {
+      taskStart = Date.now()
+      taskEnd = taskStart + defaultDuration
+    }
+
+    const leftPercent = Math.max(0, Math.min(97, ((taskStart - startWindow) / windowDuration) * 100))
+    const rightPercent = Math.max(leftPercent + 3, Math.min(100, ((taskEnd - startWindow) / windowDuration) * 100))
     const widthPercent = Math.max(3, rightPercent - leftPercent)
 
     return { leftPercent, widthPercent }
   }
 
-  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => {
-    const iconName = type?.icon?.toLowerCase() || ''
-    if (iconName.includes('package') || type?.name?.toLowerCase().includes('module')) {
-      return <Package className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-    }
-    if (iconName.includes('bug') || type?.name?.toLowerCase().includes('bug')) {
-      return <Bug className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-    }
-    return <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-  }
+  const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => (
+    <WorkTypeIcon type={type} />
+  )
 
   const rangeLabel = useMemo(() => {
     const first = daysList[0]?.date
@@ -227,7 +235,11 @@ export function TimelineView() {
                 const { leftPercent, widthPercent } = calculateBarPosition(task)
 
                 return (
-                  <div key={task.id} className="flex items-center hover:bg-slate-50/60 transition-colors group">
+                  <div
+                    key={task.id}
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className="flex items-center hover:bg-slate-50/60 transition-colors group cursor-pointer"
+                  >
                     {/* Left Task Key & Title */}
                     <div className="w-64 min-w-[250px] shrink-0 px-4 py-2.5 border-r border-slate-100 flex items-center gap-2 min-w-0">
                       {renderWorkTypeIcon(task.type)}
@@ -279,6 +291,18 @@ export function TimelineView() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Task Detail Drawer */}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          isOpen={Boolean(selectedTaskId)}
+          onClose={() => setSelectedTaskId(null)}
+          projectIdOrKey={projectParam}
+          taskId={selectedTaskId}
+          onTaskUpdated={loadData}
+          onTaskDeleted={loadData}
+        />
       )}
     </div>
   )

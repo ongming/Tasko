@@ -1,0 +1,498 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  User as UserIcon,
+  ShieldCheck,
+  Camera,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  KeyRound,
+  Mail,
+  Info,
+} from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { userService } from '@/services/userService'
+import { PasswordInput } from '@/components/auth/PasswordInput'
+import { ApiError } from '@/types/api'
+
+function getInitials(name?: string | null): string {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return name.slice(0, 2).toUpperCase()
+}
+
+export const ProfileSecurityTab: React.FC = () => {
+  const user = useAuthStore((state) => state.user)
+  const updateUser = useAuthStore((state) => state.updateUser)
+
+  // Profile Form State
+  const [fullName, setFullName] = useState(user?.full_name || user?.fullName || '')
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null)
+  const [profileError, setProfileError] = useState<string | null>(null)
+
+  // Avatar Upload State
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Password Form State
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    currentPassword?: string
+    newPassword?: string
+    confirmPassword?: string
+  }>({})
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name || user.fullName || '')
+    }
+  }, [user])
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview)
+      }
+    }
+  }, [avatarPreview])
+
+  const handleAvatarChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      setAvatarError(null)
+      setAvatarSuccess(null)
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+      if (!allowedTypes.includes(file.type)) {
+        setAvatarError('Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPG, PNG hoặc WEBP.')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setAvatarError('Kích thước ảnh vượt quá giới hạn 5MB.')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      const previewUrl = URL.createObjectURL(file)
+      setAvatarPreview(previewUrl)
+      setIsUploadingAvatar(true)
+
+      try {
+        const updatedUser = await userService.uploadAvatar(file)
+        updateUser(updatedUser)
+        setAvatarSuccess('Cập nhật ảnh đại diện thành công!')
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setAvatarError(err.message)
+        } else {
+          setAvatarError('Không thể tải ảnh đại diện lên Cloudinary. Vui lòng thử lại.')
+        }
+        setAvatarPreview(null)
+      } finally {
+        setIsUploadingAvatar(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    },
+    [updateUser],
+  )
+
+  const handleUpdateProfile = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      setProfileError(null)
+      setProfileSuccess(null)
+
+      const trimmedName = fullName.trim()
+      if (!trimmedName) {
+        setProfileError('Họ và tên không được để trống.')
+        return
+      }
+
+      if (trimmedName.length > 100) {
+        setProfileError('Họ và tên không được vượt quá 100 ký tự.')
+        return
+      }
+
+      setIsUpdatingProfile(true)
+
+      try {
+        const updatedUser = await userService.updateProfile({ fullName: trimmedName })
+        updateUser(updatedUser)
+        setProfileSuccess('Cập nhật thông tin hồ sơ thành công!')
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setProfileError(err.message)
+        } else {
+          setProfileError('Không thể cập nhật hồ sơ. Vui lòng thử lại sau.')
+        }
+      } finally {
+        setIsUpdatingProfile(false)
+      }
+    },
+    [fullName, updateUser],
+  )
+
+  const handleChangePassword = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      setPasswordError(null)
+      setPasswordSuccess(null)
+      setFieldErrors({})
+
+      const errors: {
+        currentPassword?: string
+        newPassword?: string
+        confirmPassword?: string
+      } = {}
+
+      if (!currentPassword) {
+        errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại.'
+      }
+
+      if (!newPassword) {
+        errors.newPassword = 'Vui lòng nhập mật khẩu mới.'
+      } else if (newPassword.length < 8) {
+        errors.newPassword = 'Mật khẩu mới phải có ít nhất 8 ký tự.'
+      } else if (newPassword === currentPassword) {
+        errors.newPassword = 'Mật khẩu mới không được trùng với mật khẩu hiện tại.'
+      }
+
+      if (!confirmPassword) {
+        errors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới.'
+      } else if (newPassword !== confirmPassword) {
+        errors.confirmPassword = 'Mật khẩu xác nhận không khớp.'
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors)
+        return
+      }
+
+      setIsChangingPassword(true)
+
+      try {
+        const res = await userService.changePassword({
+          currentPassword,
+          newPassword,
+        })
+        setPasswordSuccess(res.message || 'Đổi mật khẩu thành công!')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setPasswordError(err.message)
+        } else {
+          setPasswordError('Đổi mật khẩu thất bại. Vui lòng thử lại.')
+        }
+      } finally {
+        setIsChangingPassword(false)
+      }
+    },
+    [currentPassword, newPassword, confirmPassword],
+  )
+
+  const isGoogleAccountWithoutPassword = user?.hasPassword === false
+  const isEmailVerified = Boolean(user?.emailVerified ?? user?.is_active ?? user?.isVerified)
+  const currentAvatarSrc = avatarPreview || user?.avatar_url || user?.avatarUrl
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* KHỐI 1: THÔNG TIN HỒ SƠ CÁ NHÂN */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-indigo-600" />
+              <span>Thông tin Hồ sơ Cá nhân</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Cập nhật ảnh đại diện và họ tên hiển thị trên toàn hệ thống Tasko.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 flex flex-col gap-6">
+          {profileSuccess && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium animate-in fade-in duration-150">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{profileSuccess}</span>
+            </div>
+          )}
+          {profileError && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{profileError}</span>
+            </div>
+          )}
+          {avatarSuccess && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium animate-in fade-in duration-150">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{avatarSuccess}</span>
+            </div>
+          )}
+          {avatarError && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{avatarError}</span>
+            </div>
+          )}
+
+          {/* Avatar Upload */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 p-4 rounded-xl bg-slate-50/80 border border-slate-200/60">
+            <div className="relative group shrink-0">
+              {currentAvatarSrc ? (
+                <img
+                  src={currentAvatarSrc}
+                  alt={user?.full_name || 'Avatar'}
+                  className="w-20 h-20 rounded-2xl object-cover ring-2 ring-white shadow-xs"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-bold text-xl flex items-center justify-center ring-2 ring-white shadow-xs">
+                  {getInitials(user?.full_name || user?.fullName)}
+                </div>
+              )}
+
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 rounded-2xl bg-slate-900/60 flex flex-col items-center justify-center text-white gap-1 backdrop-blur-2xs">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-[10px] font-semibold">Đang tải...</span>
+                </div>
+              )}
+
+              {!isUploadingAvatar && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-transform hover:scale-105 cursor-pointer"
+                  title="Chọn ảnh đại diện mới"
+                  aria-label="Thay đổi ảnh đại diện"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-slate-800">Ảnh đại diện</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Hỗ trợ định dạng JPG, PNG hoặc WEBP dung lượng tối đa 5MB. Ảnh sẽ được tự động căn chỉnh và tối ưu hóa qua Cloudinary.
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                  disabled={isUploadingAvatar}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <Camera className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{isUploadingAvatar ? 'Đang tải lên...' : 'Tải ảnh mới'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Form cập nhật Họ tên & Email */}
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700">Địa chỉ Email</label>
+                  {isEmailVerified && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Đã xác thực</span>
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    readOnly
+                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed select-none"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Email được dùng để đăng nhập và bảo mật tài khoản. Không thể thay đổi trực tiếp.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="user-fullname" className="block text-xs font-semibold text-slate-700">
+                  Họ và tên <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <UserIcon className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="user-fullname"
+                    type="text"
+                    required
+                    maxLength={100}
+                    placeholder="Nhập họ và tên của bạn"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={isUpdatingProfile}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-white border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-900 placeholder:text-slate-400 font-medium transition-all outline-none disabled:opacity-60"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Tên này sẽ hiển thị trên các thẻ nhiệm vụ, bình luận và không gian làm việc.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={isUpdatingProfile || fullName.trim() === (user?.full_name || user?.fullName || '')}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUpdatingProfile ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang lưu...</span>
+                  </>
+                ) : (
+                  <span>Lưu thay đổi</span>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* KHỐI 2: ĐỔI MẬT KHẨU */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <span>Bảo mật &amp; Đổi Mật khẩu</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Đảm bảo tài khoản của bạn được bảo vệ bằng mật khẩu mạnh có ít nhất 8 ký tự.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {isGoogleAccountWithoutPassword ? (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900">
+              <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed">
+                <p className="font-semibold text-amber-950">Tài khoản đăng nhập qua Google OAuth</p>
+                <p className="text-amber-800 mt-0.5">
+                  Bạn đang đăng nhập bằng tài khoản Google nên chưa thiết lập mật khẩu riêng cho Tasko. Bạn có thể sử dụng chức năng <span className="font-semibold underline">Quên mật khẩu</span> tại màn hình đăng nhập nếu muốn tạo mật khẩu thủ công.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
+              {passwordSuccess && (
+                <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+              {passwordError && (
+                <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-in fade-in duration-150">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <PasswordInput
+                id="current-password"
+                label="Mật khẩu hiện tại"
+                required
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu hiện tại"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                error={fieldErrors.currentPassword}
+                disabled={isChangingPassword}
+              />
+
+              <PasswordInput
+                id="new-password"
+                label="Mật khẩu mới"
+                required
+                autoComplete="new-password"
+                placeholder="Nhập mật khẩu mới (ít nhất 8 ký tự)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                error={fieldErrors.newPassword}
+                disabled={isChangingPassword}
+              />
+
+              <PasswordInput
+                id="confirm-password"
+                label="Xác nhận mật khẩu mới"
+                required
+                autoComplete="new-password"
+                placeholder="Nhập lại mật khẩu mới"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                error={fieldErrors.confirmPassword}
+                disabled={isChangingPassword}
+              />
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang cập nhật...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Cập nhật mật khẩu</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ProfileSecurityTab
