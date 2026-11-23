@@ -24,6 +24,7 @@ import {
   Info,
   RotateCcw,
 } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import type {
   AgileCardConfig,
   BusinessDomain,
@@ -448,18 +449,20 @@ export const ProjectFinalSetupStep: React.FC<ProjectFinalSetupStepProps> = ({
                       />
 
                       {/* Dropdown chọn nhóm nhanh */}
-                      <select
+                      <Select
+                        size="md"
                         value={currentCategory}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           onUpdateWorkflowCategory &&
-                          onUpdateWorkflowCategory(st.id, e.target.value as 'TODO' | 'IN_PROGRESS' | 'DONE')
+                          onUpdateWorkflowCategory(st.id, val as 'TODO' | 'IN_PROGRESS' | 'DONE')
                         }
-                        className="h-10 px-2.5 text-xs bg-white border border-slate-200 rounded-md text-slate-700 focus:outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-2xs"
-                      >
-                        <option value="TODO">Việc mới</option>
-                        <option value="IN_PROGRESS">Đang làm</option>
-                        <option value="DONE">Hoàn thành</option>
-                      </select>
+                        className="min-w-[130px]"
+                        options={[
+                          { value: 'TODO', label: 'Việc mới', dotColor: 'bg-slate-400' },
+                          { value: 'IN_PROGRESS', label: 'Đang làm', dotColor: 'bg-indigo-600' },
+                          { value: 'DONE', label: 'Hoàn thành', dotColor: 'bg-emerald-500' },
+                        ]}
+                      />
 
                       {workflow.length > 2 && (
                         <button

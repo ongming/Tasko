@@ -174,8 +174,8 @@ describe('BacklogView - Page Component Tests', () => {
     renderBacklogView()
 
     await waitFor(() => {
-      expect(screen.getByText('Sprint 1 (Hiện tại)')).toBeInTheDocument()
-      expect(screen.getByText('Sprint 2 (Kế hoạch)')).toBeInTheDocument()
+      expect(screen.getAllByText('Sprint 1 (Hiện tại)').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Sprint 2 (Kế hoạch)').length).toBeGreaterThan(0)
       expect(screen.getByText('Kho Backlog')).toBeInTheDocument()
     })
 
@@ -189,7 +189,7 @@ describe('BacklogView - Page Component Tests', () => {
     renderBacklogView()
 
     await waitFor(() => {
-      expect(screen.getByText('Sprint 1 (Hiện tại)')).toBeInTheDocument()
+      expect(screen.getAllByText('Sprint 1 (Hiện tại)').length).toBeGreaterThan(0)
     })
 
     // Active sprint has Complete sprint button

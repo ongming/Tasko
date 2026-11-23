@@ -20,7 +20,7 @@ export interface SelectProps {
   disabled?: boolean
   ariaLabel?: string
   title?: string
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
   align?: 'left' | 'right'
 }
 
@@ -38,9 +38,23 @@ export const Select: React.FC<SelectProps> = ({
   align = 'left',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find((opt) => opt.value === value)
+
+  const toggleOpen = () => {
+    if (disabled) return
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      setOpenUpward(spaceBelow < 240 && rect.top > spaceBelow)
+      const currentIdx = options.findIndex((o) => o.value === value)
+      setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0)
+    }
+    setIsOpen((prev) => !prev)
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -52,6 +66,22 @@ export const Select: React.FC<SelectProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsOpen(false)
+        return
+      }
+      if (options.length === 0) return
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setHighlightedIndex((prev) => (prev + 1) % options.length)
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setHighlightedIndex((prev) => (prev - 1 + options.length) % options.length)
+      } else if (event.key === 'Enter' && highlightedIndex >= 0) {
+        const target = options[highlightedIndex]
+        if (target && !target.disabled) {
+          event.preventDefault()
+          onChange(target.value)
+          setIsOpen(false)
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -60,9 +90,14 @@ export const Select: React.FC<SelectProps> = ({
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, options, highlightedIndex, onChange])
 
-  const heightClass = size === 'md' ? 'h-9 px-3 text-sm' : 'h-8 px-2.5 text-xs'
+  const heightClass =
+    size === 'xs'
+      ? 'h-7 px-2 text-[11px]'
+      : size === 'md'
+        ? 'h-9 px-3 text-sm'
+        : 'h-8 px-2.5 text-xs'
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -73,8 +108,8 @@ export const Select: React.FC<SelectProps> = ({
         aria-label={ariaLabel}
         title={title}
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 bg-white border rounded-lg text-slate-800 shadow-2xs transition-all cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${heightClass} ${
+        onClick={toggleOpen}
+        className={`w-full flex items-center justify-between gap-2 bg-white border rounded-lg text-slate-800 shadow-2xs transition-all duration-150 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${heightClass} ${
           isOpen
             ? 'border-indigo-500 ring-2 ring-indigo-100'
             : 'border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50'
@@ -99,15 +134,16 @@ export const Select: React.FC<SelectProps> = ({
       {isOpen && (
         <div
           role="listbox"
-          className={`absolute top-full mt-1.5 min-w-full w-max max-w-[280px] bg-white rounded-xl border border-slate-200/90 shadow-xl p-1 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          }`}
+          className={`absolute min-w-full w-max max-w-[300px] bg-white rounded-xl border border-slate-200/90 shadow-xl p-1 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-xs text-slate-400 text-center">Không có lựa chọn</div>
           ) : (
-            options.map((opt) => {
+            options.map((opt, idx) => {
               const isSelected = opt.value === value
+              const isHighlighted = idx === highlightedIndex
               return (
                 <button
                   key={opt.value}
@@ -115,6 +151,7 @@ export const Select: React.FC<SelectProps> = ({
                   role="option"
                   aria-selected={isSelected}
                   disabled={opt.disabled}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
                   onClick={() => {
                     if (opt.disabled) return
                     onChange(opt.value)
@@ -123,7 +160,9 @@ export const Select: React.FC<SelectProps> = ({
                   className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     isSelected
                       ? 'bg-indigo-50/90 text-indigo-700 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-100/80 font-medium'
+                      : isHighlighted
+                        ? 'bg-slate-100/90 text-slate-900 font-medium'
+                        : 'text-slate-700 hover:bg-slate-100/80 font-medium'
                   }`}
                 >
                   <span className="flex items-center gap-2 min-w-0 flex-1">

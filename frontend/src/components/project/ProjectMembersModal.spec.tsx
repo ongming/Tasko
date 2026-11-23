@@ -251,10 +251,11 @@ describe('ProjectMembersModal - Component Tests', () => {
     const aliceRow = aliceName.closest('.hover\\:bg-slate-50\\/70') || aliceName.parentElement?.parentElement?.parentElement
     expect(aliceRow).not.toBeNull()
 
-    const roleSelect = aliceRow!.querySelector('select')
+    const roleSelect = aliceRow!.querySelector('[role="combobox"]')
     expect(roleSelect).not.toBeNull()
 
-    fireEvent.change(roleSelect!, { target: { value: 'role-viewer' } })
+    fireEvent.click(roleSelect!)
+    fireEvent.click(screen.getByRole('option', { name: 'Viewer' }))
 
     await waitFor(() => {
       expect(projectService.updateProjectMemberRole).toHaveBeenCalledWith(

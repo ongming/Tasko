@@ -45,8 +45,9 @@ describe('BacklogIssueRow & BacklogDroppableContainer', () => {
     fireEvent.click(screen.getByText('Thiết kế API Backlog'))
     expect(onClickRow).toHaveBeenCalledWith('issue-1')
 
-    const select = screen.getByTitle('Chuyển công việc sang Sprint khác hoặc Backlog')
-    fireEvent.change(select, { target: { value: 'sp-1' } })
+    const select = screen.getByRole('combobox', { name: 'Chuyển công việc sang Sprint khác hoặc Backlog' })
+    fireEvent.click(select)
+    fireEvent.click(screen.getByRole('option', { name: 'Sprint 1' }))
     expect(onMoveSprintDropdown).toHaveBeenCalledWith('issue-1', 'sp-1')
   })
 

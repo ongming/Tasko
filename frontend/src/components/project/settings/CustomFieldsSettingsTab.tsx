@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Edit2, Plus, Tag, Trash2, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
+import { Select } from '@/components/ui/Select'
 import type { CustomField, CustomFieldType } from '@/types/projectConfig'
 
 export interface CustomFieldsSettingsTabProps {
@@ -198,16 +199,16 @@ export const CustomFieldsSettingsTab: React.FC<CustomFieldsSettingsTabProps> = (
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Kiểu dữ liệu</label>
-                <select
+                <Select
                   value={cfFormFieldType}
-                  onChange={(e) => setCfFormFieldType(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-                >
-                  <option value="TEXT">Văn bản (TEXT)</option>
-                  <option value="NUMBER">Số nguyên / Thập phân (NUMBER)</option>
-                  <option value="DATE">Ngày tháng (DATE)</option>
-                  <option value="SELECT">Danh sách chọn (SELECT)</option>
-                </select>
+                  onChange={(val) => setCfFormFieldType(val as any)}
+                  options={[
+                    { value: 'TEXT', label: 'Văn bản (TEXT)' },
+                    { value: 'NUMBER', label: 'Số nguyên / Thập phân (NUMBER)' },
+                    { value: 'DATE', label: 'Ngày tháng (DATE)' },
+                    { value: 'SELECT', label: 'Danh sách chọn (SELECT)' },
+                  ]}
+                />
               </div>
 
               {cfFormFieldType === 'SELECT' && (

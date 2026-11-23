@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Plus, Save, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
+import { Select } from '@/components/ui/Select'
 import type { ProjectStatus, Workflow } from '@/types/projectConfig'
 
 export interface WorkflowsSettingsTabProps {
@@ -113,17 +114,16 @@ export const WorkflowsSettingsTab: React.FC<WorkflowsSettingsTabProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <label className="text-xs font-bold text-slate-700">Chọn quy trình:</label>
-          <select
+          <Select
             value={selectedWorkflowId}
-            onChange={(e) => setSelectedWorkflowId(e.target.value)}
-            className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-white font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer"
-          >
-            {workflows.map((wf) => (
-              <option key={wf.id} value={wf.id}>
-                {wf.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedWorkflowId}
+            className="min-w-[180px]"
+            buttonClassName="font-semibold"
+            options={workflows.map((wf) => ({
+              value: wf.id,
+              label: wf.name,
+            }))}
+          />
         </div>
 
         <div className="flex items-center gap-2">

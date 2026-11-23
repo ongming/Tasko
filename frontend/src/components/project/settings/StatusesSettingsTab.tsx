@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Edit2, Plus, Trash2, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
+import { Select } from '@/components/ui/Select'
 import type { ProjectStatus } from '@/types/projectConfig'
 
 export interface StatusesSettingsTabProps {
@@ -187,15 +188,15 @@ export const StatusesSettingsTab: React.FC<StatusesSettingsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nhóm trạng thái</label>
-                <select
+                <Select
                   value={statusFormCategory}
-                  onChange={(e) => setStatusFormCategory(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-                >
-                  <option value="TODO">Cần làm (TODO)</option>
-                  <option value="IN_PROGRESS">Đang làm (IN_PROGRESS)</option>
-                  <option value="DONE">Hoàn thành (DONE)</option>
-                </select>
+                  onChange={(val) => setStatusFormCategory(val as any)}
+                  options={[
+                    { value: 'TODO', label: 'Cần làm (TODO)', dotColor: 'bg-slate-400' },
+                    { value: 'IN_PROGRESS', label: 'Đang làm (IN_PROGRESS)', dotColor: 'bg-indigo-600' },
+                    { value: 'DONE', label: 'Hoàn thành (DONE)', dotColor: 'bg-emerald-500' },
+                  ]}
+                />
               </div>
 
               <div>
@@ -262,20 +263,19 @@ export const StatusesSettingsTab: React.FC<StatusesSettingsTabProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Chọn cột thay thế cho các thẻ hiện có:
               </label>
-              <select
+              <Select
                 value={fallbackStatusId}
-                onChange={(e) => setFallbackStatusId(e.target.value)}
-                className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-              >
-                <option value="">-- Chọn cột thay thế --</option>
-                {statuses
-                  .filter((s) => s.id !== deletingStatus.id)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.category})
-                    </option>
-                  ))}
-              </select>
+                onChange={setFallbackStatusId}
+                options={[
+                  { value: '', label: 'Chọn cột thay thế' },
+                  ...statuses
+                    .filter((s) => s.id !== deletingStatus.id)
+                    .map((s) => ({
+                      value: s.id,
+                      label: `${s.name} (${s.category})`,
+                    })),
+                ]}
+              />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

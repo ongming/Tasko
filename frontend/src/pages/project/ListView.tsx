@@ -22,6 +22,7 @@ import type { Sprint } from '@/types/sprint'
 import type { Project } from '@/types/workspace'
 import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { Select } from '@/components/ui/Select'
 import { isScrumProject } from '@/utils/projectMethod'
 
 export function ListView() {
@@ -243,41 +244,48 @@ export function ListView() {
 
           {/* Lọc theo Sprint (nếu là Scrum) */}
           {isScrum && sprints.length > 0 && (
-            <div className="relative">
-              <select
-                value={selectedSprintId}
-                onChange={(e) => setSelectedSprintId(e.target.value)}
-                className="h-8.5 pl-2.5 pr-7 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 font-medium text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer appearance-none shadow-2xs transition-all"
-              >
-                <option value="ALL">Tất cả Sprint ({sprints.length})</option>
-                <option value="BACKLOG">Chỉ Product Backlog</option>
-                {sprints.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.status === 'ACTIVE' ? '⚡ ' : ''}
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <Select
+              value={selectedSprintId}
+              onChange={setSelectedSprintId}
+              className="min-w-[165px]"
+              buttonClassName="font-medium text-slate-700"
+              options={[
+                { value: 'ALL', label: `Tất cả Sprint (${sprints.length})` },
+                { value: 'BACKLOG', label: 'Chỉ Product Backlog', dotColor: 'bg-slate-400' },
+                ...sprints.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  dotColor:
+                    s.status === 'ACTIVE'
+                      ? 'bg-indigo-600'
+                      : s.status === 'COMPLETED'
+                        ? 'bg-emerald-500'
+                        : 'bg-amber-400',
+                })),
+              ]}
+            />
           )}
 
           {/* Lọc theo Trạng thái */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8.5 pl-2.5 pr-7 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 font-medium text-xs text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer appearance-none shadow-2xs transition-all"
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              {statuses.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            className="min-w-[155px]"
+            buttonClassName="font-medium text-slate-700"
+            options={[
+              { value: 'ALL', label: 'Tất cả trạng thái' },
+              ...statuses.map((st) => ({
+                value: st.id,
+                label: st.name,
+                dotColor:
+                  st.category === 'DONE'
+                    ? 'bg-emerald-500'
+                    : st.category === 'IN_PROGRESS'
+                      ? 'bg-indigo-600'
+                      : 'bg-slate-400',
+              })),
+            ]}
+          />
         </div>
 
         {/* Bên phải: Tổng số việc & Story Points */}
@@ -302,9 +310,9 @@ export function ListView() {
 
       {/* 2. Bảng Danh sách Công việc phẳng chuẩn Impeccable */}
       {!isLoading && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col">
           {/* Table Column Headers */}
-          <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
+          <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/80 border-b border-slate-200/80 rounded-t-xl text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
             <div className="col-span-6 sm:col-span-5 flex items-center gap-2">
               <span>Công việc / Tiêu đề</span>
             </div>
@@ -419,17 +427,23 @@ export function ListView() {
                             className="col-span-3 sm:col-span-2"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <select
+                            <Select
+                              size="xs"
                               value={task.statusId}
-                              onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                              className="w-full max-w-[130px] h-7 px-2 text-[11px] font-semibold rounded-md border border-slate-200/80 bg-white hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-all truncate"
-                            >
-                              {statuses.map((st) => (
-                                <option key={st.id} value={st.id}>
-                                  {st.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(val) => handleUpdateTaskStatus(task.id, val)}
+                              className="max-w-[140px]"
+                              buttonClassName="font-semibold"
+                              options={statuses.map((st) => ({
+                                value: st.id,
+                                label: st.name,
+                                dotColor:
+                                  st.category === 'DONE'
+                                    ? 'bg-emerald-500'
+                                    : st.category === 'IN_PROGRESS'
+                                      ? 'bg-indigo-600'
+                                      : 'bg-slate-400',
+                              }))}
+                            />
                           </div>
 
                           {/* Col 3: Assignee */}

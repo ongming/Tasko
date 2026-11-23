@@ -18,6 +18,7 @@ import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
 import { userService, type UserSearchItem } from '@/services/userService'
 import { useAuthStore } from '@/stores/authStore'
+import { Select } from '@/components/ui/Select'
 import type { ProjectMember, Role } from '@/types/member'
 
 export interface ProjectMembersModalProps {
@@ -519,21 +520,20 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
 
                   {/* Dropdown Vai trò */}
                   <div className="sm:col-span-4">
-                    <select
-                      className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                    <Select
                       value={selectedRoleId}
-                      onChange={(e) => setSelectedRoleId(e.target.value)}
-                    >
-                      {assignableRoles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name === 'MEMBER'
+                      onChange={setSelectedRoleId}
+                      ariaLabel="Vai trò thành viên mới"
+                      options={assignableRoles.map((role) => ({
+                        value: role.id,
+                        label:
+                          role.name === 'MEMBER'
                             ? 'Member (Chỉnh sửa)'
                             : role.name === 'VIEWER'
-                            ? 'Viewer (Chỉ xem)'
-                            : role.name}
-                        </option>
-                      ))}
-                    </select>
+                              ? 'Viewer (Chỉ xem)'
+                              : role.name,
+                      }))}
+                    />
                   </div>
                 </div>
 
@@ -653,27 +653,29 @@ export const ProjectMembersModal: React.FC<ProjectMembersModalProps> = ({
                         ) : canManage ? (
                           /* Dropdown đổi vai trò cho Member/Viewer */
                           <div className="flex items-center gap-1.5">
-                            <select
+                            <Select
+                              size="xs"
+                              align="right"
                               value={member.roleId || ''}
-                              onChange={(e) =>
+                              onChange={(val) =>
                                 updateRoleMutation.mutate({
                                   userId: member.userId,
-                                  roleId: e.target.value,
+                                  roleId: val,
                                 })
                               }
                               disabled={updateRoleMutation.isPending}
-                              className="text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-md text-slate-700 font-medium hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
-                            >
-                              {assignableRoles.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                  {r.name === 'MEMBER'
+                              className="min-w-[105px]"
+                              buttonClassName="font-medium text-slate-700"
+                              options={assignableRoles.map((r) => ({
+                                value: r.id,
+                                label:
+                                  r.name === 'MEMBER'
                                     ? 'Member'
                                     : r.name === 'VIEWER'
-                                    ? 'Viewer'
-                                    : r.name}
-                                </option>
-                              ))}
-                            </select>
+                                      ? 'Viewer'
+                                      : r.name,
+                              }))}
+                            />
 
                             {/* Nút Chuyển quyền sở hữu */}
                             <button

@@ -170,7 +170,8 @@ describe('WorkspaceMembersTab - Component Tests', () => {
     const selects = screen.getAllByRole('combobox')
     const memberRoleSelect = selects[selects.length - 1] // Select trong danh sách thành viên
 
-    fireEvent.change(memberRoleSelect, { target: { value: 'role-admin' } })
+    fireEvent.click(memberRoleSelect)
+    fireEvent.click(screen.getByRole('option', { name: 'Quản trị viên' }))
 
     await waitFor(() => {
       expect(workspaceService.updateMemberRole).toHaveBeenCalledWith(

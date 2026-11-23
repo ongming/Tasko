@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/create-project/ProjectFinalSetupStep.tsx": {
-    "mtime": 1794647874.5444713,
-    "seen": 1794647883.0181656,
-    "ast_hash": "68ac40188c3b17ca404fe87b7378a400",
+    "mtime": 1795423260.868961,
+    "seen": 1795423500.7401044,
+    "ast_hash": "c7eb98d5964c236c848772604292956a",
     "semantic_hash": ""
   },
   ".github/workflows/backend-ci.yml": {
@@ -1020,9 +1020,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/project/CompleteSprintModal.tsx": {
-    "mtime": 1795408882.246281,
-    "seen": 1795409050.9172895,
-    "ast_hash": "8acc5fb7534a3d45b57dd6c77a4f3865",
+    "mtime": 1795423358.74597,
+    "seen": 1795423500.740213,
+    "ast_hash": "9e5d094623411105635841e8d1bc56a6",
     "semantic_hash": ""
   },
   "frontend/src/components/project/ProjectTabBar.tsx": {
@@ -1038,9 +1038,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/project/BacklogView.tsx": {
-    "mtime": 1795403685.4492311,
-    "seen": 1795403887.2055464,
-    "ast_hash": "3593ee65f71b0509260d3a55c99376a6",
+    "mtime": 1795423355.7742946,
+    "seen": 1795423500.7405941,
+    "ast_hash": "6dd7722805eda500e1b7d355f108d3b0",
     "semantic_hash": ""
   },
   "frontend/src/pages/project/CalendarView.tsx": {
@@ -1056,9 +1056,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/project/KanbanBoardView.tsx": {
-    "mtime": 1795408858.8245106,
-    "seen": 1795409050.917674,
-    "ast_hash": "a63934c45d48df4208206fa513bf9467",
+    "mtime": 1795423350.5007071,
+    "seen": 1795423500.7406287,
+    "ast_hash": "90d5540b5984ae8512e38ba1f847a3fe",
     "semantic_hash": ""
   },
   "frontend/src/pages/project/TimelineView.tsx": {
@@ -1266,21 +1266,21 @@
     "semantic_hash": ""
   },
   "frontend/src/components/project/ProjectMembersModal.spec.tsx": {
-    "mtime": 1795182670.2256124,
-    "seen": 1795182855.3043747,
-    "ast_hash": "8ad82c1d5ffbcf13566435791bd08470",
+    "mtime": 1795423310.5828297,
+    "seen": 1795423500.740224,
+    "ast_hash": "f7d680e8f3dbf7aea9b6c0c6f2402574",
     "semantic_hash": ""
   },
   "frontend/src/components/project/ProjectMembersModal.tsx": {
-    "mtime": 1795184073.4003017,
-    "seen": 1795184135.1636791,
-    "ast_hash": "11d38cb0fcd5c6320333b788ec6a0039",
+    "mtime": 1795423268.880578,
+    "seen": 1795423500.7402294,
+    "ast_hash": "ca9f34d8ce69d9b8b8fd9e2aa569c96a",
     "semantic_hash": ""
   },
   "frontend/src/components/project/TaskDetailDrawer.spec.tsx": {
-    "mtime": 1795080657.287374,
-    "seen": 1795080689.3245645,
-    "ast_hash": "caf68c6c845e810a7522518d811d0f33",
+    "mtime": 1795422334.5768194,
+    "seen": 1795423500.740246,
+    "ast_hash": "842b763cecc7a9beaf510d908f57f6cb",
     "semantic_hash": ""
   },
   "frontend/src/components/project/TaskDetailDrawer.tsx": {
@@ -1302,9 +1302,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/project/BacklogView.spec.tsx": {
-    "mtime": 1795403804.305645,
-    "seen": 1795403887.2055414,
-    "ast_hash": "5511189bed8f606bea76a138fa1423bc",
+    "mtime": 1795423452.0348928,
+    "seen": 1795423500.7405891,
+    "ast_hash": "dd1f742e5eb5dc797eb4a8893750a6f9",
     "semantic_hash": ""
   },
   "frontend/src/pages/project/ProjectSettingsPage.spec.tsx": {
@@ -1338,9 +1338,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/project/ListView.tsx": {
-    "mtime": 1795403410.916219,
-    "seen": 1795403887.2055755,
-    "ast_hash": "b1d26febf80d4309b892096391720acf",
+    "mtime": 1795423128.0239625,
+    "seen": 1795423500.740634,
+    "ast_hash": "a5ad4dc0bc8d3e62a79ef3d44e2f8f9c",
     "semantic_hash": ""
   },
   "backend/src/modules/workspaces/dto/update-workspace.dto.ts": {
@@ -1350,15 +1350,15 @@
     "semantic_hash": ""
   },
   "frontend/src/components/workspace/WorkspaceMembersTab.spec.tsx": {
-    "mtime": 1795185386.2195494,
-    "seen": 1795185502.0175512,
-    "ast_hash": "5446d1e268db9182c10ec39f99ca4114",
+    "mtime": 1795423313.7534456,
+    "seen": 1795423500.740333,
+    "ast_hash": "28b7eaa12b7300f3326eca5f6177383c",
     "semantic_hash": ""
   },
   "frontend/src/components/workspace/WorkspaceMembersTab.tsx": {
-    "mtime": 1795185184.0258658,
-    "seen": 1795185502.0175562,
-    "ast_hash": "bd364c214d854f19124b376535b29d44",
+    "mtime": 1795423277.5149374,
+    "seen": 1795423500.7403376,
+    "ast_hash": "4a96290d26eca2f772d5b8606dc7dd89",
     "semantic_hash": ""
   },
   "frontend/src/pages/workspace/SettingsPage.spec.tsx": {
@@ -1416,9 +1416,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/backlog/BacklogComponents.spec.tsx": {
-    "mtime": 1795348362.8686943,
-    "seen": 1795348506.5231028,
-    "ast_hash": "3f908b79fe3630b1cbd9623a9c9ae40a",
+    "mtime": 1795423138.4090714,
+    "seen": 1795423500.7400463,
+    "ast_hash": "b26af53f2a47efd637ad2e84e1bad1d4",
     "semantic_hash": ""
   },
   "frontend/src/components/backlog/BacklogDroppableContainer.tsx": {
@@ -1428,9 +1428,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/backlog/BacklogIssueRow.tsx": {
-    "mtime": 1795347961.1412182,
-    "seen": 1795348506.523114,
-    "ast_hash": "b8abae670914ee73ecc159229be0b4f9",
+    "mtime": 1795423134.4268887,
+    "seen": 1795423500.7400584,
+    "ast_hash": "a42879a1498fa64d73d431d496ed4200",
     "semantic_hash": ""
   },
   "frontend/src/pages/project/CalendarView.spec.tsx": {
@@ -1470,9 +1470,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/project/settings/CustomFieldsSettingsTab.tsx": {
-    "mtime": 1795355234.8311224,
-    "seen": 1795355712.501703,
-    "ast_hash": "5ae9b198ad2f14fe0c0777cf68ef7741",
+    "mtime": 1795423221.1521802,
+    "seen": 1795423500.740267,
+    "ast_hash": "bfd8bf7bac8fc5183bb91ccda641d495",
     "semantic_hash": ""
   },
   "frontend/src/components/project/settings/GeneralSettingsTab.tsx": {
@@ -1482,21 +1482,21 @@
     "semantic_hash": ""
   },
   "frontend/src/components/project/settings/StatusesSettingsTab.tsx": {
-    "mtime": 1795355172.23939,
-    "seen": 1795355712.5017123,
-    "ast_hash": "5deabeaeadba9878c27f1d6212e6342b",
+    "mtime": 1795423191.1365523,
+    "seen": 1795423500.7402766,
+    "ast_hash": "8d7c1c2147005a818605f564e3b7da4f",
     "semantic_hash": ""
   },
   "frontend/src/components/project/settings/WorkTypesSettingsTab.tsx": {
-    "mtime": 1795355174.7446282,
-    "seen": 1795355712.5017173,
-    "ast_hash": "e610472553ef91b99317a439f505aaf1",
+    "mtime": 1795423236.0530305,
+    "seen": 1795423500.7402852,
+    "ast_hash": "1c7032c5b257de17c35749b11c918590",
     "semantic_hash": ""
   },
   "frontend/src/components/project/settings/WorkflowsSettingsTab.tsx": {
-    "mtime": 1795355232.158336,
-    "seen": 1795355712.5017219,
-    "ast_hash": "2a408d7311dac06048d48ec3b9e52fd5",
+    "mtime": 1795423227.1320736,
+    "seen": 1795423500.7402897,
+    "ast_hash": "c598a62b3972be97fde70edcbffa8620",
     "semantic_hash": ""
   },
   "frontend/src/components/workspace/ProfileSecurityTab.tsx": {
@@ -1566,9 +1566,15 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Select.tsx": {
-    "mtime": 1795408725.5037346,
-    "seen": 1795409050.9173858,
-    "ast_hash": "726f1e29b74027c49f8d1d43ad4eb03f",
+    "mtime": 1795423073.5180113,
+    "seen": 1795423500.740306,
+    "ast_hash": "ba29e87a3cf9eac8cc82fd8a327e96fd",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/Button.tsx": {
+    "mtime": 1795423076.9056127,
+    "seen": 1795423500.740295,
+    "ast_hash": "fd7c173824fadcd8ae9ef2518f4c5304",
     "semantic_hash": ""
   },
   "backend/package-lock.json": {

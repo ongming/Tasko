@@ -130,7 +130,7 @@ describe('TaskDetailDrawer - Component Tests', () => {
       expect(screen.getByText('Thiết kế Mockup')).toBeInTheDocument()
       expect(screen.getByText('TASK-43')).toBeInTheDocument()
       expect(screen.getByText('Môi trường')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('Staging')).toBeInTheDocument()
+      expect(screen.getByText('Staging')).toBeInTheDocument()
     })
   })
 

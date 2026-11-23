@@ -14,6 +14,7 @@ import { BacklogIssueRow } from '@/components/backlog/BacklogIssueRow'
 import { BacklogDroppableContainer } from '@/components/backlog/BacklogDroppableContainer'
 import { SprintSection } from '@/components/backlog/SprintSection'
 import { CreateSprintModal } from '@/components/backlog/CreateSprintModal'
+import { Button } from '@/components/ui/Button'
 import { useBacklogBoard } from '@/hooks/useBacklogBoard'
 
 export function BacklogView() {
@@ -128,25 +129,25 @@ export function BacklogView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
               onClick={handleOpenCreateSprintModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>Tạo Sprint</span>
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
               onClick={() => {
                 setCreateTaskInitialSprintId(null)
                 setIsCreateTaskModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>Tạo công việc</span>
-            </button>
+            </Button>
           </div>
         </div>
 

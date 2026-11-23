@@ -20,6 +20,7 @@ import { TaskFilterBar } from '@/components/project/TaskFilterBar'
 import { CreateTaskModal } from '@/components/project/CreateTaskModal'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
 import { Select } from '@/components/ui/Select'
+import { Button } from '@/components/ui/Button'
 import { KanbanCard } from '@/components/kanban/KanbanCard'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { useKanbanBoard, type BoardColumn } from '@/hooks/useKanbanBoard'
@@ -125,17 +126,17 @@ export function KanbanBoardView() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           {canMutateBoard && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
               onClick={() => {
                 setCreateTaskInitialStatusId(columns[0]?.id)
                 setIsCreateModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>Tạo công việc</span>
-            </button>
+            </Button>
           )}
 
           {isScrum && (
@@ -177,14 +178,14 @@ export function KanbanBoardView() {
                   )}
 
                   {currentSprint?.status === 'ACTIVE' && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="success"
+                      size="sm"
+                      leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                       onClick={() => setIsCompleteModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Hoàn thành Sprint</span>
-                    </button>
+                    </Button>
                   )}
                 </>
               ) : (

@@ -2,6 +2,7 @@ import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import type { TaskItem } from '@/types/task'
 import type { Sprint } from '@/types/sprint'
 
@@ -112,26 +113,26 @@ export const BacklogIssueRow: React.FC<BacklogIssueRowProps> = ({
         onPointerDown={(e) => e.stopPropagation()}
       >
         {/* Quick move dropdown pill */}
-        <div className="relative">
-          <select
+        <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <Select
+            size="xs"
+            align="right"
             value={issue.sprintId || 'backlog'}
-            onChange={(e) => {
-              const val = e.target.value === 'backlog' ? null : e.target.value
-              onMoveSprintDropdown(issue.id, val)
-            }}
+            onChange={(val) => onMoveSprintDropdown(issue.id, val === 'backlog' ? null : val)}
             title="Chuyển công việc sang Sprint khác hoặc Backlog"
-            className="text-[11px] font-medium h-6 px-2 rounded-md border border-slate-200/90 bg-white text-slate-600 hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-all hover:border-slate-300 focus:opacity-100 shadow-2xs cursor-pointer"
-          >
-            <option value="backlog">📦 Về Backlog</option>
-            {sprints
-              .filter((s) => s.status !== 'COMPLETED')
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.status === 'ACTIVE' ? '⚡ ' : '📋 '}
-                  {s.name}
-                </option>
-              ))}
-          </select>
+            ariaLabel="Chuyển công việc sang Sprint khác hoặc Backlog"
+            className="min-w-[125px]"
+            options={[
+              { value: 'backlog', label: 'Về Backlog', dotColor: 'bg-slate-400' },
+              ...sprints
+                .filter((s) => s.status !== 'COMPLETED')
+                .map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  dotColor: s.status === 'ACTIVE' ? 'bg-indigo-600' : 'bg-amber-400',
+                })),
+            ]}
+          />
         </div>
 
         {/* Status badge */}

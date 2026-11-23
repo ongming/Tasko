@@ -18,6 +18,7 @@ import { workspaceService } from '@/services/workspaceService'
 import { projectService } from '@/services/projectService'
 import { userService, type UserSearchItem } from '@/services/userService'
 import { useAuthStore } from '@/stores/authStore'
+import { Select } from '@/components/ui/Select'
 import type { WorkspaceResponse } from '@/types/workspace'
 import type { WorkspaceMemberItem, Role } from '@/types/member'
 
@@ -369,17 +370,17 @@ export function WorkspaceMembersTab({ workspace, canManage }: WorkspaceMembersTa
 
               {/* Lựa chọn vai trò (Admin / Member) */}
               <div className="sm:col-span-4 flex items-center gap-2">
-                <select
+                <Select
+                  size="md"
                   value={selectedRoleId}
-                  onChange={(e) => setSelectedRoleId(e.target.value)}
-                  className="w-full text-xs sm:text-sm py-2.5 px-3 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
-                >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name === 'ADMIN' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedRoleId}
+                  className="flex-1"
+                  buttonClassName="font-medium rounded-xl"
+                  options={roles.map((r) => ({
+                    value: r.id,
+                    label: r.name === 'ADMIN' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)',
+                  }))}
+                />
 
                 <button
                   type="submit"
@@ -479,25 +480,24 @@ export function WorkspaceMembersTab({ workspace, canManage }: WorkspaceMembersTa
                   <div className="flex items-center gap-3 shrink-0">
                     {/* Role selector or badge */}
                     {canEditThisMember ? (
-                      <div className="relative">
-                        <select
-                          value={m.roleId || ''}
-                          onChange={(e) =>
-                            updateRoleMutation.mutate({
-                              userId: m.userId,
-                              roleId: e.target.value,
-                            })
-                          }
-                          disabled={updateRoleMutation.isPending}
-                          className="text-xs font-semibold py-1 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 focus:outline-hidden focus:border-indigo-500 transition-colors cursor-pointer"
-                        >
-                          {roles.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name === 'ADMIN' ? 'Quản trị viên' : 'Thành viên'}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <Select
+                        size="xs"
+                        align="right"
+                        value={m.roleId || ''}
+                        onChange={(val) =>
+                          updateRoleMutation.mutate({
+                            userId: m.userId,
+                            roleId: val,
+                          })
+                        }
+                        disabled={updateRoleMutation.isPending}
+                        className="min-w-[125px]"
+                        buttonClassName="font-semibold bg-slate-50"
+                        options={roles.map((r) => ({
+                          value: r.id,
+                          label: r.name === 'ADMIN' ? 'Quản trị viên' : 'Thành viên',
+                        }))}
+                      />
                     ) : (
                       <span
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full ${

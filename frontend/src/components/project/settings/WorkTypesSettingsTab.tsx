@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Edit2, Plus, Trash2, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { Select } from '@/components/ui/Select'
 import type { ProjectWorkType, Workflow } from '@/types/projectConfig'
 
 export interface WorkTypesSettingsTabProps {
@@ -201,33 +202,32 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Biểu tượng (Icon)</label>
-                <select
+                <Select
                   value={wtFormIcon}
-                  onChange={(e) => setWtFormIcon(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-                >
-                  <option value="CheckSquare">CheckSquare (Task chuẩn)</option>
-                  <option value="Bug">Bug (Lỗi phần mềm)</option>
-                  <option value="Package">Package (Module / Gói việc)</option>
-                  <option value="Bookmark">Bookmark (Story)</option>
-                  <option value="Shield">Shield (Bảo mật / Cải tiến)</option>
-                </select>
+                  onChange={setWtFormIcon}
+                  options={[
+                    { value: 'CheckSquare', label: 'CheckSquare (Task chuẩn)' },
+                    { value: 'Bug', label: 'Bug (Lỗi phần mềm)' },
+                    { value: 'Package', label: 'Package (Module / Gói việc)' },
+                    { value: 'Bookmark', label: 'Bookmark (Story)' },
+                    { value: 'Shield', label: 'Shield (Bảo mật / Cải tiến)' },
+                  ]}
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Quy trình áp dụng</label>
-                <select
+                <Select
                   value={wtFormWorkflowId}
-                  onChange={(e) => setWtFormWorkflowId(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-                >
-                  <option value="">-- Quy trình mặc định --</option>
-                  {workflows.map((wf) => (
-                    <option key={wf.id} value={wf.id}>
-                      {wf.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setWtFormWorkflowId}
+                  options={[
+                    { value: '', label: 'Quy trình mặc định' },
+                    ...workflows.map((wf) => ({
+                      value: wf.id,
+                      label: wf.name,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-1">
@@ -283,20 +283,19 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Chọn loại công việc thay thế:
               </label>
-              <select
+              <Select
                 value={fallbackWorkTypeId}
-                onChange={(e) => setFallbackWorkTypeId(e.target.value)}
-                className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
-              >
-                <option value="">-- Chọn loại thay thế --</option>
-                {workTypes
-                  .filter((w) => w.id !== deletingWorkType.id)
-                  .map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-              </select>
+                onChange={setFallbackWorkTypeId}
+                options={[
+                  { value: '', label: 'Chọn loại thay thế' },
+                  ...workTypes
+                    .filter((w) => w.id !== deletingWorkType.id)
+                    .map((w) => ({
+                      value: w.id,
+                      label: w.name,
+                    })),
+                ]}
+              />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

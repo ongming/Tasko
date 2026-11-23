@@ -128,14 +128,14 @@ export const CompleteSprintModal: React.FC<CompleteSprintModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="h-9 px-4 rounded-lg border border-slate-200/90 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
             >
               <span>{isSubmitting ? 'Đang đóng...' : 'Xác nhận hoàn thành'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
