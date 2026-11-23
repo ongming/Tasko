@@ -20,6 +20,7 @@ export interface KanbanColumnProps {
   onCardClick: (taskId: string) => void
   onOpenCreateModalWithStatus: (statusId: string) => void
   renderWorkTypeIcon?: (typeName?: string | null) => React.ReactNode
+  readOnly?: boolean
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -34,6 +35,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onCardClick,
   onOpenCreateModalWithStatus,
   renderWorkTypeIcon,
+  readOnly = false,
 }) => {
   // Đăng ký toàn bộ cột làm vùng nhận thả Droppable
   const { setNodeRef, isOver } = useDroppable({
@@ -87,17 +89,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </span>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setQuickAddColumnId(column.id)
-              setQuickTaskTitle('')
-            }}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
-            title="Thêm nhanh công việc"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuickAddColumnId(column.id)
+                setQuickTaskTitle('')
+              }}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              title="Thêm nhanh công việc"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -132,7 +136,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       </SortableContext>
 
       {/* Dưới cùng cột: Nút [ + ] hoặc Form nhập thẻ nhanh */}
-      {quickAddColumnId === column.id ? (
+      {!readOnly && (quickAddColumnId === column.id ? (
         <div className="p-2.5 bg-white rounded-lg border border-indigo-200 shadow-xs flex flex-col gap-2 mt-1 animate-in fade-in duration-100">
           <textarea
             autoFocus
@@ -196,7 +200,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         >
           <Plus className="w-4 h-4" />
         </button>
-      )}
+      ))}
     </div>
   )
 }

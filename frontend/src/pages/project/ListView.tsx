@@ -22,6 +22,7 @@ import type { Sprint } from '@/types/sprint'
 import type { Project } from '@/types/workspace'
 import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { isScrumProject } from '@/utils/projectMethod'
 
 export function ListView() {
   const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
@@ -48,10 +49,7 @@ export function ListView() {
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
-  const isScrum =
-    project?.settings?.method_id === 'scrum' ||
-    project?.settings?.method_id === 'scrumban' ||
-    project?.name?.toLowerCase().includes('scrum')
+  const isScrum = isScrumProject(project)
 
   // 1. Tải thông tin dự án, statuses, sprints và tasks
   const loadData = useCallback(async () => {

@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 export interface CreateSprintModalProps {
   isOpen: boolean
   onClose: () => void
+  isEditing?: boolean
   name: string
   setName: (val: string) => void
   goal: string
@@ -18,6 +19,7 @@ export interface CreateSprintModalProps {
 export const CreateSprintModal: React.FC<CreateSprintModalProps> = ({
   isOpen,
   onClose,
+  isEditing = false,
   name,
   setName,
   goal,
@@ -34,7 +36,9 @@ export const CreateSprintModal: React.FC<CreateSprintModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-sm font-bold text-slate-900">Tạo Sprint mới</h3>
+          <h3 className="text-sm font-bold text-slate-900">
+            {isEditing ? 'Chỉnh sửa Sprint' : 'Tạo Sprint mới'}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -109,7 +113,7 @@ export const CreateSprintModal: React.FC<CreateSprintModalProps> = ({
               disabled={!name.trim()}
               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-2xs disabled:opacity-50 cursor-pointer"
             >
-              Tạo Sprint
+              {isEditing ? 'Lưu thay đổi' : 'Tạo Sprint'}
             </button>
           </div>
         </form>

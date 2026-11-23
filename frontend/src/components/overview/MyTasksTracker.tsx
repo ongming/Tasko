@@ -14,6 +14,7 @@ interface MyTasksTrackerProps {
   }
   onTabChange: (tab: TaskCategory) => void
   onToggleTask: (taskId: string) => void
+  projectsRoute?: string
 }
 
 export const MyTasksTracker: React.FC<MyTasksTrackerProps> = ({
@@ -22,6 +23,7 @@ export const MyTasksTracker: React.FC<MyTasksTrackerProps> = ({
   tabCounts,
   onTabChange,
   onToggleTask,
+  projectsRoute = '/workspace/projects',
 }) => {
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
@@ -118,13 +120,14 @@ export const MyTasksTracker: React.FC<MyTasksTrackerProps> = ({
                 <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium shrink-0">
                   {task.key}
                 </span>
-                <span
+                <Link
+                  to={task.boardRoute}
                   className={`text-sm truncate font-medium group-hover:text-indigo-600 transition-colors ${
                     task.completed ? 'line-through text-slate-400' : 'text-slate-800'
                   }`}
                 >
                   {task.title}
-                </span>
+                </Link>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -170,10 +173,10 @@ export const MyTasksTracker: React.FC<MyTasksTrackerProps> = ({
           Hiển thị {tasks.length} công việc
         </span>
         <Link
-          to="/workspace/board"
+          to={projectsRoute}
           className="text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1 transition-colors pr-2"
         >
-          <span>Xem tất cả công việc</span>
+          <span>Xem tất cả dự án</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>

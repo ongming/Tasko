@@ -13,6 +13,7 @@ import {
   List
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
+import { isScrumProject } from '@/utils/projectMethod'
 import type { Project, ProjectViewType } from '@/types/workspace'
 
 // All possible view types available in the project
@@ -111,11 +112,8 @@ export function ProjectTabBar({ project }: ProjectTabBarProps = {}) {
     )
   }
 
-  // Xác định phương pháp quản lý của dự án (Scrum hay Kanban)
-  const methodId =
-    project?.settings?.method_id ||
-    (project?.name?.toLowerCase().includes('scrum') ? 'scrum' : 'kanban')
-  const isScrum = methodId === 'scrum' || methodId === 'scrumban'
+  // Xác định phương pháp quản lý của dự án (Scrum/Scrumban hay Kanban)
+  const isScrum = isScrumProject(project)
 
   // Lấy danh sách views đã lưu trong database nếu có
   const savedViews: string[] | null = Array.isArray(project?.settings?.views)

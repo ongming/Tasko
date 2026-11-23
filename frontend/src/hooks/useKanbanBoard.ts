@@ -9,6 +9,7 @@ import type { ProjectMember } from '@/types/member'
 import type { ProjectWorkType } from '@/types/projectConfig'
 import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { resolveDropPosition } from '@/utils/dragPosition'
+import { isScrumProject } from '@/utils/projectMethod'
 
 export interface BoardColumn {
   id: string
@@ -53,10 +54,16 @@ export function useKanbanBoard(projectParam: string) {
     (key: string, action: () => Promise<void> | void, delayMs?: number) => void
   >(() => {})
 
-  const isScrum =
-    project?.settings?.method_id === 'scrum' ||
-    project?.settings?.method_id === 'scrumban' ||
-    project?.name?.toLowerCase().includes('scrum')
+  const isScrum = isScrumProject(project)
+  const methodId = project?.settings?.method_id?.toLowerCase() || project?.methodology?.toLowerCase()
+  const isStrictScrum = methodId === 'scrum'
+  const startedSprints = sprints.filter((s) => s.status === 'ACTIVE' || s.status === 'COMPLETED')
+  const currentSprint =
+    startedSprints.find((s) => s.id === selectedSprintId) || startedSprints[0] || null
+  const plannedSprints = sprints.filter((s) => s.status === 'PLANNED')
+  const isViewingCompletedSprint = Boolean(isScrum && currentSprint?.status === 'COMPLETED')
+  const canMutateBoard =
+    !isViewingCompletedSprint && (!isStrictScrum || currentSprint?.status === 'ACTIVE')
 
   // 1. Tải thông tin dự án, cột, sprints, thành viên, loại công việc
   const loadInitialData = useCallback(async () => {
@@ -129,6 +136,10 @@ export function useKanbanBoard(projectParam: string) {
   // 2. Tải tasks cho bảng
   const loadTasksForBoard = useCallback(async () => {
     if (!projectParam) return
+    if (isStrictScrum && !selectedSprintId) {
+      setAllTasks([])
+      return
+    }
     try {
       const params = isScrum && selectedSprintId ? { sprintId: selectedSprintId } : {}
       const loadedTasks = await taskService.getProjectTasks(projectParam, params)
@@ -136,7 +147,7 @@ export function useKanbanBoard(projectParam: string) {
     } catch (err) {
       console.error('Failed to load tasks for board:', err)
     }
-  }, [projectParam, isScrum, selectedSprintId])
+  }, [projectParam, isScrum, isStrictScrum, selectedSprintId])
 
   useEffect(() => {
     if (columns.length > 0) {
@@ -178,11 +189,6 @@ export function useKanbanBoard(projectParam: string) {
       tasks: filteredTasks.filter((t) => t.statusId === col.id),
     }))
   }, [columns, filteredTasks])
-
-  const startedSprints = sprints.filter((s) => s.status === 'ACTIVE' || s.status === 'COMPLETED')
-  const currentSprint =
-    startedSprints.find((s) => s.id === selectedSprintId) || startedSprints[0] || null
-  const plannedSprints = sprints.filter((s) => s.status === 'PLANNED')
 
   // 4. Kéo thả qua useDragAndDrop
   const findColumnIdOfItem = useCallback(
@@ -334,6 +340,9 @@ export function useKanbanBoard(projectParam: string) {
     filters,
     setFilters,
     isScrum,
+    isStrictScrum,
+    isViewingCompletedSprint,
+    canMutateBoard,
     startedSprints,
     currentSprint,
     plannedSprints,

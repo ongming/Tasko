@@ -5,24 +5,24 @@ export type TaskCategory = 'today' | 'in_progress' | 'overdue' | 'completed'
 export interface OverviewStats {
   activeProjects: {
     count: number
-    change: string
-    quarter: string
+    detail: string
+    methodLabel: string
   }
   tasksToday: {
     count: number
     highPriorityCount: number
-    deadline: string
+    overdueCount: number
   }
   sprintProgress: {
     sprintName: string
     percent: number
     currentPoints: number
     totalPoints: number
-    daysLeft: number
+    daysLeft: number | null
+    hasActiveSprint: boolean
   }
-  onlineMembers: {
+  workspaceMembers: {
     count: number
-    total: number
     avatars: {
       id: string
       name: string
@@ -37,6 +37,10 @@ export interface MyTaskItem {
   key: string
   title: string
   project: string
+  projectId: string
+  boardRoute: string
+  doneStatusId?: string
+  todoStatusId?: string
   priority: TaskPriority
   dueTime: string
   assignee: {
@@ -81,26 +85,10 @@ export interface TeamMemberStatus {
   role: string
   initials: string
   bg: string
-  statusText: string
-  statusDotColor: string
-  statusBadgeColor: string
-}
-
-export interface ActivityItem {
-  id: string
-  user?: string
-  action: string
-  taskKey?: string
-  target?: string
-  status?: string
-  time: string
-  dotColor: string
-  isAi?: boolean
-  aiDescription?: string
 }
 
 export interface NewTaskPayload {
   title: string
-  project: string
+  projectId: string
   priority: TaskPriority
 }

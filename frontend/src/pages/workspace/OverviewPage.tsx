@@ -7,7 +7,6 @@ import {
   ActiveProjectsGrid,
   WeeklyVelocityChart,
   TeamPresenceWidget,
-  ActivityTimelineStream,
   QuickCreateTaskModal,
   NoWorkspaceEmptyState,
 } from '../../components/overview'
@@ -19,7 +18,6 @@ export function OverviewPage() {
     projects,
     velocity,
     teamMembers,
-    activities,
     activeTab,
     tabCounts,
     filteredTasks,
@@ -45,6 +43,12 @@ export function OverviewPage() {
     )
   }
 
+  const slug = currentWorkspace?.slug || 'workspace'
+  const projectsRoute = `/${slug}/projects`
+  const createProjectRoute = `/${slug}/projects/new`
+  const membersRoute = `/${slug}/members`
+  const firstBoardRoute = projects[0]?.boardRoute || projectsRoute
+
   return (
     <div className="w-full min-h-[calc(100vh-3.5rem)] flex flex-col max-w-[1600px] mx-auto p-4 sm:p-6 pb-12">
       {/* Khi chưa có workspace nào: Hiển thị trang trống ở giữa hướng dẫn tạo Workspace */}
@@ -53,7 +57,11 @@ export function OverviewPage() {
       ) : (
         <>
           {/* 1. Header & Quick Actions */}
-          <OverviewHeader onOpenCreateTask={openCreateModal} />
+          <OverviewHeader
+            onOpenCreateTask={openCreateModal}
+            boardRoute={firstBoardRoute}
+            hasProjects={projects.length > 0}
+          />
 
           {/* 2. 4 Executive Stats KPI Ribbon */}
           <ExecutiveStatsRibbon stats={stats} />
@@ -68,15 +76,18 @@ export function OverviewPage() {
                 tabCounts={tabCounts}
                 onTabChange={setActiveTab}
                 onToggleTask={handleToggleTask}
+                projectsRoute={projectsRoute}
               />
-              <ActiveProjectsGrid projects={projects} />
+              <ActiveProjectsGrid
+                projects={projects}
+                createProjectRoute={createProjectRoute}
+              />
             </section>
 
             {/* Right Column (5/12) */}
             <section aria-label="Năng suất và thành viên" className="lg:col-span-5 flex flex-col gap-6">
               <WeeklyVelocityChart velocity={velocity} />
-              <TeamPresenceWidget members={teamMembers} />
-              <ActivityTimelineStream activities={activities} />
+              <TeamPresenceWidget members={teamMembers} membersRoute={membersRoute} />
             </section>
           </div>
         </>
@@ -87,6 +98,7 @@ export function OverviewPage() {
         isOpen={isCreateModalOpen}
         onClose={closeCreateModal}
         onSubmit={handleCreateTask}
+        projects={projects}
       />
 
       {/* Modal tạo không gian làm việc mới */}

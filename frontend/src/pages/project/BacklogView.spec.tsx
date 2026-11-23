@@ -220,6 +220,7 @@ describe('BacklogView - Page Component Tests', () => {
   })
 
   it('opens StartSprintModal when clicking "Bắt đầu Sprint"', async () => {
+    vi.mocked(sprintService.getSprints).mockResolvedValueOnce([mockSprints[1]] as any)
     renderBacklogView()
 
     await waitFor(() => {
@@ -278,8 +279,8 @@ describe('BacklogView - Page Component Tests', () => {
       expect(screen.getByText('Kho Backlog')).toBeInTheDocument()
     })
 
-    // Find and click "+ Tạo công việc trong Backlog" button in backlog section
-    const backlogAddBtn = screen.getByRole('button', { name: /\+ Tạo công việc trong Backlog/i })
+    // Find and click "Tạo công việc trong Backlog" button in backlog section
+    const backlogAddBtn = screen.getByRole('button', { name: /Tạo công việc trong Backlog/i })
     fireEvent.click(backlogAddBtn)
 
     const input = screen.getByPlaceholderText(/Nhập tiêu đề công việc cho Backlog và nhấn Enter.../i)

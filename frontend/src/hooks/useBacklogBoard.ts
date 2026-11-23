@@ -28,6 +28,7 @@ export function useBacklogBoard(projectParam: string) {
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
   const [createTaskInitialSprintId, setCreateTaskInitialSprintId] = useState<string | null>(null)
   const [isCreateSprintModalOpen, setIsCreateSprintModalOpen] = useState(false)
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null)
   const [newSprintName, setNewSprintName] = useState('')
   const [newSprintGoal, setNewSprintGoal] = useState('')
   const [newSprintStartDate, setNewSprintStartDate] = useState('')
@@ -105,10 +106,23 @@ export function useBacklogBoard(projectParam: string) {
 
   const filteredTasks = useMemo(() => tasks.filter(filterTask), [tasks, filterTask])
   const plannedSprints = useMemo(() => sprints.filter((s) => s.status === 'PLANNED'), [sprints])
+  const activeAndPlannedSprints = useMemo(
+    () => sprints.filter((s) => s.status !== 'COMPLETED'),
+    [sprints],
+  )
+  const completedSprints = useMemo(
+    () => sprints.filter((s) => s.status === 'COMPLETED'),
+    [sprints],
+  )
+  const hasActiveSprint = useMemo(
+    () => sprints.some((s) => s.status === 'ACTIVE'),
+    [sprints],
+  )
   const backlogTasks = useMemo(() => filteredTasks.filter((t) => !t.sprintId), [filteredTasks])
 
   // CRUD Sprint
   const handleOpenCreateSprintModal = () => {
+    setEditingSprint(null)
     const nextNumber = sprints.length + 1
     setNewSprintName(`Sprint ${nextNumber}`)
     setNewSprintGoal('')
@@ -120,20 +134,35 @@ export function useBacklogBoard(projectParam: string) {
     setIsCreateSprintModalOpen(true)
   }
 
+  const handleOpenEditSprintModal = (sprint: Sprint) => {
+    setEditingSprint(sprint)
+    setNewSprintName(sprint.name || '')
+    setNewSprintGoal(sprint.goal || '')
+    setNewSprintStartDate(sprint.startDate ? sprint.startDate.split('T')[0] : '')
+    setNewSprintEndDate(sprint.endDate ? sprint.endDate.split('T')[0] : '')
+    setIsCreateSprintModalOpen(true)
+  }
+
   const handleConfirmCreateSprint = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!projectParam) return
     try {
-      await sprintService.createSprint(projectParam, {
+      const payload = {
         name: newSprintName.trim() || `Sprint ${sprints.length + 1}`,
         goal: newSprintGoal.trim() || undefined,
         startDate: newSprintStartDate ? new Date(newSprintStartDate).toISOString() : undefined,
         endDate: newSprintEndDate ? new Date(newSprintEndDate).toISOString() : undefined,
-      })
+      }
+      if (editingSprint) {
+        await sprintService.updateSprint(projectParam, editingSprint.id, payload)
+      } else {
+        await sprintService.createSprint(projectParam, payload)
+      }
       setIsCreateSprintModalOpen(false)
+      setEditingSprint(null)
       await loadData()
     } catch (err) {
-      console.error('Failed to create sprint:', err)
+      console.error('Failed to save sprint:', err)
     }
   }
 
@@ -341,6 +370,9 @@ export function useBacklogBoard(projectParam: string) {
     setFilters,
     filteredTasks,
     plannedSprints,
+    activeAndPlannedSprints,
+    completedSprints,
+    hasActiveSprint,
     backlogTasks,
     expandedSprints,
     setExpandedSprints,
@@ -352,6 +384,8 @@ export function useBacklogBoard(projectParam: string) {
     setCreateTaskInitialSprintId,
     isCreateSprintModalOpen,
     setIsCreateSprintModalOpen,
+    editingSprint,
+    setEditingSprint,
     newSprintName,
     setNewSprintName,
     newSprintGoal,
@@ -376,6 +410,7 @@ export function useBacklogBoard(projectParam: string) {
     setTempPoints,
     loadData,
     handleOpenCreateSprintModal,
+    handleOpenEditSprintModal,
     handleConfirmCreateSprint,
     handleDeleteSprint,
     handleStartSprint,

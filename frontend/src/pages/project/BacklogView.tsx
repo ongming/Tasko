@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, closestCorners } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Plus, ChevronDown, ChevronRight, Loader2, Inbox } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Loader2, Inbox, Archive } from 'lucide-react'
 import type { TaskItem } from '@/types/task'
 import { StartSprintModal } from '@/components/project/StartSprintModal'
 import { CompleteSprintModal } from '@/components/project/CompleteSprintModal'
@@ -20,6 +20,7 @@ export function BacklogView() {
   const { projectKey } = useParams<{ projectKey?: string }>()
   const [searchParams] = useSearchParams()
   const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId') || ''
+  const [showCompletedSprints, setShowCompletedSprints] = useState(false)
 
   const {
     sprints,
@@ -31,6 +32,9 @@ export function BacklogView() {
     setFilters,
     filteredTasks,
     plannedSprints,
+    activeAndPlannedSprints,
+    completedSprints,
+    hasActiveSprint,
     backlogTasks,
     expandedSprints,
     setExpandedSprints,
@@ -42,6 +46,8 @@ export function BacklogView() {
     setCreateTaskInitialSprintId,
     isCreateSprintModalOpen,
     setIsCreateSprintModalOpen,
+    editingSprint,
+    setEditingSprint,
     newSprintName,
     setNewSprintName,
     newSprintGoal,
@@ -66,6 +72,7 @@ export function BacklogView() {
     setTempPoints,
     loadData,
     handleOpenCreateSprintModal,
+    handleOpenEditSprintModal,
     handleConfirmCreateSprint,
     handleDeleteSprint,
     handleStartSprint,
@@ -171,7 +178,7 @@ export function BacklogView() {
           onDragCancel={dragDrop.handleDragCancel}
         >
           <div className="flex flex-col gap-4">
-            {sprints.map((sprint) => (
+            {activeAndPlannedSprints.map((sprint) => (
               <SprintSection
                 key={sprint.id}
                 sprint={sprint}
@@ -186,6 +193,8 @@ export function BacklogView() {
                 onStartSprint={setSelectedSprintToStart}
                 onCompleteSprint={setSelectedSprintToComplete}
                 onDeleteSprint={handleDeleteSprint}
+                onEditSprint={handleOpenEditSprintModal}
+                hasActiveSprint={hasActiveSprint}
                 isAddingTask={isAddingTaskFor === sprint.id}
                 quickTitle={quickTitleBySection[sprint.id] || ''}
                 onChangeQuickTitle={(id, val) =>
@@ -230,20 +239,6 @@ export function BacklogView() {
                       Story Points)
                     </span>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreateTaskInitialSprintId(null)
-                      setIsCreateTaskModalOpen(true)
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Thêm vào Backlog</span>
-                  </button>
                 </div>
               </div>
 
@@ -311,13 +306,62 @@ export function BacklogView() {
                         className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 px-2 py-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>+ Tạo công việc trong Backlog</span>
+                        <span>Tạo công việc trong Backlog</span>
                       </button>
                     )}
                   </div>
                 </div>
               )}
             </BacklogDroppableContainer>
+
+            {/* 4. Lịch sử các Sprint đã hoàn thành (Thu gọn mặc định) */}
+            {completedSprints.length > 0 && (
+              <div className="rounded-xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowCompletedSprints((prev) => !prev)}
+                  className="w-full px-4 py-2.5 bg-slate-50/70 hover:bg-slate-100/70 flex items-center justify-between text-xs font-semibold text-slate-600 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Archive className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Lịch sử Sprint đã hoàn thành ({completedSprints.length})</span>
+                  </div>
+                  {showCompletedSprints ? (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
+                {showCompletedSprints && (
+                  <div className="p-3 flex flex-col gap-3 bg-slate-50/30">
+                    {completedSprints.map((sprint) => (
+                      <SprintSection
+                        key={sprint.id}
+                        sprint={sprint}
+                        sprintTasks={filteredTasks.filter((t) => t.sprintId === sprint.id)}
+                        isExpanded={expandedSprints[sprint.id] ?? false}
+                        onToggleExpand={(id) =>
+                          setExpandedSprints((prev) => ({
+                            ...prev,
+                            [id]: !(prev[id] ?? false),
+                          }))
+                        }
+                        onStartSprint={setSelectedSprintToStart}
+                        onCompleteSprint={setSelectedSprintToComplete}
+                        onDeleteSprint={handleDeleteSprint}
+                        isAddingTask={false}
+                        quickTitle=""
+                        onChangeQuickTitle={() => {}}
+                        onOpenQuickAdd={() => {}}
+                        onCloseQuickAdd={() => {}}
+                        onConfirmQuickCreate={() => {}}
+                        renderIssueRow={renderIssueRow}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DragOverlay>
@@ -344,7 +388,11 @@ export function BacklogView() {
       {/* Modals & Drawer */}
       <CreateSprintModal
         isOpen={isCreateSprintModalOpen}
-        onClose={() => setIsCreateSprintModalOpen(false)}
+        onClose={() => {
+          setIsCreateSprintModalOpen(false)
+          setEditingSprint(null)
+        }}
+        isEditing={Boolean(editingSprint)}
         name={newSprintName}
         setName={setNewSprintName}
         goal={newSprintGoal}

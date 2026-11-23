@@ -22,6 +22,7 @@ import {
 import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
+import { Select } from '@/components/ui/Select'
 import { useAuthStore } from '@/stores/authStore'
 import type { TaskItem, TaskPriority } from '@/types/task'
 import type { ProjectStatus, ProjectWorkType, CustomField } from '@/types/projectConfig'
@@ -620,21 +621,24 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-500 block">
                     Trạng thái
                   </label>
-                  <select
+                  <Select
                     value={statusId}
-                    onChange={(e) => {
-                      const val = e.target.value
+                    onChange={(val) => {
                       setStatusId(val)
                       handleUpdateField({ statusId: val })
                     }}
-                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                  >
-                    {statuses.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.name} ({st.category})
-                      </option>
-                    ))}
-                  </select>
+                    buttonClassName="font-semibold"
+                    options={statuses.map((st) => ({
+                      value: st.id,
+                      label: `${st.name} (${st.category})`,
+                      dotColor:
+                        st.category === 'DONE'
+                          ? 'bg-emerald-500'
+                          : st.category === 'IN_PROGRESS'
+                            ? 'bg-indigo-600'
+                            : 'bg-slate-400',
+                    }))}
+                  />
                 </div>
 
                 {/* Người thực hiện (Assignee) */}
@@ -642,25 +646,24 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-500 block">
                     Người thực hiện
                   </label>
-                  <select
+                  <Select
                     value={assigneeId}
-                    onChange={(e) => {
-                      const val = e.target.value || null
+                    onChange={(next) => {
+                      const val = next || null
                       setAssigneeId(val || '')
                       handleUpdateField({ assigneeId: val })
                     }}
-                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="">-- Chưa giao (Unassigned) --</option>
-                    {members.map((m) => {
-                      const uId = m.userId || m.user?.id || m.id
-                      return (
-                        <option key={uId} value={uId}>
-                          {m.user?.fullName || m.user?.email || uId}
-                        </option>
-                      )
-                    })}
-                  </select>
+                    options={[
+                      { value: '', label: 'Chưa giao (Unassigned)' },
+                      ...members.map((m) => {
+                        const uId = m.userId || m.user?.id || m.id
+                        return {
+                          value: uId,
+                          label: m.user?.fullName || m.user?.email || uId,
+                        }
+                      }),
+                    ]}
+                  />
                 </div>
 
                 {/* Độ ưu tiên (Priority) */}
@@ -668,20 +671,21 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-500 block">
                     Độ ưu tiên
                   </label>
-                  <select
+                  <Select
                     value={priority}
-                    onChange={(e) => {
-                      const val = e.target.value as TaskPriority
+                    onChange={(next) => {
+                      const val = next as TaskPriority
                       setPriority(val)
                       handleUpdateField({ priority: val })
                     }}
-                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="LOW">🔵 Thấp (LOW)</option>
-                    <option value="MEDIUM">🟡 Trung bình (MEDIUM)</option>
-                    <option value="HIGH">🟠 Cao (HIGH)</option>
-                    <option value="URGENT">🔴 Khẩn cấp (URGENT)</option>
-                  </select>
+                    buttonClassName="font-semibold"
+                    options={[
+                      { value: 'LOW', label: 'Thấp (LOW)', dotColor: 'bg-blue-500' },
+                      { value: 'MEDIUM', label: 'Trung bình (MEDIUM)', dotColor: 'bg-amber-400' },
+                      { value: 'HIGH', label: 'Cao (HIGH)', dotColor: 'bg-orange-500' },
+                      { value: 'URGENT', label: 'Khẩn cấp (URGENT)', dotColor: 'bg-rose-500' },
+                    ]}
+                  />
                 </div>
 
                 {/* Loại công việc (WorkType) */}
@@ -689,46 +693,45 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-500 block">
                     Loại công việc
                   </label>
-                  <select
+                  <Select
                     value={typeId}
-                    onChange={(e) => {
-                      const val = e.target.value || undefined
+                    onChange={(next) => {
+                      const val = next || undefined
                       setTypeId(val || '')
                       handleUpdateField({ typeId: val })
                     }}
-                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="">-- Mặc định --</option>
-                    {workTypes.map((wt) => (
-                      <option key={wt.id} value={wt.id}>
-                        {wt.name} {wt.isSubtask ? '(Subtask)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: 'Mặc định' },
+                      ...workTypes.map((wt) => ({
+                        value: wt.id,
+                        label: `${wt.name}${wt.isSubtask ? ' (Subtask)' : ''}`,
+                      })),
+                    ]}
+                  />
                 </div>
 
                 {/* Sprint */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-500 block">Sprint</label>
-                  <select
+                  <Select
                     value={sprintId || 'backlog'}
-                    onChange={(e) => {
-                      const val = e.target.value === 'backlog' ? null : e.target.value
+                    onChange={(next) => {
+                      const val = next === 'backlog' ? null : next
                       setSprintId(val || 'backlog')
                       handleUpdateField({ sprintId: val })
                     }}
-                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="backlog">📦 Backlog (Chưa vào Sprint)</option>
-                    {sprints
-                      .filter((s) => s.status !== 'COMPLETED')
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.status === 'ACTIVE' ? '⚡ ' : '📋 '}
-                          {s.name}
-                        </option>
-                      ))}
-                  </select>
+                    options={[
+                      { value: 'backlog', label: 'Backlog (Chưa vào Sprint)', dotColor: 'bg-slate-400' },
+                      ...sprints
+                        .filter((s) => s.status !== 'COMPLETED')
+                        .map((s) => ({
+                          value: s.id,
+                          label: s.name,
+                          dotColor: s.status === 'ACTIVE' ? 'bg-indigo-600' : 'bg-amber-400',
+                          badge: s.status === 'ACTIVE' ? 'Đang chạy' : 'Kế hoạch',
+                        })),
+                    ]}
+                  />
                 </div>
 
                 {/* Story Points & Ước tính giờ */}
@@ -822,18 +825,14 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                           </label>
 
                           {cf.fieldType === 'SELECT' ? (
-                            <select
+                            <Select
                               value={val}
-                              onChange={(e) => handleUpdateCustomField(cf.id, e.target.value)}
-                              className="w-full h-8 px-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                            >
-                              <option value="">-- Chọn giá trị --</option>
-                              {(cf.options || []).map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(next) => handleUpdateCustomField(cf.id, next)}
+                              options={[
+                                { value: '', label: 'Chọn giá trị' },
+                                ...(cf.options || []).map((opt) => ({ value: opt, label: opt })),
+                              ]}
+                            />
                           ) : cf.fieldType === 'NUMBER' ? (
                             <input
                               type="number"

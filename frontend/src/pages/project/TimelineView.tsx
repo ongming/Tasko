@@ -224,6 +224,57 @@ export function TimelineView() {
             </div>
           </div>
 
+          {/* Sprint Milestone Bands (nếu có Sprint có ngày bắt đầu & kết thúc) */}
+          {sprints.some((s) => s.startDate && s.endDate) && (
+            <div className="border-b border-slate-200/80 bg-indigo-50/20">
+              {sprints
+                .filter((s) => s.startDate && s.endDate)
+                .map((sp) => {
+                  const startWindow = startDate.getTime()
+                  const windowDuration = totalDays * 24 * 60 * 60 * 1000
+                  const spStart = new Date(sp.startDate!).getTime()
+                  const spEnd = new Date(sp.endDate!).getTime()
+                  const leftPercent = Math.max(0, Math.min(97, ((spStart - startWindow) / windowDuration) * 100))
+                  const rightPercent = Math.max(leftPercent + 3, Math.min(100, ((spEnd - startWindow) / windowDuration) * 100))
+                  const widthPercent = Math.max(3, rightPercent - leftPercent)
+
+                  return (
+                    <div key={sp.id} className="flex items-center border-b border-indigo-100/60 last:border-b-0">
+                      <div className="w-64 min-w-[250px] shrink-0 px-4 py-2 border-r border-slate-200/80 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-indigo-900 truncate">{sp.name}</span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                            sp.status === 'ACTIVE'
+                              ? 'bg-indigo-600 text-white'
+                              : sp.status === 'COMPLETED'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {sp.status === 'ACTIVE' ? 'Đang chạy' : sp.status === 'COMPLETED' ? 'Xong' : 'Kế hoạch'}
+                        </span>
+                      </div>
+                      <div className="flex-1 relative h-7 flex items-center px-1">
+                        <div
+                          style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                          className={`relative h-4 rounded-full px-2 flex items-center text-[9px] font-bold truncate ${
+                            sp.status === 'ACTIVE'
+                              ? 'bg-indigo-200/90 text-indigo-900 border border-indigo-300'
+                              : sp.status === 'COMPLETED'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
+                          title={`${sp.name}: ${new Date(sp.startDate!).toLocaleDateString('vi-VN')} - ${new Date(sp.endDate!).toLocaleDateString('vi-VN')}`}
+                        >
+                          <span className="truncate">{sp.name}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+
           {/* Task Rows with Bars */}
           <div className="divide-y divide-slate-100">
             {tasks.length === 0 ? (

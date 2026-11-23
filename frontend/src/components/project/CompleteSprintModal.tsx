@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { X, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import type { Sprint } from '@/types/sprint'
 
 interface CompleteSprintModalProps {
@@ -98,20 +99,22 @@ export const CompleteSprintModal: React.FC<CompleteSprintModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Chuyển {uncompletedCount} công việc dở dang sang:
               </label>
-              <select
+              <Select
+                size="md"
                 value={targetSprintId}
-                onChange={(e) => setTargetSprintId(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-              >
-                <option value="backlog">📦 Product Backlog (Mặc định)</option>
-                {plannedSprints
-                  .filter((s) => s.id !== sprint.id)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      🏃 {s.name} (Sprint kế hoạch)
-                    </option>
-                  ))}
-              </select>
+                onChange={setTargetSprintId}
+                options={[
+                  { value: 'backlog', label: 'Product Backlog (Mặc định)', dotColor: 'bg-slate-400' },
+                  ...plannedSprints
+                    .filter((s) => s.id !== sprint.id)
+                    .map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      dotColor: 'bg-indigo-600',
+                      badge: 'Sprint kế hoạch',
+                    })),
+                ]}
+              />
             </div>
           )}
 

@@ -16,6 +16,8 @@ import {
 import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
+import { isScrumProject } from '@/utils/projectMethod'
+import { Select } from '@/components/ui/Select'
 import type { TaskItem, TaskPriority } from '@/types/task'
 import type { ProjectStatus, ProjectWorkType, CustomField } from '@/types/projectConfig'
 import type { ProjectMember } from '@/types/member'
@@ -57,6 +59,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [customFields, setCustomFields] = useState<CustomField[]>([])
+  const [isScrum, setIsScrum] = useState<boolean>(Boolean(initialSprintId))
 
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -68,8 +71,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     const fetchConfig = async () => {
       try {
         setIsLoading(true)
-        const [loadedStatuses, loadedTypes, loadedMembers, loadedSprints, loadedCfs] =
+        const [projData, loadedStatuses, loadedTypes, loadedMembers, loadedSprints, loadedCfs] =
           await Promise.all([
+            projectService.getProjectById(projectIdOrKey).catch(() => null),
             projectService.getProjectStatuses(projectIdOrKey).catch(() => []),
             projectService.getProjectWorkTypes(projectIdOrKey).catch(() => []),
             projectService.getProjectMembers(projectIdOrKey).catch(() => []),
@@ -77,6 +81,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             projectService.getCustomFields(projectIdOrKey).catch(() => []),
           ])
 
+        setIsScrum(Boolean(initialSprintId) || isScrumProject(projData))
         setStatuses(loadedStatuses)
         setWorkTypes(loadedTypes)
         setMembers(loadedMembers)
@@ -266,17 +271,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Loại công việc
                 </label>
-                <select
+                <Select
                   value={workTypeId}
-                  onChange={(e) => setWorkTypeId(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  {workTypes.map((wt) => (
-                    <option key={wt.id} value={wt.id}>
-                      {wt.name} {wt.isSubtask ? '(Subtask)' : ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setWorkTypeId}
+                  options={workTypes.map((wt) => ({
+                    value: wt.id,
+                    label: `${wt.name}${wt.isSubtask ? ' (Subtask)' : ''}`,
+                  }))}
+                />
               </div>
 
               {/* Cột trạng thái ban đầu (Status) */}
@@ -284,34 +286,38 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Trạng thái
                 </label>
-                <select
+                <Select
                   value={statusId}
-                  onChange={(e) => setStatusId(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  {statuses.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      {st.name} ({st.category})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setStatusId}
+                  options={statuses.map((st) => ({
+                    value: st.id,
+                    label: `${st.name} (${st.category})`,
+                    dotColor:
+                      st.category === 'DONE'
+                        ? 'bg-emerald-500'
+                        : st.category === 'IN_PROGRESS'
+                          ? 'bg-indigo-600'
+                          : 'bg-slate-400',
+                  }))}
+                />
               </div>
 
-              {/* Độ ưu tiên (Priority kèm badge) */}
+              {/* Độ ưu tiên (Priority) */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Độ ưu tiên
                 </label>
-                <select
+                <Select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="LOW">🔵 Thấp (LOW)</option>
-                  <option value="MEDIUM">🟡 Trung bình (MEDIUM)</option>
-                  <option value="HIGH">🟠 Cao (HIGH)</option>
-                  <option value="URGENT">🔴 Khẩn cấp (URGENT)</option>
-                </select>
+                  onChange={(val) => setPriority(val as TaskPriority)}
+                  buttonClassName="font-semibold"
+                  options={[
+                    { value: 'LOW', label: 'Thấp (LOW)', dotColor: 'bg-blue-500' },
+                    { value: 'MEDIUM', label: 'Trung bình (MEDIUM)', dotColor: 'bg-amber-400' },
+                    { value: 'HIGH', label: 'Cao (HIGH)', dotColor: 'bg-orange-500' },
+                    { value: 'URGENT', label: 'Khẩn cấp (URGENT)', dotColor: 'bg-rose-500' },
+                  ]}
+                />
               </div>
 
               {/* Người thực hiện (Assignee) */}
@@ -319,60 +325,60 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Người thực hiện
                 </label>
-                <select
+                <Select
                   value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="">-- Chưa giao (Unassigned) --</option>
-                  {members.map((m) => {
-                    const uId = m.userId || m.user?.id || m.id
-                    return (
-                      <option key={uId} value={uId}>
-                        {m.user?.fullName || m.user?.email || uId}
-                      </option>
-                    )
-                  })}
-                </select>
-              </div>
-
-              {/* Sprint hoặc Backlog */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Sprint</label>
-                <select
-                  value={sprintId || 'backlog'}
-                  onChange={(e) =>
-                    setSprintId(e.target.value === 'backlog' ? null : e.target.value)
-                  }
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="backlog">📦 Backlog (Chưa vào Sprint)</option>
-                  {sprints
-                    .filter((s) => s.status !== 'COMPLETED')
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.status === 'ACTIVE' ? '⚡ ' : '📋 '}
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Điểm Story Points */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Story Points
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={storyPoints}
-                  onChange={(e) => setStoryPoints(e.target.value)}
-                  placeholder="0"
-                  className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                  onChange={setAssigneeId}
+                  options={[
+                    { value: '', label: 'Chưa giao (Unassigned)' },
+                    ...members.map((m) => {
+                      const uId = m.userId || m.user?.id || m.id
+                      return {
+                        value: uId,
+                        label: m.user?.fullName || m.user?.email || uId,
+                      }
+                    }),
+                  ]}
                 />
               </div>
+
+              {/* Sprint & Story Points (chỉ hiện cho Scrum / Scrumban) */}
+              {isScrum && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Sprint</label>
+                    <Select
+                      value={sprintId || 'backlog'}
+                      onChange={(val) => setSprintId(val === 'backlog' ? null : val)}
+                      options={[
+                        { value: 'backlog', label: 'Backlog (Chưa vào Sprint)', dotColor: 'bg-slate-400' },
+                        ...sprints
+                          .filter((s) => s.status !== 'COMPLETED')
+                          .map((s) => ({
+                            value: s.id,
+                            label: s.name,
+                            dotColor: s.status === 'ACTIVE' ? 'bg-indigo-600' : 'bg-amber-400',
+                            badge: s.status === 'ACTIVE' ? 'Đang chạy' : 'Kế hoạch',
+                          })),
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Story Points
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={storyPoints}
+                      onChange={(e) => setStoryPoints(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Thời gian ước tính (Giờ) */}
               <div>
@@ -433,20 +439,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         </label>
 
                         {cf.fieldType === 'SELECT' ? (
-                          <select
+                          <Select
                             value={val}
-                            onChange={(e) =>
-                              setCfValues((p) => ({ ...p, [cf.id]: e.target.value }))
+                            onChange={(next) =>
+                              setCfValues((p) => ({ ...p, [cf.id]: next }))
                             }
-                            className="w-full h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                          >
-                            <option value="">-- Chọn giá trị --</option>
-                            {(cf.options || []).map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
+                            options={[
+                              { value: '', label: 'Chọn giá trị' },
+                              ...(cf.options || []).map((opt) => ({ value: opt, label: opt })),
+                            ]}
+                          />
                         ) : cf.fieldType === 'NUMBER' ? (
                           <input
                             type="number"

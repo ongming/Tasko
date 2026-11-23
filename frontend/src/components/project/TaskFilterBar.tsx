@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { Select } from '@/components/ui/Select'
 import type { TaskFilterParams, TaskPriority } from '@/types/task'
 import type { ProjectMember } from '@/types/member'
 import type { ProjectWorkType } from '@/types/projectConfig'
@@ -122,83 +123,81 @@ export const TaskFilterBar: React.FC<TaskFilterBarProps> = ({
         )}
 
         {/* Dropdown Lọc Người thực hiện (Assignee) */}
-        <div className="relative">
-          <select
-            value={filters.assigneeId || ''}
-            onChange={(e) =>
-              onFilterChange({
-                ...filters,
-                assigneeId: e.target.value ? e.target.value : undefined,
-              })
-            }
-            className={`h-8 px-2.5 rounded-lg text-xs font-medium bg-white border transition-all cursor-pointer shadow-2xs focus:outline-none focus:border-indigo-500 ${
-              filters.assigneeId && !isMyTasksActive
-                ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
-                : 'border-slate-200/90 text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <option value="">Người thực hiện: Tất cả</option>
-            <option value="unassigned">-- Chưa giao (Unassigned) --</option>
-            {members.map((m) => {
+        <Select
+          value={filters.assigneeId || ''}
+          onChange={(val) =>
+            onFilterChange({
+              ...filters,
+              assigneeId: val ? val : undefined,
+            })
+          }
+          className="min-w-[160px]"
+          buttonClassName={
+            filters.assigneeId && !isMyTasksActive
+              ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
+              : 'text-slate-600'
+          }
+          options={[
+            { value: '', label: 'Người thực hiện: Tất cả' },
+            { value: 'unassigned', label: 'Chưa giao (Unassigned)' },
+            ...members.map((m) => {
               const uId = m.userId || m.user?.id || m.id
-              return (
-                <option key={uId} value={uId}>
-                  {m.user?.fullName || m.user?.email || uId}
-                </option>
-              )
-            })}
-          </select>
-        </div>
+              return {
+                value: uId,
+                label: m.user?.fullName || m.user?.email || uId,
+              }
+            }),
+          ]}
+        />
 
         {/* Dropdown Lọc Độ ưu tiên (Priority) */}
-        <div className="relative">
-          <select
-            value={filters.priority || ''}
-            onChange={(e) =>
-              onFilterChange({
-                ...filters,
-                priority: e.target.value ? (e.target.value as TaskPriority) : undefined,
-              })
-            }
-            className={`h-8 px-2.5 rounded-lg text-xs font-medium bg-white border transition-all cursor-pointer shadow-2xs focus:outline-none focus:border-indigo-500 ${
-              filters.priority
-                ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
-                : 'border-slate-200/90 text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <option value="">Độ ưu tiên: Tất cả</option>
-            <option value="URGENT">🔴 Khẩn cấp (URGENT)</option>
-            <option value="HIGH">🟠 Cao (HIGH)</option>
-            <option value="MEDIUM">🟡 Trung bình (MEDIUM)</option>
-            <option value="LOW">🔵 Thấp (LOW)</option>
-          </select>
-        </div>
+        <Select
+          value={filters.priority || ''}
+          onChange={(val) =>
+            onFilterChange({
+              ...filters,
+              priority: val ? (val as TaskPriority) : undefined,
+            })
+          }
+          className="min-w-[150px]"
+          buttonClassName={
+            filters.priority
+              ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
+              : 'text-slate-600'
+          }
+          options={[
+            { value: '', label: 'Độ ưu tiên: Tất cả' },
+            { value: 'URGENT', label: 'Khẩn cấp (URGENT)', dotColor: 'bg-rose-500' },
+            { value: 'HIGH', label: 'Cao (HIGH)', dotColor: 'bg-orange-500' },
+            { value: 'MEDIUM', label: 'Trung bình (MEDIUM)', dotColor: 'bg-amber-400' },
+            { value: 'LOW', label: 'Thấp (LOW)', dotColor: 'bg-blue-500' },
+          ]}
+        />
 
         {/* Dropdown Lọc Loại công việc (WorkType) */}
         {workTypes.length > 0 && (
-          <div className="relative">
-            <select
-              value={filters.workTypeId || ''}
-              onChange={(e) =>
-                onFilterChange({
-                  ...filters,
-                  workTypeId: e.target.value ? e.target.value : undefined,
-                })
-              }
-              className={`h-8 px-2.5 rounded-lg text-xs font-medium bg-white border transition-all cursor-pointer shadow-2xs focus:outline-none focus:border-indigo-500 ${
-                filters.workTypeId
-                  ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
-                  : 'border-slate-200/90 text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              <option value="">Loại công việc: Tất cả</option>
-              {workTypes.map((wt) => (
-                <option key={wt.id} value={wt.id}>
-                  {wt.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            value={filters.workTypeId || ''}
+            onChange={(val) =>
+              onFilterChange({
+                ...filters,
+                workTypeId: val ? val : undefined,
+              })
+            }
+            className="min-w-[150px]"
+            buttonClassName={
+              filters.workTypeId
+                ? 'border-indigo-300 text-indigo-700 font-semibold bg-indigo-50/40'
+                : 'text-slate-600'
+            }
+            options={[
+              { value: '', label: 'Loại công việc: Tất cả' },
+              ...workTypes.map((wt) => ({
+                value: wt.id,
+                label: wt.name,
+              })),
+            ]}
+          />
         )}
 
         {/* Nút Xóa bộ lọc khi có điều kiện active */}

@@ -8,6 +8,8 @@ import {
   Play,
   CheckCircle2,
   AlertTriangle,
+  Clock,
+  Info,
   X,
 } from 'lucide-react'
 import { DndContext, DragOverlay, closestCorners } from '@dnd-kit/core'
@@ -17,6 +19,7 @@ import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
 import { TaskFilterBar } from '@/components/project/TaskFilterBar'
 import { CreateTaskModal } from '@/components/project/CreateTaskModal'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { Select } from '@/components/ui/Select'
 import { KanbanCard } from '@/components/kanban/KanbanCard'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { useKanbanBoard, type BoardColumn } from '@/hooks/useKanbanBoard'
@@ -40,6 +43,9 @@ export function KanbanBoardView() {
     filters,
     setFilters,
     isScrum,
+    isStrictScrum,
+    isViewingCompletedSprint,
+    canMutateBoard,
     startedSprints,
     currentSprint,
     plannedSprints,
@@ -76,6 +82,14 @@ export function KanbanBoardView() {
       ? `/${workspaceSlug}/${projectKey}/backlog`
       : `/workspace/backlog?project=${projectParam}`
 
+  const sprintRemainingDays =
+    currentSprint?.status === 'ACTIVE' && currentSprint.endDate
+      ? Math.ceil(
+          (new Date(currentSprint.endDate).setHours(23, 59, 59, 999) - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : null
+
   return (
     <div className="flex flex-col gap-4 w-full flex-1">
       {/* Thông báo lỗi / Rollback Banner khi vi phạm ràng buộc */}
@@ -109,39 +123,58 @@ export function KanbanBoardView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              setCreateTaskInitialStatusId(columns[0]?.id)
-              setIsCreateModalOpen(true)
-            }}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tạo công việc</span>
-          </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {canMutateBoard && (
+            <button
+              type="button"
+              onClick={() => {
+                setCreateTaskInitialStatusId(columns[0]?.id)
+                setIsCreateModalOpen(true)
+              }}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tạo công việc</span>
+            </button>
+          )}
 
           {isScrum && (
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {startedSprints.length > 0 ? (
                 <>
-                  <div className="relative">
-                    <select
-                      value={currentSprint?.id || ''}
-                      onChange={(e) => setSelectedSprintId(e.target.value)}
-                      className="h-8 pl-2.5 pr-7 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 font-semibold text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer appearance-none shadow-2xs transition-all"
+                  <Select
+                    value={currentSprint?.id || ''}
+                    onChange={setSelectedSprintId}
+                    className="min-w-[190px]"
+                    buttonClassName="font-semibold"
+                    options={startedSprints.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      dotColor: s.status === 'ACTIVE' ? 'bg-indigo-600' : 'bg-emerald-500',
+                      badge: s.status === 'ACTIVE' ? 'Đang diễn ra' : 'Đã xong',
+                    }))}
+                  />
+
+                  {sprintRemainingDays !== null && (
+                    <span
+                      className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-semibold border ${
+                        sprintRemainingDays < 0
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : sprintRemainingDays <= 2
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200/80'
+                      }`}
                     >
-                      {startedSprints.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.status === 'ACTIVE'
-                            ? `⚡ ${s.name} (Đang diễn ra)`
-                            : `🏆 ${s.name} (Đã hoàn thành)`}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        {sprintRemainingDays < 0
+                          ? `Quá hạn ${Math.abs(sprintRemainingDays)} ngày`
+                          : sprintRemainingDays === 0
+                            ? 'Hết hạn hôm nay'
+                            : `Còn ${sprintRemainingDays} ngày`}
+                      </span>
+                    </span>
+                  )}
 
                   {currentSprint?.status === 'ACTIVE' && (
                     <button
@@ -185,50 +218,81 @@ export function KanbanBoardView() {
         </div>
       )}
 
-      {/* 3. Kanban Board Canvas */}
-      {!isLoading && (
-        <DndContext
-          sensors={dragDrop.sensors}
-          collisionDetection={closestCorners}
-          onDragStart={dragDrop.handleDragStart}
-          onDragOver={dragDrop.handleDragOver}
-          onDragEnd={dragDrop.handleDragEnd}
-          onDragCancel={dragDrop.handleDragCancel}
-        >
-          <div className="flex-1 flex gap-3.5 overflow-x-auto pb-4 items-start select-none">
-            {displayedColumns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                isDraggingActive={dragDrop.isDragging}
-                quickAddColumnId={quickAddColumnId}
-                quickTaskTitle={quickTaskTitle}
-                setQuickTaskTitle={setQuickTaskTitle}
-                setQuickAddColumnId={setQuickAddColumnId}
-                handleQuickAddTask={handleQuickAddTask}
-                isSubmittingQuickAdd={isSubmittingQuickAdd}
-                onCardClick={(taskId) => {
-                  if (!dragDrop.shouldIgnoreClick()) setSelectedTaskId(taskId)
-                }}
-                onOpenCreateModalWithStatus={(statusId) => {
-                  setCreateTaskInitialStatusId(statusId)
-                  setIsCreateModalOpen(true)
-                }}
-                renderWorkTypeIcon={renderWorkTypeIcon}
-              />
-            ))}
-          </div>
+      {isViewingCompletedSprint && (
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
+          <Info className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span>
+            Bạn đang xem lại Sprint đã hoàn thành <strong>{currentSprint?.name}</strong> (chế độ chỉ đọc).
+          </span>
+        </div>
+      )}
 
-          <DragOverlay>
-            {dragDrop.activeItem ? (
-              <KanbanCard
-                task={dragDrop.activeItem}
-                isOverlay
-                renderWorkTypeIcon={renderWorkTypeIcon}
-              />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+      {/* 3. Kanban Board Canvas hoặc Empty State cho Scrum chưa có Sprint */}
+      {!isLoading && isStrictScrum && startedSprints.length === 0 ? (
+        <div className="py-16 px-6 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col items-center justify-center text-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+            <Play className="w-5 h-5" />
+          </div>
+          <div className="max-w-md">
+            <h3 className="text-sm font-bold text-slate-900">Chưa có Sprint nào đang chạy</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Trong Scrum, bảng thực thi chỉ hiển thị công việc của Sprint đang hoạt động. Hãy vào Backlog để tạo hoặc bắt đầu Sprint đầu tiên.
+            </p>
+          </div>
+          <Link
+            to={backlogLink}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all"
+          >
+            <Play className="w-3.5 h-3.5 fill-white" />
+            <span>Đi tới Backlog để bắt đầu Sprint</span>
+          </Link>
+        </div>
+      ) : (
+        !isLoading && (
+          <DndContext
+            sensors={canMutateBoard ? dragDrop.sensors : undefined}
+            collisionDetection={closestCorners}
+            onDragStart={canMutateBoard ? dragDrop.handleDragStart : undefined}
+            onDragOver={canMutateBoard ? dragDrop.handleDragOver : undefined}
+            onDragEnd={canMutateBoard ? dragDrop.handleDragEnd : undefined}
+            onDragCancel={canMutateBoard ? dragDrop.handleDragCancel : undefined}
+          >
+            <div className="flex-1 flex gap-3.5 overflow-x-auto pb-4 items-start select-none">
+              {displayedColumns.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  isDraggingActive={dragDrop.isDragging}
+                  quickAddColumnId={quickAddColumnId}
+                  quickTaskTitle={quickTaskTitle}
+                  setQuickTaskTitle={setQuickTaskTitle}
+                  setQuickAddColumnId={setQuickAddColumnId}
+                  handleQuickAddTask={handleQuickAddTask}
+                  isSubmittingQuickAdd={isSubmittingQuickAdd}
+                  onCardClick={(taskId) => {
+                    if (!dragDrop.shouldIgnoreClick()) setSelectedTaskId(taskId)
+                  }}
+                  onOpenCreateModalWithStatus={(statusId) => {
+                    setCreateTaskInitialStatusId(statusId)
+                    setIsCreateModalOpen(true)
+                  }}
+                  renderWorkTypeIcon={renderWorkTypeIcon}
+                  readOnly={!canMutateBoard}
+                />
+              ))}
+            </div>
+
+            <DragOverlay>
+              {dragDrop.activeItem ? (
+                <KanbanCard
+                  task={dragDrop.activeItem}
+                  isOverlay
+                  renderWorkTypeIcon={renderWorkTypeIcon}
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )
       )}
 
       {/* Modal Hoàn thành Sprint */}

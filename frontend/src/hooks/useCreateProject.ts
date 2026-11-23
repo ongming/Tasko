@@ -364,10 +364,11 @@ export function useCreateProject() {
 
         const targetSlug = activeSlug || workspaceSlug
         const targetKey = newProject?.key || newProject?.id
+        const defaultTab = selectedMethod?.id === 'scrum' ? 'backlog' : 'board'
         if (targetSlug && targetKey) {
-          navigate(`/${targetSlug}/${targetKey}/board`)
+          navigate(`/${targetSlug}/${targetKey}/${defaultTab}`)
         } else if (targetKey) {
-          navigate(`/workspace/board?project=${targetKey}`)
+          navigate(`/workspace/${defaultTab}?project=${targetKey}`)
         } else {
           navigate(targetSlug ? `/${targetSlug}/projects` : '/workspace/projects')
         }

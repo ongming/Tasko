@@ -7,6 +7,7 @@ import { workspaceService } from '@/services/workspaceService'
 import { ProfileSecurityTab } from '@/components/workspace/ProfileSecurityTab'
 import { WorkspaceGeneralTab } from '@/components/workspace/WorkspaceGeneralTab'
 import { WorkspaceMembersTab } from '@/components/workspace/WorkspaceMembersTab'
+import { Select } from '@/components/ui/Select'
 import type { WorkspaceResponse } from '@/types/workspace'
 
 export function SettingsPage() {
@@ -119,22 +120,22 @@ export function SettingsPage() {
               <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
                 Đổi Không gian:
               </span>
-              <select
+              <Select
                 value={activeWorkspace?.id || ''}
-                onChange={(e) => {
-                  const target = myWorkspaces.find((w) => w.id === e.target.value)
+                onChange={(targetId) => {
+                  const target = myWorkspaces.find((w) => w.id === targetId)
                   if (target) {
                     navigate(`/${target.slug}/settings`)
                   }
                 }}
-                className="text-xs font-semibold py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
-              >
-                {myWorkspaces.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.slug})
-                  </option>
-                ))}
-              </select>
+                align="right"
+                className="min-w-[180px]"
+                buttonClassName="font-semibold"
+                options={myWorkspaces.map((w) => ({
+                  value: w.id,
+                  label: `${w.name} (${w.slug})`,
+                }))}
+              />
             </div>
           )}
         </div>

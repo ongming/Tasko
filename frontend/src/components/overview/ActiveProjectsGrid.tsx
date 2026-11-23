@@ -5,9 +5,13 @@ import type { ProjectSummary } from '../../types/overview'
 
 interface ActiveProjectsGridProps {
   projects: ProjectSummary[]
+  createProjectRoute?: string
 }
 
-export const ActiveProjectsGrid: React.FC<ActiveProjectsGridProps> = ({ projects }) => {
+export const ActiveProjectsGrid: React.FC<ActiveProjectsGridProps> = ({
+  projects,
+  createProjectRoute = '/workspace/projects/new',
+}) => {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -20,7 +24,7 @@ export const ActiveProjectsGrid: React.FC<ActiveProjectsGridProps> = ({ projects
           </p>
         </div>
         <Link
-          to="/workspace/projects/new"
+          to={createProjectRoute}
           className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors"
         >
           <PlusCircle className="w-4 h-4" />
@@ -38,7 +42,7 @@ export const ActiveProjectsGrid: React.FC<ActiveProjectsGridProps> = ({ projects
             Tạo dự án đầu tiên để theo dõi tiến độ Sprint, bảng Kanban và danh sách công việc.
           </p>
           <Link
-            to="/workspace/projects/new"
+            to={createProjectRoute}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
