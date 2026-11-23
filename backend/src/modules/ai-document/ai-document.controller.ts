@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Param,
+  Query,
   Body,
   UseGuards,
   UseInterceptors,
@@ -21,6 +22,7 @@ import { MAX_DOCUMENT_SIZE_BYTES } from './document-parser.service.js';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto.js';
 import { UpdateSuggestedTasksDto } from './dto/update-suggested-tasks.dto.js';
 import { ConfirmAiTasksDto } from './dto/confirm-ai-tasks.dto.js';
+import { GetAiHistoryQueryDto } from './dto/get-ai-history-query.dto.js';
 
 @Controller('projects/:projectId/ai-document')
 @UseGuards(JwtAuthGuard, RbacPermissionGuard)
@@ -64,6 +66,20 @@ export class AiDocumentController {
     @Body() dto: AnalyzeDocumentDto,
   ) {
     return this.aiDocumentService.analyzeDocument(projectId, analysisId, dto?.hint);
+  }
+
+  /**
+   * AIDOC-06: Xem lịch sử các lần phân tích tài liệu của dự án
+   * GET /api/v1/projects/:projectId/ai-document/history
+   * (Đặt trước route :analysisId để tránh đụng param động)
+   */
+  @Get('history')
+  @RequirePermission('PROJECT_VIEW_ONLY')
+  async getHistory(
+    @Param('projectId') projectId: string,
+    @Query() query: GetAiHistoryQueryDto,
+  ) {
+    return this.aiDocumentService.getHistory(projectId, query);
   }
 
   /**

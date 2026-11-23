@@ -7,11 +7,13 @@ import { AiAnalysisStatus, AiDocumentFileType } from './entities/ai-analysis.ent
 describe('AiDocumentController', () => {
   let controller: AiDocumentController;
   let getAnalysisDetailMock: ReturnType<typeof vi.fn>;
+  let getHistoryMock: ReturnType<typeof vi.fn>;
   let analyzeDocumentMock: ReturnType<typeof vi.fn>;
   let uploadDocumentMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     getAnalysisDetailMock = vi.fn();
+    getHistoryMock = vi.fn();
     analyzeDocumentMock = vi.fn();
     uploadDocumentMock = vi.fn();
 
@@ -19,6 +21,7 @@ describe('AiDocumentController', () => {
       uploadDocument: uploadDocumentMock,
       analyzeDocument: analyzeDocumentMock,
       getAnalysisDetail: getAnalysisDetailMock,
+      getHistory: getHistoryMock,
     } as unknown as AiDocumentService;
 
     controller = new AiDocumentController(serviceMock);
@@ -80,5 +83,26 @@ describe('AiDocumentController', () => {
     await expect(controller.getAnalysisDetail('SHOPX', 'invalid-id')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('getHistory chuyển tiếp query params xuống service và trả về danh sách phân trang', async () => {
+    const mockHistory = {
+      items: [],
+      pagination: { total: 0, page: 1, limit: 20 },
+    };
+    getHistoryMock.mockResolvedValue(mockHistory);
+
+    const result = await controller.getHistory('SHOPX', {
+      status: AiAnalysisStatus.APPLIED,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(getHistoryMock).toHaveBeenCalledWith('SHOPX', {
+      status: AiAnalysisStatus.APPLIED,
+      page: 1,
+      limit: 20,
+    });
+    expect(result).toEqual(mockHistory);
   });
 });

@@ -604,4 +604,109 @@ describe('AiDocumentService (AIDOC-02)', () => {
       expect(savedAnalysisHistory).toHaveLength(0);
     });
   });
+
+  describe('getHistory (AIDOC-06)', () => {
+    it('trả về danh sách lịch sử phân trang theo created_at DESC và không kèm extracted_text', async () => {
+      const mockRow = createMockAnalysis();
+      mockRow.status = AiAnalysisStatus.APPLIED;
+      mockRow.applied_task_count = 3;
+      mockRow.suggested_tasks = [
+        {
+          tempId: 'tmp-1',
+          selected: true,
+          title: 'Task A',
+          description: '',
+          priority: 'HIGH',
+          storyPoints: 3,
+          estimatedHours: 8,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: null,
+          dueDate: null,
+        },
+        {
+          tempId: 'tmp-2',
+          selected: true,
+          title: 'Task B',
+          description: '',
+          priority: 'MEDIUM',
+          storyPoints: 2,
+          estimatedHours: 4,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: null,
+          dueDate: null,
+        },
+      ];
+      mockRow.user = {
+        id: 'user-pm-1',
+        full_name: 'Nguyễn Đình Quang Minh',
+        avatar_url: 'https://example.com/pm.png',
+      } as AiAnalysis['user'];
+
+      const findAndCountMock = vi.fn().mockResolvedValue([[mockRow], 25]);
+      aiAnalysisRepo.findAndCount = findAndCountMock;
+
+      const result = await service.getHistory('SHOPX', { page: 2, limit: 10 });
+
+      expect(findAndCountMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { project_id: 'proj-uuid-1' },
+          order: { created_at: 'DESC' },
+          skip: 10,
+          take: 10,
+        }),
+      );
+      expect(result.pagination).toEqual({ total: 25, page: 2, limit: 10 });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toEqual({
+        id: 'analysis-1',
+        fileName: 'BRD_ShopX.pdf',
+        fileType: AiDocumentFileType.PDF,
+        fileSize: 120_000,
+        status: AiAnalysisStatus.APPLIED,
+        suggestedTaskCount: 2,
+        appliedTaskCount: 3,
+        errorMessage: null,
+        createdAt: mockRow.created_at,
+        createdBy: {
+          id: 'user-pm-1',
+          fullName: 'Nguyễn Đình Quang Minh',
+          avatarUrl: 'https://example.com/pm.png',
+        },
+      });
+      expect('extractedText' in result.items[0]).toBe(false);
+    });
+
+    it('lọc lịch sử theo status và giới hạn limit tối đa 50', async () => {
+      const findAndCountMock = vi.fn().mockResolvedValue([[], 0]);
+      aiAnalysisRepo.findAndCount = findAndCountMock;
+
+      const result = await service.getHistory('SHOPX', {
+        status: AiAnalysisStatus.FAILED,
+        page: 1,
+        limit: 99,
+      });
+
+      expect(findAndCountMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { project_id: 'proj-uuid-1', status: AiAnalysisStatus.FAILED },
+          skip: 0,
+          take: 50,
+        }),
+      );
+      expect(result.pagination).toEqual({ total: 0, page: 1, limit: 50 });
+    });
+
+    it('trả về mảng rỗng khi dự án chưa có lịch sử phân tích nào', async () => {
+      aiAnalysisRepo.findAndCount = vi.fn().mockResolvedValue([[], 0]);
+
+      const result = await service.getHistory('SHOPX', {});
+
+      expect(result.items).toEqual([]);
+      expect(result.pagination).toEqual({ total: 0, page: 1, limit: 20 });
+    });
+  });
 });

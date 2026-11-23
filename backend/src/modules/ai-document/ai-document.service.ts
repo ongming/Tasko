@@ -31,6 +31,7 @@ import {
 import { sanitizeSuggestedTasks } from './gemini-ai.service.js';
 import type { UpdateSuggestedTasksDto } from './dto/update-suggested-tasks.dto.js';
 import type { ConfirmAiTasksDto } from './dto/confirm-ai-tasks.dto.js';
+import type { GetAiHistoryQueryDto } from './dto/get-ai-history-query.dto.js';
 
 export interface UploadDocumentResponse {
   id: string;
@@ -86,6 +87,32 @@ export interface ConfirmAiTasksResponse {
   createdCount: number;
   createdTaskIds: string[];
   tasks: CreatedAiTaskSummary[];
+}
+
+export interface AiHistoryItemResponse {
+  id: string;
+  fileName: string;
+  fileType: AiDocumentFileType;
+  fileSize: number;
+  status: AiAnalysisStatus;
+  suggestedTaskCount: number;
+  appliedTaskCount: number;
+  errorMessage: string | null;
+  createdAt: Date;
+  createdBy: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+  } | null;
+}
+
+export interface AiHistoryResponse {
+  items: AiHistoryItemResponse[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
 }
 
 @Injectable()
@@ -582,5 +609,78 @@ export class AiDocumentService {
         tasks: mappedTasks,
       };
     });
+  }
+
+  /**
+   * AIDOC-06: Xem lịch sử các lần phân tích tài liệu của dự án (có phân trang & lọc theo status)
+   */
+  async getHistory(
+    projectIdOrKey: string,
+    query: GetAiHistoryQueryDto = {},
+  ): Promise<AiHistoryResponse> {
+    const project = await this.projectsService.findProjectEntity(projectIdOrKey);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(50, Math.max(1, query.limit ?? 20));
+    const skip = (page - 1) * limit;
+
+    const where = query.status
+      ? { project_id: project.id, status: query.status }
+      : { project_id: project.id };
+
+    const [rows, total] = await this.aiAnalysisRepository.findAndCount({
+      where,
+      relations: { user: true },
+      select: {
+        id: true,
+        file_name: true,
+        file_type: true,
+        file_size: true,
+        status: true,
+        suggested_tasks: true,
+        applied_task_count: true,
+        error_message: true,
+        created_at: true,
+        user: {
+          id: true,
+          full_name: true,
+          avatar_url: true,
+        },
+      },
+      order: { created_at: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    const items: AiHistoryItemResponse[] = rows.map((row) => ({
+      id: row.id,
+      fileName: row.file_name,
+      fileType: row.file_type,
+      fileSize: row.file_size,
+      status: row.status,
+      suggestedTaskCount: Array.isArray(row.suggested_tasks) ? row.suggested_tasks.length : 0,
+      appliedTaskCount: row.applied_task_count,
+      errorMessage: row.error_message,
+      createdAt: row.created_at,
+      createdBy: row.user
+        ? {
+            id: row.user.id,
+            fullName: row.user.full_name,
+            avatarUrl: row.user.avatar_url,
+          }
+        : null,
+    }));
+
+    return {
+      items,
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+    };
   }
 }
