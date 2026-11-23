@@ -1,10 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { api } from '@/lib/api'
 import {
   aiDocumentService,
   validateAiDocumentFile,
   MAX_AI_DOCUMENT_SIZE_BYTES,
-  __resetAiDocumentMockStore,
 } from './aiDocumentService'
+import type { AiSuggestedTask } from '@/types/aiDocument'
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+  },
+}))
 
 function createMockFile(name: string, sizeBytes: number, type = 'application/pdf'): File {
   const file = new File(['x'], name, { type })
@@ -12,9 +21,24 @@ function createMockFile(name: string, sizeBytes: number, type = 'application/pdf
   return file
 }
 
+const sampleTask: AiSuggestedTask = {
+  tempId: 'tmp-1',
+  selected: true,
+  title: 'Tích hợp cổng thanh toán VNPay QR',
+  description: 'Xác thực chữ ký IPN và cập nhật đơn hàng.',
+  priority: 'HIGH',
+  storyPoints: 5,
+  estimatedHours: 12,
+  assigneeId: null,
+  workTypeId: null,
+  sprintId: null,
+  startDate: '2026-11-24',
+  dueDate: '2026-11-29',
+}
+
 describe('aiDocumentService', () => {
   beforeEach(() => {
-    __resetAiDocumentMockStore()
+    vi.clearAllMocks()
   })
 
   describe('validateAiDocumentFile', () => {
@@ -43,79 +67,104 @@ describe('aiDocumentService', () => {
     })
   })
 
-  describe('Mock workflow (AIDOC-01 -> AIDOC-06)', () => {
-    const projectId = 'SHOPX'
+  describe('REST API integration (AIDOC-01 -> AIDOC-06)', () => {
+    it('uploadDocument gửi FormData đúng endpoint POST /upload', async () => {
+      const file = createMockFile('DAC_TA.pdf', 2048)
+      vi.mocked(api.post).mockResolvedValue({ id: 'a-1', status: 'UPLOADED' })
 
-    it('chạy trọn vẹn luồng upload -> analyze -> updateSuggestions -> confirmTasks -> getHistory', async () => {
-      const file = createMockFile('DAC_TA_FLASH_SALE.pdf', 250_000)
+      const res = await aiDocumentService.uploadDocument('SHOPX', file)
 
-      // 1. Upload
-      const uploaded = await aiDocumentService.uploadDocument(projectId, file)
-      expect(uploaded.status).toBe('UPLOADED')
-      expect(uploaded.fileName).toBe('DAC_TA_FLASH_SALE.pdf')
-      expect(uploaded.fileType).toBe('pdf')
-
-      // 2. Analyze
-      const analyzed = await aiDocumentService.analyzeDocument(
-        projectId,
-        uploaded.id,
-        'Ưu tiên tách API Redis',
+      expect(api.post).toHaveBeenCalledWith(
+        '/projects/SHOPX/ai-document/upload',
+        expect.any(FormData),
       )
-      expect(analyzed.status).toBe('COMPLETED')
-      expect(analyzed.suggestedTasks.length).toBeGreaterThanOrEqual(3)
-      expect(analyzed.suggestedTasks[0].description).toContain('Ưu tiên tách API Redis')
-
-      // 3. Lưu nháp (sửa tiêu đề và bỏ chọn 1 dòng)
-      const editedTasks = analyzed.suggestedTasks.map((t, idx) => ({
-        ...t,
-        title: idx === 0 ? 'Tiêu đề đã chỉnh sửa thủ công' : t.title,
-        selected: idx !== analyzed.suggestedTasks.length - 1,
-      }))
-      const drafted = await aiDocumentService.updateSuggestions(
-        projectId,
-        uploaded.id,
-        editedTasks,
-      )
-      expect(drafted.suggestedTasks[0].title).toBe('Tiêu đề đã chỉnh sửa thủ công')
-
-      // 4. Xác nhận tạo task
-      const confirmRes = await aiDocumentService.confirmTasks(projectId, uploaded.id, {
-        defaultSprintId: 'sprint-active-1',
-        tasks: editedTasks,
-      })
-      expect(confirmRes.status).toBe('APPLIED')
-      expect(confirmRes.createdCount).toBe(editedTasks.length - 1)
-
-      // Không cho xác nhận lại phiên đã APPLIED
-      await expect(
-        aiDocumentService.confirmTasks(projectId, uploaded.id, {
-          defaultSprintId: null,
-          tasks: editedTasks,
-        }),
-      ).rejects.toThrow('đã được áp dụng')
-
-      // 5. Lịch sử & Chi tiết
-      const history = await aiDocumentService.getHistory(projectId)
-      expect(history[0].id).toBe(uploaded.id)
-      expect(history[0].status).toBe('APPLIED')
-      expect(history[0].appliedTaskCount).toBe(editedTasks.length - 1)
-
-      const detail = await aiDocumentService.getAnalysisDetail(projectId, uploaded.id)
-      expect(detail.suggestedTasks[0].sprintId).toBe('sprint-active-1')
+      expect(res.id).toBe('a-1')
     })
 
-    it('ném lỗi khi xác nhận nhưng không chọn công việc nào', async () => {
-      const file = createMockFile('plan.md', 4096, 'text/markdown')
-      const uploaded = await aiDocumentService.uploadDocument(projectId, file)
-      const analyzed = await aiDocumentService.analyzeDocument(projectId, uploaded.id)
-      const unselected = analyzed.suggestedTasks.map((t) => ({ ...t, selected: false }))
+    it('analyzeDocument gửi POST /:analysisId/analyze kèm hint', async () => {
+      vi.mocked(api.post).mockResolvedValue({ id: 'a-1', status: 'COMPLETED' })
 
+      await aiDocumentService.analyzeDocument('SHOPX', 'a-1', '  Ưu tiên API  ')
+
+      expect(api.post).toHaveBeenCalledWith('/projects/SHOPX/ai-document/a-1/analyze', {
+        hint: 'Ưu tiên API',
+      })
+    })
+
+    it('getAnalysisDetail gửi GET /:analysisId', async () => {
+      vi.mocked(api.get).mockResolvedValue({ id: 'a-1', suggestedTasks: [sampleTask] })
+
+      const res = await aiDocumentService.getAnalysisDetail('SHOPX', 'a-1')
+
+      expect(api.get).toHaveBeenCalledWith('/projects/SHOPX/ai-document/a-1')
+      expect(res.suggestedTasks).toHaveLength(1)
+    })
+
+    it('updateSuggestions gửi PATCH /:analysisId/suggestions với { suggestedTasks }', async () => {
+      vi.mocked(api.patch).mockResolvedValue({ id: 'a-1', suggestedTasks: [sampleTask] })
+
+      await aiDocumentService.updateSuggestions('SHOPX', 'a-1', [sampleTask])
+
+      expect(api.patch).toHaveBeenCalledWith('/projects/SHOPX/ai-document/a-1/suggestions', {
+        suggestedTasks: [sampleTask],
+      })
+    })
+
+    it('confirmTasks chặn khi không có task nào được chọn và gửi POST /:analysisId/confirm khi hợp lệ', async () => {
       await expect(
-        aiDocumentService.confirmTasks(projectId, uploaded.id, {
+        aiDocumentService.confirmTasks('SHOPX', 'a-1', {
           defaultSprintId: null,
-          tasks: unselected,
+          tasks: [{ ...sampleTask, selected: false }],
         }),
       ).rejects.toThrow('chọn ít nhất 1 công việc')
+
+      vi.mocked(api.post).mockResolvedValue({
+        analysisId: 'a-1',
+        status: 'APPLIED',
+        createdCount: 1,
+        createdTaskIds: ['t-1'],
+      })
+
+      const res = await aiDocumentService.confirmTasks('SHOPX', 'a-1', {
+        defaultSprintId: 'sp-1',
+        tasks: [sampleTask],
+      })
+
+      expect(api.post).toHaveBeenCalledWith('/projects/SHOPX/ai-document/a-1/confirm', {
+        defaultSprintId: 'sp-1',
+        tasks: [sampleTask],
+      })
+      expect(res.createdCount).toBe(1)
+    })
+
+    it('getHistory unwrap đúng { items, pagination } từ Backend và truyền query params', async () => {
+      vi.mocked(api.get).mockResolvedValue({
+        items: [
+          {
+            id: 'a-1',
+            fileName: 'BRD.pdf',
+            fileType: 'pdf',
+            fileSize: 1024,
+            status: 'APPLIED',
+            suggestedTaskCount: 3,
+            appliedTaskCount: 3,
+            createdAt: '2026-11-24T00:00:00.000Z',
+          },
+        ],
+        pagination: { total: 1, page: 1, limit: 20 },
+      })
+
+      const history = await aiDocumentService.getHistory('SHOPX', {
+        page: 1,
+        limit: 20,
+        status: 'APPLIED',
+      })
+
+      expect(api.get).toHaveBeenCalledWith(
+        '/projects/SHOPX/ai-document/history?page=1&limit=20&status=APPLIED',
+      )
+      expect(history).toHaveLength(1)
+      expect(history[0].fileName).toBe('BRD.pdf')
     })
   })
 })

@@ -146,11 +146,67 @@ const RESPONSE_SCHEMA: Schema = {
   required: ['tasks'],
 };
 
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1500;
+
+function isTransientGeminiError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return (
+    msg.includes('503') ||
+    msg.includes('UNAVAILABLE') ||
+    msg.includes('429') ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('high demand')
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 @Injectable()
 export class GeminiAiService implements IAiService {
   private readonly logger = new Logger(GeminiAiService.name);
 
   constructor(private readonly configService: ConfigService) {}
+
+  private async generateWithRetry(
+    ai: GoogleGenAI,
+    model: string,
+    prompt: string,
+  ) {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+      try {
+        return await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: RESPONSE_SCHEMA,
+            temperature: 0.2,
+          },
+        });
+      } catch (err) {
+        lastError = err;
+        if (!isTransientGeminiError(err) || attempt === MAX_RETRY_ATTEMPTS) {
+          break;
+        }
+        const delayMs = RETRY_BASE_DELAY_MS * attempt;
+        this.logger.warn(
+          `Gemini model "${model}" tạm thời quá tải (lần ${attempt}/${MAX_RETRY_ATTEMPTS}). Tự động thử lại sau ${delayMs}ms...`,
+        );
+        await sleep(delayMs);
+      }
+    }
+
+    if (isTransientGeminiError(lastError)) {
+      throw new Error(
+        `Hệ thống Google Gemini (${model}) hiện đang quá tải tạm thời (503). Vui lòng bấm "Thử lại" sau vài giây.`,
+      );
+    }
+    throw lastError;
+  }
 
   async extractTasksFromText(input: ExtractTasksInput): Promise<AiSuggestedTaskItem[]> {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim();
@@ -159,7 +215,7 @@ export class GeminiAiService implements IAiService {
     }
 
     const model =
-      this.configService.get<string>('GEMINI_MODEL')?.trim() || 'gemini-2.5-flash';
+      this.configService.get<string>('GEMINI_MODEL')?.trim() || 'gemini-3.8-flash';
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -205,15 +261,7 @@ export class GeminiAiService implements IAiService {
       .filter(Boolean)
       .join('\n');
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
-        temperature: 0.2,
-      },
-    });
+    const response = await this.generateWithRetry(ai, model, prompt);
 
     const rawJsonText = response.text?.trim();
     if (!rawJsonText) {

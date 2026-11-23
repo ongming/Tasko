@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AiDocumentAnalyzerModal } from './AiDocumentAnalyzerModal'
 import {
+  aiDocumentService,
   MAX_AI_DOCUMENT_SIZE_BYTES,
-  __resetAiDocumentMockStore,
 } from '@/services/aiDocumentService'
+import type { AiAnalysisDetail, AiAnalysisSummary, AiSuggestedTask } from '@/types/aiDocument'
 import type { ProjectMember } from '@/types/member'
 import type { ProjectWorkType } from '@/types/projectConfig'
 import type { Sprint } from '@/types/sprint'
@@ -58,6 +59,84 @@ const mockSprints: Sprint[] = [
   },
 ]
 
+const mockGeneratedTasks: AiSuggestedTask[] = [
+  {
+    tempId: 'tmp-1',
+    selected: true,
+    title: 'Thiết kế API thanh toán VNPay',
+    description: 'Chuẩn hóa DTO và xác thực chữ ký IPN.',
+    priority: 'HIGH',
+    storyPoints: 5,
+    estimatedHours: 14,
+    assigneeId: null,
+    workTypeId: 'wt-task',
+    sprintId: null,
+    startDate: '2026-11-24',
+    dueDate: '2026-11-29',
+  },
+  {
+    tempId: 'tmp-2',
+    selected: true,
+    title: 'Xây dựng giao diện chọn phương thức thanh toán',
+    description: 'Hỗ trợ QR và ví điện tử.',
+    priority: 'MEDIUM',
+    storyPoints: 3,
+    estimatedHours: 10,
+    assigneeId: null,
+    workTypeId: 'wt-task',
+    sprintId: null,
+    startDate: '2026-11-25',
+    dueDate: '2026-11-30',
+  },
+  {
+    tempId: 'tmp-3',
+    selected: true,
+    title: 'Thiết lập kiểm soát phân quyền RBAC',
+    description: 'Chặn tài khoản VIEWER ghi dữ liệu.',
+    priority: 'URGENT',
+    storyPoints: 3,
+    estimatedHours: 8,
+    assigneeId: null,
+    workTypeId: 'wt-task',
+    sprintId: null,
+    startDate: '2026-11-26',
+    dueDate: '2026-11-28',
+  },
+  {
+    tempId: 'tmp-4',
+    selected: true,
+    title: 'Viết kiểm thử tự động E2E',
+    description: 'Kiểm thử toàn trình luồng đặt hàng.',
+    priority: 'MEDIUM',
+    storyPoints: 3,
+    estimatedHours: 8,
+    assigneeId: null,
+    workTypeId: 'wt-task',
+    sprintId: null,
+    startDate: '2026-11-27',
+    dueDate: '2026-12-01',
+  },
+]
+
+const seededHistorySummary: AiAnalysisSummary = {
+  id: 'hist-1',
+  fileName: 'BRD_NangCap_BaoMat_va_BaoCao_v2.pdf',
+  fileType: 'pdf',
+  fileSize: 1_845_200,
+  status: 'APPLIED',
+  suggestedTaskCount: 3,
+  appliedTaskCount: 3,
+  errorMessage: null,
+  createdAt: '2026-11-23T00:00:00.000Z',
+  createdBy: { id: 'pm-1', fullName: 'Nguyễn Đình Quang Minh', avatarUrl: null },
+}
+
+const seededHistoryDetail: AiAnalysisDetail = {
+  ...seededHistorySummary,
+  extractedTextPreview: 'Tài liệu nâng cấp bảo mật và báo cáo.',
+  suggestedTasks: mockGeneratedTasks.slice(0, 3),
+}
+
 function renderModal(props: Partial<React.ComponentProps<typeof AiDocumentAnalyzerModal>> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -80,8 +159,9 @@ function renderModal(props: Partial<React.ComponentProps<typeof AiDocumentAnalyz
 
 describe('AiDocumentAnalyzerModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    __resetAiDocumentMockStore()
+    vi.restoreAllMocks()
+    vi.spyOn(aiDocumentService, 'getHistory').mockResolvedValue([seededHistorySummary])
+    vi.spyOn(aiDocumentService, 'getAnalysisDetail').mockResolvedValue(seededHistoryDetail)
   })
 
   it('hiển thị lỗi validation khi chọn file sai định dạng hoặc vượt quá 10 MB', () => {
@@ -103,6 +183,46 @@ describe('AiDocumentAnalyzerModal', () => {
   })
 
   it('chạy luồng upload -> phân tích -> sửa tiêu đề & bỏ tick dòng -> xác nhận -> xem trong Lịch sử', async () => {
+    const newAnalysis: AiAnalysisDetail = {
+      id: 'new-analysis-1',
+      fileName: 'YeuCau_ThanhToan_VNPay.pdf',
+      fileType: 'pdf',
+      fileSize: 320_000,
+      status: 'COMPLETED',
+      suggestedTaskCount: 4,
+      appliedTaskCount: 0,
+      errorMessage: null,
+      createdAt: '2026-11-24T04:00:00.000Z',
+      extractedTextPreview: 'Đặc tả cổng thanh toán VNPay.',
+      suggestedTasks: mockGeneratedTasks.map((t) => ({ ...t })),
+    }
+
+    vi.spyOn(aiDocumentService, 'uploadDocument').mockResolvedValue({
+      ...newAnalysis,
+      status: 'UPLOADED',
+      suggestedTasks: [],
+    })
+    vi.spyOn(aiDocumentService, 'analyzeDocument').mockResolvedValue(newAnalysis)
+    vi.spyOn(aiDocumentService, 'confirmTasks').mockResolvedValue({
+      analysisId: 'new-analysis-1',
+      status: 'APPLIED',
+      createdCount: 3,
+      createdTaskIds: ['t-1', 't-2', 't-3'],
+    })
+    vi.spyOn(aiDocumentService, 'getHistory').mockResolvedValue([
+      {
+        id: 'new-analysis-1',
+        fileName: 'YeuCau_ThanhToan_VNPay.pdf',
+        fileType: 'pdf',
+        fileSize: 320_000,
+        status: 'APPLIED',
+        suggestedTaskCount: 4,
+        appliedTaskCount: 3,
+        createdAt: '2026-11-24T04:00:00.000Z',
+      },
+      seededHistorySummary,
+    ])
+
     const onTasksCreated = vi.fn()
     renderModal({ onTasksCreated })
 
