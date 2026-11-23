@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { validate } from 'class-validator';
@@ -13,6 +14,8 @@ import { Workspace } from './entities/workspace.entity.js';
 import { WorkspaceMember } from './entities/workspace-member.entity.js';
 import { User } from '../auth/entities/user.entity.js';
 import { Role, RoleScope } from '../rbac/entities/role.entity.js';
+import { Project } from '../projects/entities/project.entity.js';
+import { Task } from '../tasks/entities/task.entity.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 
@@ -23,6 +26,7 @@ describe('WorkspacesService - Unit Tests', () => {
   let userRepo: Partial<Repository<User>>;
   let roleRepo: Partial<Repository<Role>>;
   let queryRunnerMock: any;
+  let transactionManagerMock: any;
   let dataSourceMock: Partial<DataSource>;
 
   beforeEach(async () => {
@@ -66,8 +70,14 @@ describe('WorkspacesService - Unit Tests', () => {
       findOne: vi.fn(),
     };
 
+    transactionManagerMock = {
+      find: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue({ affected: 1 }),
+    };
+
     dataSourceMock = {
       createQueryRunner: vi.fn().mockReturnValue(queryRunnerMock),
+      transaction: vi.fn(async (cb: any) => cb(transactionManagerMock)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -455,6 +465,104 @@ describe('WorkspacesService - Unit Tests', () => {
       await expect(service.update(wsId, userId, { name: 'Name' })).rejects.toThrow(
         'Chỉ Quản trị viên hoặc Chủ sở hữu mới được cập nhật không gian làm việc!',
       );
+    });
+  });
+
+  describe('remove() - Xóa Workspace', () => {
+    const wsId = 'ws-uuid-111';
+    const ownerId = 'owner-uuid-111';
+    const otherUserId = 'other-uuid-222';
+
+    it('nên xóa thành công Workspace và dữ liệu phụ thuộc trong transaction khi là Owner', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue({
+        id: wsId,
+        name: 'Tasko Workspace',
+        owner_id: ownerId,
+      } as Workspace);
+      transactionManagerMock.find.mockResolvedValue([
+        { id: 'proj-1' },
+        { id: 'proj-2' },
+      ]);
+
+      const result = await service.remove(wsId, ownerId);
+
+      expect(workspaceRepo.findOne).toHaveBeenCalledWith({
+        where: { id: wsId },
+      });
+      expect(dataSourceMock.transaction).toHaveBeenCalled();
+      expect(transactionManagerMock.find).toHaveBeenCalledWith(Project, {
+        where: { workspace_id: wsId },
+        select: { id: true },
+        withDeleted: true,
+      });
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(Task, {
+        project_id: expect.anything(),
+      });
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(Project, {
+        workspace_id: wsId,
+      });
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(WorkspaceMember, {
+        workspace_id: wsId,
+      });
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(Workspace, {
+        id: wsId,
+      });
+      expect(result).toEqual({
+        success: true,
+        message: 'Đã xóa không gian làm việc thành công',
+      });
+    });
+
+    it('nên xóa thành công Workspace không có dự án mà không cần gọi xóa Task/Project', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue({
+        id: wsId,
+        name: 'Empty Workspace',
+        owner_id: ownerId,
+      } as Workspace);
+      transactionManagerMock.find.mockResolvedValue([]);
+
+      const result = await service.remove(wsId, ownerId);
+
+      expect(transactionManagerMock.delete).not.toHaveBeenCalledWith(Task, expect.anything());
+      expect(transactionManagerMock.delete).not.toHaveBeenCalledWith(Project, expect.anything());
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(WorkspaceMember, {
+        workspace_id: wsId,
+      });
+      expect(transactionManagerMock.delete).toHaveBeenCalledWith(Workspace, {
+        id: wsId,
+      });
+      expect(result).toEqual({
+        success: true,
+        message: 'Đã xóa không gian làm việc thành công',
+      });
+    });
+
+    it('nên ném NotFoundException khi Workspace không tồn tại', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue(null);
+
+      await expect(service.remove('missing-ws-id', ownerId)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.remove('missing-ws-id', ownerId)).rejects.toThrow(
+        'Không tìm thấy Workspace',
+      );
+      expect(dataSourceMock.transaction).not.toHaveBeenCalled();
+    });
+
+    it('nên ném ForbiddenException khi user không phải chủ sở hữu (owner_id)', async () => {
+      vi.mocked(workspaceRepo.findOne!).mockResolvedValue({
+        id: wsId,
+        name: 'Tasko Workspace',
+        owner_id: ownerId,
+      } as Workspace);
+
+      await expect(service.remove(wsId, otherUserId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.remove(wsId, otherUserId)).rejects.toThrow(
+        'Chỉ chủ sở hữu Workspace mới có quyền xóa không gian làm việc này',
+      );
+      expect(dataSourceMock.transaction).not.toHaveBeenCalled();
     });
   });
 });

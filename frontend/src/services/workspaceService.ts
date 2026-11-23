@@ -37,6 +37,12 @@ export const workspaceService = {
     api.patch<WorkspaceResponse>(`/workspaces/${encodeURIComponent(wsId)}`, payload),
 
   /**
+   * Xóa vĩnh viễn workspace (chỉ chủ sở hữu)
+   */
+  remove: (wsId: string) =>
+    api.delete<{ success: boolean; message: string }>(`/workspaces/${encodeURIComponent(wsId)}`),
+
+  /**
    * Thêm thành viên mới vào workspace bằng email và roleId
    */
   addMember: (wsId: string, payload: { email: string; roleId: string }) =>

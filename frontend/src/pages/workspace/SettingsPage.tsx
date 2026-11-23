@@ -34,6 +34,10 @@ export function SettingsPage() {
       (user?.id && activeWorkspace?.ownerId === user.id),
   )
 
+  const isWorkspaceOwner = Boolean(
+    (user?.id && activeWorkspace?.ownerId === user.id) || activeWorkspace?.role === 'OWNER',
+  )
+
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto pb-12 animate-in fade-in duration-200">
       {/* Page Header */}
@@ -149,7 +153,12 @@ export function SettingsPage() {
               Bạn chưa tham gia không gian làm việc nào.
             </div>
           ) : (
-            <WorkspaceGeneralTab workspace={activeWorkspace} canManage={canManageWorkspace} />
+            <WorkspaceGeneralTab
+              workspace={activeWorkspace}
+              canManage={canManageWorkspace}
+              isOwner={isWorkspaceOwner}
+              remainingWorkspaces={myWorkspaces.filter((w) => w.id !== activeWorkspace.id)}
+            />
           )}
         </div>
       )}

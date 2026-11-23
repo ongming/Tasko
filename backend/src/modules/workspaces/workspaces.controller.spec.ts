@@ -29,6 +29,10 @@ describe('WorkspacesController - Create Workspace', () => {
     findAllByUser: vi.fn(),
     findBySlug: vi.fn(),
     update: vi.fn().mockResolvedValue(mockResponse),
+    remove: vi.fn().mockResolvedValue({
+      success: true,
+      message: 'Đã xóa không gian làm việc thành công',
+    }),
   };
 
   beforeEach(async () => {
@@ -81,6 +85,41 @@ describe('WorkspacesController - Create Workspace', () => {
 
       expect(service.update).toHaveBeenCalledWith(wsId, userId, dto);
       expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('remove()', () => {
+    it('nên gọi workspacesService.remove với đúng wsId và userId', async () => {
+      const wsId = 'ws-mock-id';
+      const userId = 'user-123';
+
+      const result = await controller.remove(wsId, userId);
+
+      expect(service.remove).toHaveBeenCalledWith(wsId, userId);
+      expect(result).toEqual({
+        success: true,
+        message: 'Đã xóa không gian làm việc thành công',
+      });
+    });
+
+    it('nên truyền tiếp lỗi NotFoundException từ service khi Workspace không tồn tại', async () => {
+      const notFoundError = new Error('Không tìm thấy Workspace');
+      vi.mocked(service.remove).mockRejectedValueOnce(notFoundError);
+
+      await expect(controller.remove('missing-ws', 'user-123')).rejects.toThrow(
+        'Không tìm thấy Workspace',
+      );
+    });
+
+    it('nên truyền tiếp lỗi ForbiddenException từ service khi không phải Chủ sở hữu', async () => {
+      const forbiddenError = new Error(
+        'Chỉ chủ sở hữu Workspace mới có quyền xóa không gian làm việc này',
+      );
+      vi.mocked(service.remove).mockRejectedValueOnce(forbiddenError);
+
+      await expect(controller.remove('ws-mock-id', 'other-user')).rejects.toThrow(
+        'Chỉ chủ sở hữu Workspace mới có quyền xóa không gian làm việc này',
+      );
     });
   });
 });
