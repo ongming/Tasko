@@ -20,6 +20,7 @@ import { AiDocumentService } from './ai-document.service.js';
 import { MAX_DOCUMENT_SIZE_BYTES } from './document-parser.service.js';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto.js';
 import { UpdateSuggestedTasksDto } from './dto/update-suggested-tasks.dto.js';
+import { ConfirmAiTasksDto } from './dto/confirm-ai-tasks.dto.js';
 
 @Controller('projects/:projectId/ai-document')
 @UseGuards(JwtAuthGuard, RbacPermissionGuard)
@@ -90,5 +91,20 @@ export class AiDocumentController {
     @Body() dto: UpdateSuggestedTasksDto,
   ) {
     return this.aiDocumentService.updateSuggestions(projectId, analysisId, dto);
+  }
+
+  /**
+   * AIDOC-05: Xác nhận tạo hàng loạt Task thật trong 1 Transaction
+   * POST /api/v1/projects/:projectId/ai-document/:analysisId/confirm
+   */
+  @Post(':analysisId/confirm')
+  @RequirePermission('COLLAB_AND_AI_USE', 'TASK_WRITE')
+  async confirmTasks(
+    @Param('projectId') projectId: string,
+    @Param('analysisId') analysisId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: ConfirmAiTasksDto,
+  ) {
+    return this.aiDocumentService.confirmTasks(projectId, analysisId, userId, dto || {});
   }
 }

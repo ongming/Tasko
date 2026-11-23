@@ -5,8 +5,10 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import type { Repository } from 'typeorm';
-import { TaskPriority } from '../tasks/entities/task.entity.js';
+import type { DataSource, EntityManager, Repository } from 'typeorm';
+import { Task, TaskPriority } from '../tasks/entities/task.entity.js';
+import { Status, StatusCategory } from '../projects/entities/status.entity.js';
+import { Sprint } from '../sprints/entities/sprint.entity.js';
 import { AiDocumentService } from './ai-document.service.js';
 import {
   AiAnalysis,
@@ -15,7 +17,7 @@ import {
   type AiSuggestedTaskItem,
 } from './entities/ai-analysis.entity.js';
 import type { ProjectMember } from '../projects/entities/project-member.entity.js';
-import type { WorkType } from '../projects/entities/work-type.entity.js';
+import { WorkType } from '../projects/entities/work-type.entity.js';
 import type { ProjectsService } from '../projects/projects.service.js';
 import { DocumentParserService } from './document-parser.service.js';
 import type { IAiService } from './interfaces/ai-service.interface.js';
@@ -29,6 +31,7 @@ describe('AiDocumentService (AIDOC-02)', () => {
   let projectsService: Partial<ProjectsService>;
   let documentParserService: DocumentParserService;
   let aiServiceMock: IAiService;
+  let dataSourceMock: { transaction: ReturnType<typeof vi.fn> };
 
   const mockProject = {
     id: 'proj-uuid-1',
@@ -99,6 +102,10 @@ describe('AiDocumentService (AIDOC-02)', () => {
       extractTasksFromText: vi.fn(),
     };
 
+    dataSourceMock = {
+      transaction: vi.fn(),
+    };
+
     service = new AiDocumentService(
       aiAnalysisRepo as Repository<AiAnalysis>,
       projectMemberRepo as Repository<ProjectMember>,
@@ -106,6 +113,7 @@ describe('AiDocumentService (AIDOC-02)', () => {
       projectsService as ProjectsService,
       documentParserService,
       aiServiceMock,
+      dataSourceMock as unknown as DataSource,
     );
   });
 
@@ -380,6 +388,220 @@ describe('AiDocumentService (AIDOC-02)', () => {
       await expect(
         service.updateSuggestions('SHOPX', 'missing-id', { suggestedTasks: [] }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('confirmTasks (AIDOC-05)', () => {
+    function setupTxManager(overrides: {
+      analysis?: AiAnalysis | null;
+      existingTasks?: Array<{ id: string; task_key: string; position: number }>;
+      sprints?: Array<{ id: string; project_id: string }>;
+      failOnTaskSave?: boolean;
+    }) {
+      const savedAnalysisHistory: AiAnalysis[] = [];
+      const createdTaskEntities: Task[] = [];
+
+      const manager = {
+        findOne: vi.fn((entityClass: unknown) => {
+          if (entityClass === AiAnalysis) {
+            return Promise.resolve(overrides.analysis ?? null);
+          }
+          if (entityClass === Status) {
+            return Promise.resolve({
+              id: 'status-todo-1',
+              project_id: 'proj-uuid-1',
+              category: StatusCategory.TODO,
+              is_default: true,
+              position: 1000,
+            });
+          }
+          if (entityClass === WorkType) {
+            return Promise.resolve({
+              id: 'wt-task',
+              project_id: 'proj-uuid-1',
+              is_default: true,
+            });
+          }
+          return Promise.resolve(null);
+        }),
+        find: vi.fn((entityClass: unknown) => {
+          if (entityClass === Task) {
+            return Promise.resolve(overrides.existingTasks ?? []);
+          }
+          if (entityClass === Sprint) {
+            return Promise.resolve(overrides.sprints ?? []);
+          }
+          return Promise.resolve([]);
+        }),
+        create: vi.fn((_entityClass: unknown, data: Record<string, unknown>) => ({
+          ...data,
+        })),
+        save: vi.fn((entityClass: unknown, payload: unknown) => {
+          if (entityClass === Task) {
+            if (overrides.failOnTaskSave) {
+              return Promise.reject(new Error('DB constraint failure mid-transaction'));
+            }
+            const arr = (payload as Task[]).map((t, idx) => ({
+              ...t,
+              id: `created-task-id-${idx + 1}`,
+            }));
+            createdTaskEntities.push(...arr);
+            return Promise.resolve(arr);
+          }
+          if (entityClass === AiAnalysis) {
+            savedAnalysisHistory.push({ ...(payload as AiAnalysis) });
+            return Promise.resolve(payload);
+          }
+          return Promise.resolve(payload);
+        }),
+      } as unknown as EntityManager;
+
+      dataSourceMock.transaction.mockImplementation(
+        async (cb: (m: EntityManager) => Promise<unknown>) => cb(manager),
+      );
+
+      return { manager, savedAnalysisHistory, createdTaskEntities };
+    }
+
+    it('tạo thành công nhiều task với task_key liên tiếp (tính cả soft-deleted), position tăng dần và chuyển status -> APPLIED', async () => {
+      const analysis = createMockAnalysis();
+      analysis.status = AiAnalysisStatus.COMPLETED;
+      analysis.suggested_tasks = [
+        {
+          tempId: 'tmp-1',
+          selected: true,
+          title: 'Xây dựng API giỏ hàng',
+          description: 'Tính tổng tiền',
+          priority: 'HIGH',
+          storyPoints: 5,
+          estimatedHours: 12,
+          assigneeId: 'user-dev-1',
+          workTypeId: 'wt-task',
+          sprintId: null,
+          startDate: '2026-11-24',
+          dueDate: '2026-11-28',
+        },
+        {
+          tempId: 'tmp-2',
+          selected: false, // bị bỏ chọn -> không tạo
+          title: 'Task không được chọn',
+          description: '',
+          priority: 'LOW',
+          storyPoints: 1,
+          estimatedHours: 2,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: null,
+          dueDate: null,
+        },
+        {
+          tempId: 'tmp-3',
+          selected: true,
+          title: 'Viết test thanh toán VNPay',
+          description: 'Bao phủ các kịch bản IPN',
+          priority: 'URGENT',
+          storyPoints: 3,
+          estimatedHours: 8,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: '2026-11-25',
+          dueDate: '2026-11-29',
+        },
+      ];
+
+      const { savedAnalysisHistory } = setupTxManager({
+        analysis,
+        existingTasks: [
+          { id: 'old-1', task_key: 'SHOPX-10', position: 4000 }, // giả sử đã soft-delete
+          { id: 'old-2', task_key: 'SHOPX-3', position: 2000 },
+        ],
+        sprints: [{ id: 'sprint-active-1', project_id: 'proj-uuid-1' }],
+      });
+
+      const result = await service.confirmTasks('SHOPX', 'analysis-1', 'user-pm-1', {
+        defaultSprintId: 'sprint-active-1',
+      });
+
+      expect(result.analysisId).toBe('analysis-1');
+      expect(result.status).toBe(AiAnalysisStatus.APPLIED);
+      expect(result.createdCount).toBe(2);
+      expect(result.tasks.map((t) => t.taskKey)).toEqual(['SHOPX-11', 'SHOPX-12']);
+      expect(result.tasks.map((t) => t.position)).toEqual([5000, 6000]);
+      expect(result.tasks[0].sprintId).toBe('sprint-active-1');
+      expect(result.tasks[0].reporterId).toBe('user-pm-1');
+      expect(result.tasks[1].typeId).toBe('wt-task'); // fallback default workType
+      expect(savedAnalysisHistory[0].status).toBe(AiAnalysisStatus.APPLIED);
+      expect(savedAnalysisHistory[0].applied_task_count).toBe(2);
+    });
+
+    it('chặn 409 ConflictException khi gọi lại lần 2 (status === APPLIED)', async () => {
+      const analysis = createMockAnalysis();
+      analysis.status = AiAnalysisStatus.APPLIED;
+      setupTxManager({ analysis });
+
+      await expect(
+        service.confirmTasks('SHOPX', 'analysis-1', 'user-pm-1', {}),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('chặn 400 BadRequestException khi không có công việc nào được chọn', async () => {
+      const analysis = createMockAnalysis();
+      analysis.status = AiAnalysisStatus.COMPLETED;
+      analysis.suggested_tasks = [
+        {
+          tempId: 'tmp-1',
+          selected: false,
+          title: 'Bị bỏ tick',
+          description: '',
+          priority: 'LOW',
+          storyPoints: null,
+          estimatedHours: null,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: null,
+          dueDate: null,
+        },
+      ];
+      setupTxManager({ analysis });
+
+      await expect(
+        service.confirmTasks('SHOPX', 'analysis-1', 'user-pm-1', {}),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rollback và KHÔNG chuyển AiAnalysis sang APPLIED nếu lưu Task thất bại giữa chừng', async () => {
+      const analysis = createMockAnalysis();
+      analysis.status = AiAnalysisStatus.COMPLETED;
+      analysis.suggested_tasks = [
+        {
+          tempId: 'tmp-1',
+          selected: true,
+          title: 'Task gây lỗi DB',
+          description: '',
+          priority: 'HIGH',
+          storyPoints: 3,
+          estimatedHours: 6,
+          assigneeId: null,
+          workTypeId: null,
+          sprintId: null,
+          startDate: null,
+          dueDate: null,
+        },
+      ];
+      const { savedAnalysisHistory } = setupTxManager({
+        analysis,
+        failOnTaskSave: true,
+      });
+
+      await expect(
+        service.confirmTasks('SHOPX', 'analysis-1', 'user-pm-1', {}),
+      ).rejects.toThrow('DB constraint failure mid-transaction');
+
+      expect(analysis.status).toBe(AiAnalysisStatus.COMPLETED);
+      expect(savedAnalysisHistory).toHaveLength(0);
     });
   });
 });
