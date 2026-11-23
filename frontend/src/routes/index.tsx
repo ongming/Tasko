@@ -38,6 +38,7 @@ const KanbanBoardView = lazy(() => import('@/pages/project/KanbanBoardView'))
 const BacklogView = lazy(() => import('@/pages/project/BacklogView'))
 const ListView = lazy(() => import('@/pages/project/ListView'))
 const TimelineView = lazy(() => import('@/pages/project/TimelineView'))
+const GanttView = lazy(() => import('@/pages/project/GanttView'))
 const CalendarView = lazy(() => import('@/pages/project/CalendarView'))
 const ControlBoardView = lazy(() => import('@/pages/project/ControlBoardView'))
 const ProjectSettingsPage = lazy(() => import('@/pages/project/ProjectSettingsPage'))
@@ -185,7 +186,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'gantt',
-            element: withSuspense(TimelineView),
+            element: withSuspense(GanttView),
           },
           {
             path: 'settings',
@@ -248,7 +249,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'gantt',
-            element: withSuspense(TimelineView),
+            element: withSuspense(GanttView),
           },
           {
             path: 'project-settings',
