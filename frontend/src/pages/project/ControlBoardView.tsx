@@ -12,12 +12,14 @@ import {
   BarChart3,
   Loader2,
   Sliders,
+  Sparkles,
 } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { taskService } from '@/services/taskService'
 import { isScrumProject } from '@/utils/projectMethod'
 import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
+import { AiDocumentAnalyzerModal } from '@/components/project/ai-document/AiDocumentAnalyzerModal'
 import type { Sprint } from '@/types/sprint'
 import type { TaskItem } from '@/types/task'
 import type { Project } from '@/types/workspace'
@@ -28,6 +30,7 @@ export function ControlBoardView() {
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
 
   const { workspaceSlug, projectKey } = useParams<{ workspaceSlug?: string; projectKey?: string }>()
   const [searchParams] = useSearchParams()
@@ -192,7 +195,15 @@ export function ControlBoardView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsAiModalOpen(true)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Phân tích tài liệu</span>
+          </button>
           {isScrum && (
             <Link
               to={backlogLink}
@@ -544,6 +555,15 @@ export function ControlBoardView() {
           </div>
         </div>
       )}
+
+      {/* Modal AI Phân tích tài liệu */}
+      <AiDocumentAnalyzerModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        projectIdOrKey={projectParam}
+        sprints={sprints}
+        onTasksCreated={loadData}
+      />
 
       {/* Drawer chi tiết công việc khi click vào việc ưu tiên cao */}
       {selectedTaskId && (
