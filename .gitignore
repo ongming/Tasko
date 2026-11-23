@@ -38,10 +38,11 @@ desktop.ini
 *.tmp
 *.temp
 
-
 # Graphify Knowledge Graph Cache
-graphify-out/cache/
+docs/
+graphify-out/
 
 # Internal Test Suite Documentation
 TESTS.md
-
+AGENT.md
+AGENTS.md
