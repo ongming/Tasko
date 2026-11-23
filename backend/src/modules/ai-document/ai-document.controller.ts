@@ -1,5 +1,7 @@
 import {
   Controller,
+  Get,
+  Patch,
   Post,
   Param,
   Body,
@@ -17,6 +19,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AiDocumentService } from './ai-document.service.js';
 import { MAX_DOCUMENT_SIZE_BYTES } from './document-parser.service.js';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto.js';
+import { UpdateSuggestedTasksDto } from './dto/update-suggested-tasks.dto.js';
 
 @Controller('projects/:projectId/ai-document')
 @UseGuards(JwtAuthGuard, RbacPermissionGuard)
@@ -60,5 +63,32 @@ export class AiDocumentController {
     @Body() dto: AnalyzeDocumentDto,
   ) {
     return this.aiDocumentService.analyzeDocument(projectId, analysisId, dto?.hint);
+  }
+
+  /**
+   * AIDOC-03: Xem chi tiết bản phân tích và danh sách công việc đề xuất
+   * GET /api/v1/projects/:projectId/ai-document/:analysisId
+   */
+  @Get(':analysisId')
+  @RequirePermission('PROJECT_VIEW_ONLY')
+  async getAnalysisDetail(
+    @Param('projectId') projectId: string,
+    @Param('analysisId') analysisId: string,
+  ) {
+    return this.aiDocumentService.getAnalysisDetail(projectId, analysisId);
+  }
+
+  /**
+   * AIDOC-04: Chỉnh sửa danh sách công việc đề xuất (lưu bản nháp) trước khi tạo Task thật
+   * PATCH /api/v1/projects/:projectId/ai-document/:analysisId/suggestions
+   */
+  @Patch(':analysisId/suggestions')
+  @RequirePermission('COLLAB_AND_AI_USE')
+  async updateSuggestions(
+    @Param('projectId') projectId: string,
+    @Param('analysisId') analysisId: string,
+    @Body() dto: UpdateSuggestedTasksDto,
+  ) {
+    return this.aiDocumentService.updateSuggestions(projectId, analysisId, dto);
   }
 }
