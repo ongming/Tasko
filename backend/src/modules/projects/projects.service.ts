@@ -646,13 +646,20 @@ export class ProjectsService {
       throw new NotFoundException('Dự án không tồn tại!');
     }
 
-    if (dto.workflowId) {
+    let resolvedWorkflowId: string | null = dto.workflowId || null;
+    if (resolvedWorkflowId) {
       const wf = await this.workflowRepository.findOne({
-        where: { id: dto.workflowId, projectId: project.id },
+        where: { id: resolvedWorkflowId, projectId: project.id },
       });
       if (!wf) {
         throw new BadRequestException('Workflow không tồn tại trong dự án này!');
       }
+    } else {
+      const defaultWf = await this.workflowRepository.findOne({
+        where: { projectId: project.id },
+        order: { createdAt: 'ASC' },
+      });
+      resolvedWorkflowId = defaultWf?.id || null;
     }
 
     const wt = this.workTypeRepository.create({
@@ -661,7 +668,7 @@ export class ProjectsService {
       icon: dto.icon || 'CheckSquare',
       color: dto.color || 'bg-blue-100 text-blue-700',
       isSubtask: dto.isSubtask ?? false,
-      workflowId: dto.workflowId || null,
+      workflowId: resolvedWorkflowId,
     });
 
     return this.workTypeRepository.save(wt);

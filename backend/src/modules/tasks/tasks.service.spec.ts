@@ -12,6 +12,7 @@ import { Project } from '../projects/entities/project.entity.js';
 import { CustomField, CustomFieldType } from '../projects/entities/custom-field.entity.js';
 import { CustomFieldValue } from './entities/custom-field-value.entity.js';
 import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
+import { Workflow } from '../projects/entities/workflow.entity.js';
 
 describe('TasksService - Unit Tests', () => {
   let service: TasksService;
@@ -22,6 +23,7 @@ describe('TasksService - Unit Tests', () => {
   let customFieldRepo: Partial<Repository<CustomField>>;
   let customFieldValueRepo: Partial<Repository<CustomFieldValue>>;
   let workflowTransitionRepo: Partial<Repository<WorkflowTransition>>;
+  let workflowRepo: Partial<Repository<Workflow>>;
 
   const mockProjectId = 'project-uuid-111';
   const mockTaskId = 'task-uuid-333';
@@ -84,6 +86,10 @@ describe('TasksService - Unit Tests', () => {
       find: vi.fn(),
     };
 
+    workflowRepo = {
+      findOne: vi.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TasksService,
@@ -94,6 +100,7 @@ describe('TasksService - Unit Tests', () => {
         { provide: getRepositoryToken(CustomField), useValue: customFieldRepo },
         { provide: getRepositoryToken(CustomFieldValue), useValue: customFieldValueRepo },
         { provide: getRepositoryToken(WorkflowTransition), useValue: workflowTransitionRepo },
+        { provide: getRepositoryToken(Workflow), useValue: workflowRepo },
       ],
     }).compile();
 
@@ -276,6 +283,34 @@ describe('TasksService - Unit Tests', () => {
       await expect(
         service.moveTask('user-1', mockTaskId, {
           toStatusId: 'status-done',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('áp dụng Workflow duy nhất của dự án khi task chưa có type hoặc workType chưa gán workflowId', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-todo',
+        status: { id: 'status-todo', name: 'Cần làm' },
+        type: null,
+      } as any;
+
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce(mockTask);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({
+        id: 'status-review',
+        name: 'Kiểm tra',
+        project_id: mockProjectId,
+      } as Status);
+      vi.mocked(workflowRepo.findOne!).mockResolvedValue({
+        id: 'wf-project-default',
+        projectId: mockProjectId,
+      } as Workflow);
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue(null);
+
+      await expect(
+        service.moveTask('user-1', mockTaskId, {
+          toStatusId: 'status-review',
         }),
       ).rejects.toThrow(BadRequestException);
     });

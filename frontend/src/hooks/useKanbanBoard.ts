@@ -300,7 +300,7 @@ export function useKanbanBoard(projectParam: string) {
     onHoverMove: handleHoverMove,
     onDropMove: handleDropMove,
     onCancelDrag: handleCancelDrag,
-    debounceMs: 600,
+    debounceMs: 0,
   })
 
   scheduleDebouncedRef.current = dragDrop.scheduleDebounced

@@ -101,7 +101,7 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">
-          Cấu hình các phân loại công việc và gán quy trình chuyển đổi trạng thái riêng cho từng loại.
+          Cấu hình các phân loại công việc (Task, Bug, Module...) sử dụng trong dự án.
         </p>
         <button
           type="button"
@@ -115,8 +115,6 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
 
       <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
         {workTypes.map((wt) => {
-          const assignedWorkflow = workflows.find((w) => w.id === wt.workflowId)
-
           return (
             <div
               key={wt.id}
@@ -126,21 +124,13 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                 <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0">
                   <WorkTypeIcon type={wt} sizeClass="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800">{wt.name}</span>
-                    {wt.isSubtask && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                        Subtask
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    Quy trình áp dụng:{' '}
-                    <strong className="text-indigo-600">
-                      {assignedWorkflow ? assignedWorkflow.name : 'Chưa gán (Mặc định)'}
-                    </strong>
-                  </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-800">{wt.name}</span>
+                  {wt.isSubtask && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                      Subtask
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -211,21 +201,6 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                     { value: 'Package', label: 'Package (Module / Gói việc)' },
                     { value: 'Bookmark', label: 'Bookmark (Story)' },
                     { value: 'Shield', label: 'Shield (Bảo mật / Cải tiến)' },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Quy trình áp dụng</label>
-                <Select
-                  value={wtFormWorkflowId}
-                  onChange={setWtFormWorkflowId}
-                  options={[
-                    { value: '', label: 'Quy trình mặc định' },
-                    ...workflows.map((wf) => ({
-                      value: wf.id,
-                      label: wf.name,
-                    })),
                   ]}
                 />
               </div>

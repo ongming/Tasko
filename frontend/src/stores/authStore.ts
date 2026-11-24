@@ -21,6 +21,9 @@ export interface AuthState {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'
 
+// Giữ Promise checkAuth đang chạy để tránh React StrictMode hoặc nhiều nơi gọi /auth/refresh đồng thời gây kích hoạt Token Reuse Detection
+let checkAuthPromise: Promise<boolean> | null = null
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
@@ -79,19 +82,45 @@ export const useAuthStore = create<AuthState>((set) => ({
    * Chạy một lần khi người dùng vừa mở trang web hoặc F5
    */
   checkAuth: async () => {
-    try {
-      set({ isLoading: true })
+    if (checkAuthPromise) {
+      return checkAuthPromise
+    }
 
-      // Gọi endpoint /auth/refresh với credentials: 'include' để tự động gửi httpOnly Cookie
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+    checkAuthPromise = (async () => {
+      try {
+        set({ isLoading: true })
 
-      if (!response.ok) {
+        // Gọi endpoint /auth/refresh với credentials: 'include' để tự động gửi httpOnly Cookie
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          set({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+          })
+          return false
+        }
+
+        const json = await response.json()
+        const { user, accessToken } = json.data
+
+        set({
+          user,
+          accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        })
+
+        return true
+      } catch {
         set({
           user: null,
           accessToken: null,
@@ -99,27 +128,11 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
         })
         return false
+      } finally {
+        checkAuthPromise = null
       }
+    })()
 
-      const json = await response.json()
-      const { user, accessToken } = json.data
-
-      set({
-        user,
-        accessToken,
-        isAuthenticated: true,
-        isLoading: false,
-      })
-
-      return true
-    } catch {
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        isLoading: false,
-      })
-      return false
-    }
+    return checkAuthPromise
   },
 }))

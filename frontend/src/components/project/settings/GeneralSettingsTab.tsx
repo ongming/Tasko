@@ -5,8 +5,6 @@ import {
   AlertTriangle,
   Calendar,
   CalendarRange,
-  Columns,
-  HelpCircle,
   Kanban,
   List,
   ListTodo,
@@ -37,11 +35,18 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
   const [generalDescription, setGeneralDescription] = useState('')
   const [generalStartDate, setGeneralStartDate] = useState('')
   const [generalEndDate, setGeneralEndDate] = useState('')
-  const [generalMethodology, setGeneralMethodology] = useState<'KANBAN' | 'SCRUM' | 'SCRUMBAN'>('KANBAN')
   const [generalViews, setGeneralViews] = useState<string[]>([])
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmationKey, setDeleteConfirmationKey] = useState('')
+
+  const projectMethod: 'KANBAN' | 'SCRUM' | 'SCRUMBAN' =
+    (project?.methodology as 'KANBAN' | 'SCRUM' | 'SCRUMBAN') ||
+    (project?.settings?.method_id === 'scrum'
+      ? 'SCRUM'
+      : project?.settings?.method_id === 'scrumban'
+        ? 'SCRUMBAN'
+        : 'KANBAN')
 
   useEffect(() => {
     if (project) {
@@ -49,24 +54,16 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
       setGeneralDescription(project.description || '')
       setGeneralStartDate(project.startDate ? project.startDate.split('T')[0] : '')
       setGeneralEndDate(project.endDate ? project.endDate.split('T')[0] : '')
-      const method =
-        (project.methodology as 'KANBAN' | 'SCRUM' | 'SCRUMBAN') ||
-        (project.settings?.method_id === 'scrum'
-          ? 'SCRUM'
-          : project.settings?.method_id === 'scrumban'
-            ? 'SCRUMBAN'
-            : 'KANBAN')
-      setGeneralMethodology(method)
 
       const savedViews = Array.isArray(project.settings?.views) ? project.settings.views : []
       if (savedViews.length > 0) {
         setGeneralViews(savedViews)
       } else {
-        const isScrum = method === 'SCRUM' || method === 'SCRUMBAN'
+        const isScrum = projectMethod === 'SCRUM' || projectMethod === 'SCRUMBAN'
         setGeneralViews(isScrum ? ['control', 'board', 'backlog'] : ['control', 'board'])
       }
     }
-  }, [project])
+  }, [project, projectMethod])
 
   const updateGeneralMutation = useMutation({
     mutationFn: () =>
@@ -75,11 +72,9 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
         description: generalDescription,
         startDate: generalStartDate || null,
         endDate: generalEndDate || null,
-        methodology: generalMethodology,
         views: generalViews,
         settings: {
           ...project?.settings,
-          method_id: generalMethodology.toLowerCase(),
           views: generalViews,
         },
       }),
@@ -166,60 +161,17 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
           </div>
         </div>
 
-        {/* Chuyển đổi phương pháp quản lý (Methodology) */}
-        <div className="pt-2">
-          <label className="block text-xs font-semibold text-slate-700 mb-2">
-            Phương pháp quản lý (Methodology)
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              {
-                id: 'KANBAN',
-                title: 'Kanban',
-                desc: 'Luồng công việc liên tục, trực quan hóa trên bảng và tối ưu WIP.',
-                icon: Kanban,
-              },
-              {
-                id: 'SCRUM',
-                title: 'Scrum',
-                desc: 'Lập kế hoạch theo Sprint định kỳ, Backlog và ước lượng điểm số.',
-                icon: ListTodo,
-              },
-              {
-                id: 'SCRUMBAN',
-                title: 'Scrumban',
-                desc: 'Kết hợp linh hoạt giữa giới hạn WIP của Kanban và chu kỳ Sprint của Scrum.',
-                icon: Columns,
-              },
-            ].map((item) => {
-              const Icon = item.icon
-              const isSelected = generalMethodology === item.id
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => setGeneralMethodology(item.id as any)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
-                    isSelected
-                      ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500 shadow-2xs'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`} />
-                    <span className={`text-xs font-bold ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>
-                      {item.title}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-snug">{item.desc}</p>
-                </div>
-              )
-            })}
+        {/* Phương pháp quản lý cố định (Read-only) */}
+        <div className="pt-2 flex items-center justify-between flex-wrap gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">Phương pháp quản lý:</span>
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/70">
+              {projectMethod === 'SCRUM' ? 'Scrum' : projectMethod === 'SCRUMBAN' ? 'Scrumban' : 'Kanban'}
+            </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-            <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
-            <span>Việc chuyển đổi phương pháp quản lý sẽ không làm mất dữ liệu công việc hiện có.</span>
-          </p>
+          <span className="text-[11px] text-slate-400">
+            Được thiết lập cố định khi khởi tạo dự án
+          </span>
         </div>
 
         {/* Cấu hình các Chế độ xem hiển thị (Project Views) */}
@@ -276,8 +228,8 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
               .filter(
                 (v) =>
                   !v.onlyScrum ||
-                  generalMethodology === 'SCRUM' ||
-                  generalMethodology === 'SCRUMBAN',
+                  projectMethod === 'SCRUM' ||
+                  projectMethod === 'SCRUMBAN',
               )
               .map((view) => {
                 const Icon = view.icon

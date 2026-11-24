@@ -66,7 +66,7 @@ export function ProjectSettingsPage() {
     enabled: !!projectId,
   })
 
-  const { data: workflows = [] } = useQuery<Workflow[]>({
+  const { data: workflows = [], isLoading: isLoadingWorkflows } = useQuery<Workflow[]>({
     queryKey: ['project-workflows', projectId],
     queryFn: () => projectService.getWorkflows(projectId),
     enabled: !!projectId,
@@ -183,8 +183,10 @@ export function ProjectSettingsPage() {
       {activeTab === 'workflows' && (
         <WorkflowsSettingsTab
           projectId={projectId}
+          project={project}
           statuses={statuses}
           workflows={workflows}
+          isLoadingWorkflows={isLoadingWorkflows}
           onFeedback={handleFeedback}
         />
       )}

@@ -75,4 +75,36 @@ describe('useKanbanBoard - Custom Hook Tests', () => {
     expect(result.current.filteredTasks).toHaveLength(0)
     expect(result.current.displayedColumns[0].tasks).toHaveLength(0)
   })
+
+  it('calls moveProjectTask immediately when dropping a task onto another column', async () => {
+    vi.mocked(taskService.moveProjectTask).mockResolvedValue({
+      id: 't1',
+      statusId: 'st-done',
+      position: 1000,
+    } as any)
+
+    const { result } = renderHook(() => useKanbanBoard('KAN'))
+
+    await waitFor(() => {
+      expect(result.current.allTasks).toHaveLength(1)
+    })
+
+    act(() => {
+      result.current.dragDrop.handleDragStart({
+        active: { id: 't1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+      } as any)
+    })
+
+    await act(async () => {
+      await result.current.dragDrop.handleDragEnd({
+        active: { id: 't1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+        over: { id: 'st-done', data: { current: {} }, rect: { initial: null, translated: null } } as any,
+      } as any)
+    })
+
+    expect(taskService.moveProjectTask).toHaveBeenCalledWith('KAN', 't1', {
+      statusId: 'st-done',
+      position: 1000,
+    })
+  })
 })

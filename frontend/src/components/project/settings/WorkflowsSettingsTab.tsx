@@ -1,278 +1,259 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus, Save, X } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { projectService } from '@/services/projectService'
-import { Select } from '@/components/ui/Select'
+import { Button } from '@/components/ui/Button'
 import type { ProjectStatus, Workflow } from '@/types/projectConfig'
+import type { Project } from '@/types/workspace'
+import {
+  computeAutoLayoutPositions,
+  draftMapToTransitionPayload,
+  getTransitionKey,
+  sortStatusesForWorkflow,
+  transitionsToDraftMap,
+  type DraftTransition,
+  type WorkflowLayoutMap,
+  type WorkflowNodePosition,
+} from '@/utils/workflowLayout'
+import { WorkflowDiagramCanvas } from './workflow/WorkflowDiagramCanvas'
 
 export interface WorkflowsSettingsTabProps {
   projectId: string
+  project?: Project
   statuses: ProjectStatus[]
   workflows: Workflow[]
+  isLoadingWorkflows?: boolean
   onFeedback: (fb: { type: 'success' | 'error'; message: string }) => void
 }
 
 export const WorkflowsSettingsTab: React.FC<WorkflowsSettingsTabProps> = ({
   projectId,
+  project,
   statuses,
   workflows,
+  isLoadingWorkflows = false,
   onFeedback,
 }) => {
   const queryClient = useQueryClient()
 
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
-  const [matrixState, setMatrixState] = useState<Record<string, boolean>>({})
-  const [isNewWorkflowModalOpen, setIsNewWorkflowModalOpen] = useState(false)
-  const [newWorkflowName, setNewWorkflowName] = useState('')
+  const activeWorkflow = workflows[0] || null
+  const [draftMap, setDraftMap] = useState<Record<string, DraftTransition>>({})
+  const [nodePositions, setNodePositions] = useState<WorkflowLayoutMap>({})
+  const [hasLayoutEdited, setHasLayoutEdited] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const lastSyncedWorkflowIdRef = useRef<string | null>(null)
 
+  // Nạp transitions và layout đã lưu của quy trình duy nhất trong dự án (không ghi đè khi người dùng đang sửa)
   useEffect(() => {
-    if (workflows.length > 0 && !selectedWorkflowId) {
-      setSelectedWorkflowId(workflows[0].id)
+    const currentWorkflowId = activeWorkflow?.id ?? null
+    const workflowChanged = lastSyncedWorkflowIdRef.current !== currentWorkflowId
+    if (isDirty && !workflowChanged) {
+      return
     }
-  }, [workflows, selectedWorkflowId])
 
-  const selectedWorkflow = useMemo(() => {
-    return workflows.find((w) => w.id === selectedWorkflowId) || workflows[0] || null
-  }, [workflows, selectedWorkflowId])
+    lastSyncedWorkflowIdRef.current = currentWorkflowId
+    setDraftMap(transitionsToDraftMap(activeWorkflow?.transitions))
 
-  useEffect(() => {
-    if (selectedWorkflow && selectedWorkflow.transitions) {
-      const map: Record<string, boolean> = {}
-      for (const t of selectedWorkflow.transitions) {
-        map[`${t.fromStatusId}->${t.toStatusId}`] = true
-      }
-      setMatrixState(map)
+    const savedLayouts = project?.settings?.workflowLayouts as
+      | Record<string, WorkflowLayoutMap>
+      | undefined
+    const wfSavedLayout = activeWorkflow ? savedLayouts?.[activeWorkflow.id] : undefined
+
+    if (wfSavedLayout && Object.keys(wfSavedLayout).length > 0) {
+      setNodePositions({
+        ...computeAutoLayoutPositions(statuses),
+        ...wfSavedLayout,
+      })
+    } else {
+      setNodePositions(computeAutoLayoutPositions(statuses))
     }
-  }, [selectedWorkflow])
 
-  const toggleMatrixCell = (fromId: string, toId: string) => {
-    if (fromId === toId) return
-    const key = `${fromId}->${toId}`
-    setMatrixState((prev) => ({
+    setHasLayoutEdited(false)
+    setIsDirty(false)
+  }, [activeWorkflow, statuses, project?.settings?.workflowLayouts, isDirty])
+
+  const handleAddOrUpdateTransition = useCallback((transition: DraftTransition) => {
+    if (transition.fromStatusId === transition.toStatusId) return
+    const key = getTransitionKey(transition.fromStatusId, transition.toStatusId)
+    setDraftMap((prev) => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: transition,
     }))
-  }
+    setIsDirty(true)
+  }, [])
 
-  const setAllTransitions = (allowed: boolean) => {
-    const next: Record<string, boolean> = {}
+  const handleRemoveTransition = useCallback((key: string) => {
+    setDraftMap((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setIsDirty(true)
+  }, [])
+
+  const handlePositionChange = useCallback((statusId: string, pos: WorkflowNodePosition) => {
+    setNodePositions((prev) => ({
+      ...prev,
+      [statusId]: pos,
+    }))
+    setHasLayoutEdited(true)
+    setIsDirty(true)
+  }, [])
+
+  const handleResetAutoLayout = useCallback(() => {
+    setNodePositions(computeAutoLayoutPositions(statuses))
+    setHasLayoutEdited(true)
+    setIsDirty(true)
+  }, [statuses])
+
+  const handleApplySequentialFlow = useCallback(() => {
+    const ordered = sortStatusesForWorkflow(statuses)
+    const next: Record<string, DraftTransition> = {}
+    for (let i = 0; i < ordered.length - 1; i++) {
+      const from = ordered[i]
+      const to = ordered[i + 1]
+      const key = getTransitionKey(from.id, to.id)
+      next[key] = {
+        fromStatusId: from.id,
+        toStatusId: to.id,
+      }
+    }
+    setDraftMap(next)
+    setIsDirty(true)
+  }, [statuses])
+
+  const handleAllowAll = useCallback(() => {
+    const next: Record<string, DraftTransition> = {}
     statuses.forEach((from) => {
       statuses.forEach((to) => {
         if (from.id !== to.id) {
-          next[`${from.id}->${to.id}`] = allowed
-        }
-      })
-    })
-    setMatrixState(next)
-  }
-
-  const saveTransitionsMutation = useMutation({
-    mutationFn: () => {
-      if (!selectedWorkflow) return Promise.resolve([])
-      const transitionsList: Array<{ fromStatusId: string; toStatusId: string }> = []
-      Object.entries(matrixState).forEach(([key, isAllowed]) => {
-        if (isAllowed) {
-          const [fromStatusId, toStatusId] = key.split('->')
-          if (fromStatusId && toStatusId && fromStatusId !== toStatusId) {
-            transitionsList.push({ fromStatusId, toStatusId })
+          const key = getTransitionKey(from.id, to.id)
+          next[key] = draftMap[key] || {
+            fromStatusId: from.id,
+            toStatusId: to.id,
           }
         }
       })
-      return projectService.updateWorkflowTransitions(
+    })
+    setDraftMap(next)
+    setIsDirty(true)
+  }, [statuses, draftMap])
+
+  const handleClearAll = useCallback(() => {
+    setDraftMap({})
+    setIsDirty(true)
+  }, [])
+
+  const saveTransitionsMutation = useMutation({
+    mutationFn: async () => {
+      let targetWorkflow = activeWorkflow
+      if (!targetWorkflow) {
+        targetWorkflow = await projectService.createWorkflow(projectId, 'Default Workflow')
+      }
+
+      const transitionsPayload = draftMapToTransitionPayload(draftMap)
+      const savedTransitions = await projectService.updateWorkflowTransitions(
         projectId,
-        selectedWorkflow.id,
-        transitionsList,
+        targetWorkflow.id,
+        transitionsPayload,
       )
+
+      let updatedProject: Project | undefined
+      if (hasLayoutEdited && project) {
+        const existingLayouts =
+          (project.settings?.workflowLayouts as Record<string, WorkflowLayoutMap> | undefined) || {}
+        updatedProject = await projectService.updateProjectSettings(projectId, {
+          settings: {
+            ...(project.settings || {}),
+            workflowLayouts: {
+              ...existingLayouts,
+              [targetWorkflow.id]: nodePositions,
+            },
+          },
+        })
+      }
+
+      return { targetWorkflow, savedTransitions, updatedProject }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project-workflows'] })
-      onFeedback({ type: 'success', message: 'Lưu ma trận quy trình thành công!' })
+    onSuccess: async ({ targetWorkflow, savedTransitions, updatedProject }) => {
+      const updatedWorkflow: Workflow = {
+        ...targetWorkflow,
+        transitions: savedTransitions,
+      }
+
+      queryClient.setQueryData<Workflow[]>(['project-workflows', projectId], (prev) => {
+        if (!prev || prev.length === 0) return [updatedWorkflow]
+        const exists = prev.some((wf) => wf.id === updatedWorkflow.id)
+        return exists
+          ? prev.map((wf) => (wf.id === updatedWorkflow.id ? updatedWorkflow : wf))
+          : [updatedWorkflow, ...prev]
+      })
+
+      if (updatedProject) {
+        queryClient.setQueriesData<Project>({ queryKey: ['project'] }, (prev) =>
+          prev && prev.id === updatedProject.id ? updatedProject : prev,
+        )
+      }
+
+      setIsDirty(false)
+      setHasLayoutEdited(false)
+      onFeedback({ type: 'success', message: 'Lưu sơ đồ quy trình thành công!' })
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-workflows'] }),
+        queryClient.invalidateQueries({ queryKey: ['project'] }),
+      ])
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message || err?.message || 'Không thể lưu ma trận quy trình'
+      const msg = err?.response?.data?.message || err?.message || 'Không thể lưu quy trình'
       onFeedback({ type: 'error', message: msg })
     },
   })
 
-  const createWorkflowMutation = useMutation({
-    mutationFn: () => projectService.createWorkflow(projectId, newWorkflowName.trim()),
-    onSuccess: (newWf) => {
-      queryClient.invalidateQueries({ queryKey: ['project-workflows'] })
-      setIsNewWorkflowModalOpen(false)
-      setNewWorkflowName('')
-      setSelectedWorkflowId(newWf.id)
-      onFeedback({ type: 'success', message: 'Tạo quy trình mới thành công!' })
-    },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message || err?.message || 'Không thể tạo quy trình'
-      onFeedback({ type: 'error', message: msg })
-    },
-  })
+  const activeTransitionsCount = Object.keys(draftMap).length
 
   return (
     <div className="space-y-4">
+      {/* 1. Thanh điều khiển & Lưu quy trình */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-bold text-slate-700">Chọn quy trình:</label>
-          <Select
-            value={selectedWorkflowId}
-            onChange={setSelectedWorkflowId}
-            className="min-w-[180px]"
-            buttonClassName="font-semibold"
-            options={workflows.map((wf) => ({
-              value: wf.id,
-              label: wf.name,
-            }))}
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsNewWorkflowModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-2xs cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tạo Workflow mới</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => saveTransitionsMutation.mutate()}
-            disabled={saveTransitionsMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-2xs cursor-pointer disabled:opacity-50"
-          >
-            {saveTransitionsMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            <span>Lưu ma trận chuyển trạng thái</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>
-          Đánh dấu tích để cho phép kéo thả thẻ từ cột bên trái (Từ trạng thái) sang cột phía trên (Sang trạng thái).
+        <span className="text-[11px] font-mono text-slate-400">
+          {statuses.length} trạng thái • {activeTransitionsCount} luồng chuyển tiếp
         </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setAllTransitions(true)}
-            className="text-[11px] text-indigo-600 hover:underline cursor-pointer"
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {isDirty && (
+            <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md">
+              Chưa lưu thay đổi
+            </span>
+          )}
+
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isLoadingWorkflows}
+            loading={saveTransitionsMutation.isPending}
+            leftIcon={<Save className="w-3.5 h-3.5" />}
+            onClick={() => saveTransitionsMutation.mutate()}
           >
-            Cho phép tất cả
-          </button>
-          <span>•</span>
-          <button
-            type="button"
-            onClick={() => setAllTransitions(false)}
-            className="text-[11px] text-slate-500 hover:underline cursor-pointer"
-          >
-            Xóa tất cả
-          </button>
+            <span>Lưu quy trình</span>
+          </Button>
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-x-auto bg-white shadow-2xs">
-        <table className="w-full text-center border-collapse">
-          <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 text-[11px] font-bold">
-              <th className="p-3 text-left border-r border-slate-200 w-44">Từ \ Sang trạng thái</th>
-              {statuses.map((col) => (
-                <th key={col.id} className="p-3 min-w-[100px] border-r border-slate-200 last:border-r-0">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.color }} />
-                    <span>{col.name}</span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
-            {statuses.map((row) => (
-              <tr key={row.id} className="hover:bg-slate-50/50">
-                <td className="p-3 text-left font-semibold text-slate-800 border-r border-slate-200 bg-slate-50/30">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
-                    <span>{row.name}</span>
-                  </div>
-                </td>
-                {statuses.map((col) => {
-                  const isSame = row.id === col.id
-                  const isAllowed = !!matrixState[`${row.id}->${col.id}`]
-
-                  return (
-                    <td
-                      key={col.id}
-                      className="p-3 border-r border-slate-100 last:border-r-0 text-center"
-                    >
-                      {isSame ? (
-                        <span className="text-slate-300 font-mono">-</span>
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={isAllowed}
-                          onChange={() => toggleMatrixCell(row.id, col.id)}
-                          aria-label={`Cho phép chuyển từ ${row.name} sang ${col.name}`}
-                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                        />
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal Tạo Workflow Mới */}
-      {isNewWorkflowModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-sm font-bold text-slate-900">Tạo Workflow mới</h3>
-              <button
-                type="button"
-                onClick={() => setIsNewWorkflowModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Tên quy trình</label>
-              <input
-                type="text"
-                placeholder="Ví dụ: Bug Tracking Flow, Simple Flow..."
-                value={newWorkflowName}
-                onChange={(e) => setNewWorkflowName(e.target.value)}
-                className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsNewWorkflowModalOpen(false)}
-                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => createWorkflowMutation.mutate()}
-                disabled={!newWorkflowName.trim() || createWorkflowMutation.isPending}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-2xs disabled:opacity-50"
-              >
-                {createWorkflowMutation.isPending ? 'Đang tạo...' : 'Tạo quy trình'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 2. Bảng vẽ sơ đồ quy trình */}
+      <WorkflowDiagramCanvas
+        statuses={statuses}
+        draftMap={draftMap}
+        nodePositions={nodePositions}
+        onPositionChange={handlePositionChange}
+        onResetAutoLayout={handleResetAutoLayout}
+        onAddOrUpdateTransition={handleAddOrUpdateTransition}
+        onRemoveTransition={handleRemoveTransition}
+        onApplySequentialFlow={handleApplySequentialFlow}
+        onAllowAll={handleAllowAll}
+        onClearAll={handleClearAll}
+      />
     </div>
   )
 }

@@ -258,7 +258,7 @@ describe('ProjectSettingsPage - Component Tests', () => {
     })
   })
 
-  it('6. Chuyển sang Tab Quy trình (Workflows): hiển thị ma trận và lưu chuyển trạng thái', async () => {
+  it('6. Chuyển sang Tab Quy trình (Workflows): hiển thị sơ đồ trực quan và lưu quy trình', async () => {
     vi.mocked(projectService.updateWorkflowTransitions).mockResolvedValue([] as any)
     renderComponent()
 
@@ -269,14 +269,13 @@ describe('ProjectSettingsPage - Component Tests', () => {
     fireEvent.click(screen.getByText('Luồng quy trình'))
 
     await waitFor(() => {
-      expect(screen.getByText('Chọn quy trình:')).toBeInTheDocument()
-      expect(screen.getByText(/Từ \\ Sang trạng thái/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Sắp xếp tự động/i })).toBeInTheDocument()
     })
 
-    const saveMatrixBtn = screen.getByRole('button', { name: /Lưu ma trận chuyển trạng thái/i })
-    expect(saveMatrixBtn).toBeInTheDocument()
+    const saveBtn = screen.getByRole('button', { name: /Lưu quy trình/i })
+    expect(saveBtn).toBeInTheDocument()
 
-    fireEvent.click(saveMatrixBtn)
+    fireEvent.click(saveBtn)
 
     await waitFor(() => {
       expect(projectService.updateWorkflowTransitions).toHaveBeenCalledWith(
@@ -284,6 +283,53 @@ describe('ProjectSettingsPage - Component Tests', () => {
         'wf-1',
         expect.any(Array),
       )
+    })
+  })
+
+  it('6b. Lưu quy trình xong chuyển tab khác rồi quay lại vẫn giữ nguyên luồng đã lưu', async () => {
+    const savedTransitions = [
+      {
+        id: 'tr-1',
+        workflowId: 'wf-1',
+        fromStatusId: 'st-todo',
+        toStatusId: 'st-prog',
+        conditions: {},
+      },
+    ]
+    vi.mocked(projectService.updateWorkflowTransitions).mockResolvedValue(savedTransitions as any)
+    vi.mocked(projectService.getWorkflows)
+      .mockResolvedValueOnce(mockWorkflows)
+      .mockResolvedValue([
+        {
+          ...mockWorkflows[0],
+          transitions: savedTransitions as any,
+        },
+      ])
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('Luồng quy trình')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Luồng quy trình'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Luồng tuần tự/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Luồng tuần tự/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Lưu quy trình/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Lưu sơ đồ quy trình thành công!')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Thông tin chung'))
+    fireEvent.click(screen.getByText('Luồng quy trình'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 luồng chuyển tiếp/)).toBeInTheDocument()
     })
   })
 

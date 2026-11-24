@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task, TaskPriority } from './entities/task.entity.js';
@@ -8,6 +8,7 @@ import { Project } from '../projects/entities/project.entity.js';
 import { CustomField } from '../projects/entities/custom-field.entity.js';
 import { CustomFieldValue } from './entities/custom-field-value.entity.js';
 import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
+import { Workflow } from '../projects/entities/workflow.entity.js';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, TaskQueryDto } from './dto/task.dto.js';
 
 @Injectable()
@@ -27,6 +28,9 @@ export class TasksService {
     private readonly customFieldValueRepository: Repository<CustomFieldValue>,
     @InjectRepository(WorkflowTransition)
     private readonly workflowTransitionRepository: Repository<WorkflowTransition>,
+    @Optional()
+    @InjectRepository(Workflow)
+    private readonly workflowRepository?: Repository<Workflow>,
   ) {}
 
   private isUuid(val: string): boolean {
@@ -40,6 +44,41 @@ export class TasksService {
     const byKey = await this.projectRepository.findOne({ where: { key: identifier.toUpperCase() } });
     if (byKey) return byKey;
     return this.projectRepository.findOne({ where: { id: identifier } });
+  }
+
+  private async validateWorkflowTransition(
+    projectId: string,
+    fromStatusId: string,
+    toStatusId: string,
+    fromStatusName?: string,
+    toStatusName?: string,
+    workType?: WorkType | null,
+  ): Promise<void> {
+    let workflowId = workType?.workflowId || null;
+
+    if (!workflowId && this.workflowRepository) {
+      const projectWorkflow = await this.workflowRepository.findOne({
+        where: { projectId },
+        order: { createdAt: 'ASC' },
+      });
+      workflowId = projectWorkflow?.id || null;
+    }
+
+    if (!workflowId) return;
+
+    const transition = await this.workflowTransitionRepository.findOne({
+      where: {
+        workflowId,
+        fromStatusId,
+        toStatusId,
+      },
+    });
+
+    if (!transition) {
+      throw new BadRequestException(
+        `Không thể chuyển trạng thái từ '${fromStatusName || 'Hiện tại'}' sang '${toStatusName || 'Đích'}' theo quy trình của dự án`,
+      );
+    }
   }
 
   async getTasks(identifier: string, query?: TaskQueryDto) {
@@ -392,21 +431,15 @@ export class TasksService {
         throw new NotFoundException('Trạng thái đích không tồn tại trong dự án!');
       }
 
-      // Kiểm tra Workflow Transition (nếu workType có gán workflowId)
-      if (task.type?.workflowId) {
-        const transition = await this.workflowTransitionRepository.findOne({
-          where: {
-            workflowId: task.type.workflowId,
-            fromStatusId: task.status_id,
-            toStatusId: dto.statusId,
-          },
-        });
-        if (!transition) {
-          throw new BadRequestException(
-            `Không thể chuyển trạng thái từ '${task.status?.name || 'Hiện tại'}' sang '${toStatus.name}' theo quy trình của loại công việc '${task.type?.name || 'Công việc'}'`,
-          );
-        }
-      }
+      // Kiểm tra Workflow Transition (ưu tiên workflow của workType, fallback về workflow duy nhất của dự án)
+      await this.validateWorkflowTransition(
+        task.project_id,
+        task.status_id,
+        dto.statusId,
+        task.status?.name,
+        toStatus.name,
+        task.type,
+      );
 
       // Kiểm tra WIP Limit
       if (toStatus.wipLimit !== null && toStatus.wipLimit !== undefined) {
@@ -421,6 +454,7 @@ export class TasksService {
       }
 
       task.status_id = dto.statusId;
+      task.status = toStatus;
     }
 
     // 2. Kiểm tra parentTaskId nếu cập nhật
@@ -448,7 +482,10 @@ export class TasksService {
     if (dto.title !== undefined) task.title = dto.title.trim();
     if (dto.description !== undefined) task.description = dto.description ? dto.description.trim() : null;
     if (dto.sprintId !== undefined) task.sprint_id = dto.sprintId;
-    if (dto.typeId !== undefined) task.type_id = dto.typeId;
+    if (dto.typeId !== undefined) {
+      task.type_id = dto.typeId;
+      delete (task as Partial<Task>).type;
+    }
     if (dto.storyPoints !== undefined) task.story_points = dto.storyPoints;
     if (dto.priority !== undefined) task.priority = dto.priority;
     if (dto.assigneeId !== undefined) task.assignee_id = dto.assigneeId;
@@ -526,21 +563,15 @@ export class TasksService {
       throw new NotFoundException('Trạng thái đích không tồn tại trong dự án!');
     }
 
-    // Bước 1: Kiểm tra Workflow Transition (nếu workType có gán workflowId)
-    if (task.type?.workflowId) {
-      const transition = await this.workflowTransitionRepository.findOne({
-        where: {
-          workflowId: task.type.workflowId,
-          fromStatusId: task.status_id,
-          toStatusId: targetStatusId,
-        },
-      });
-      if (!transition) {
-        throw new BadRequestException(
-          `Không thể chuyển trạng thái từ '${task.status?.name || 'Hiện tại'}' sang '${toStatus.name}' theo quy trình của loại công việc '${task.type?.name || 'Công việc'}'`,
-        );
-      }
-    }
+    // Bước 1: Kiểm tra Workflow Transition (ưu tiên workflow của workType, fallback về workflow duy nhất của dự án)
+    await this.validateWorkflowTransition(
+      effectiveProjectId,
+      task.status_id,
+      targetStatusId,
+      task.status?.name,
+      toStatus.name,
+      task.type,
+    );
 
     // Bước 2: Kiểm tra WIP Limit
     if (toStatus.wipLimit !== null && toStatus.wipLimit !== undefined) {
@@ -554,8 +585,9 @@ export class TasksService {
       }
     }
 
-    // Bước 3: Cập nhật
+    // Bước 3: Cập nhật (đồng bộ cả relation status để TypeORM không ghi đè status_id cũ khi save)
     task.status_id = targetStatusId;
+    task.status = toStatus;
     if (dto.position !== undefined) task.position = dto.position;
     if (dto.sprintId !== undefined) task.sprint_id = dto.sprintId;
 
