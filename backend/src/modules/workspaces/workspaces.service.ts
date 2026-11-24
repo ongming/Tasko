@@ -6,11 +6,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Workspace } from './entities/workspace.entity.js';
 import { WorkspaceMember } from './entities/workspace-member.entity.js';
 import { User } from '../auth/entities/user.entity.js';
 import { Role, RoleScope } from '../rbac/entities/role.entity.js';
+import { Project } from '../projects/entities/project.entity.js';
+import { Task } from '../tasks/entities/task.entity.js';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto.js';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto.js';
 import { WorkspaceRole } from './enums/workspace-role.enum.js';
@@ -386,5 +388,55 @@ export class WorkspacesService {
 
     await this.memberRepo.remove(member);
     return { success: true, message: 'Đã xóa thành viên khỏi không gian làm việc thành công!' };
+  }
+
+  /**
+   * Xóa vĩnh viễn Workspace cùng toàn bộ dữ liệu phụ thuộc trong Transaction nguyên tử
+   * Chỉ chủ sở hữu (owner_id) mới có quyền thực hiện
+   */
+  async remove(
+    wsId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: wsId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Không tìm thấy Workspace');
+    }
+
+    if (workspace.owner_id !== userId) {
+      throw new ForbiddenException(
+        'Chỉ chủ sở hữu Workspace mới có quyền xóa không gian làm việc này',
+      );
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      // Lấy tất cả dự án thuộc Workspace (bao gồm cả soft-deleted) để xóa theo đúng thứ tự FK
+      const projects = await manager.find(Project, {
+        where: { workspace_id: wsId },
+        select: { id: true },
+        withDeleted: true,
+      });
+      const projectIds = projects.map((p) => p.id);
+
+      if (projectIds.length > 0) {
+        // Xóa tasks trước để tránh lỗi 23503 do tasks.status_id có ON DELETE RESTRICT
+        await manager.delete(Task, { project_id: In(projectIds) });
+        // Xóa toàn bộ projects (cascade project_members, statuses, work_types, workflows, sprints, custom_fields)
+        await manager.delete(Project, { workspace_id: wsId });
+      }
+
+      // Xóa toàn bộ thành viên Workspace
+      await manager.delete(WorkspaceMember, { workspace_id: wsId });
+
+      // Xóa bản ghi Workspace
+      await manager.delete(Workspace, { id: wsId });
+    });
+
+    return {
+      success: true,
+      message: 'Đã xóa không gian làm việc thành công',
+    };
   }
 }

@@ -14,6 +14,7 @@ import { SprintsModule } from './modules/sprints/sprints.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { AiDocumentModule } from './modules/ai-document/ai-document.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -61,6 +62,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     // 9. Phân hệ Quản lý Người dùng & Hồ sơ cá nhân (Users)
     UsersModule,
+
+    // 10. Phân hệ AI Phân tích tài liệu (AiDocument)
+    AiDocumentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, closestCorners } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Plus, ChevronDown, ChevronRight, Loader2, Inbox, Archive } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Loader2, Inbox, Archive, Sparkles } from 'lucide-react'
 import type { TaskItem } from '@/types/task'
 import { StartSprintModal } from '@/components/project/StartSprintModal'
 import { CompleteSprintModal } from '@/components/project/CompleteSprintModal'
@@ -10,18 +10,22 @@ import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
 import { CreateTaskModal } from '@/components/project/CreateTaskModal'
 import { TaskFilterBar } from '@/components/project/TaskFilterBar'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { AiDocumentAnalyzerModal } from '@/components/project/ai-document/AiDocumentAnalyzerModal'
 import { BacklogIssueRow } from '@/components/backlog/BacklogIssueRow'
 import { BacklogDroppableContainer } from '@/components/backlog/BacklogDroppableContainer'
 import { SprintSection } from '@/components/backlog/SprintSection'
 import { CreateSprintModal } from '@/components/backlog/CreateSprintModal'
 import { Button } from '@/components/ui/Button'
 import { useBacklogBoard } from '@/hooks/useBacklogBoard'
+import { useAuthStore } from '@/stores/authStore'
 
 export function BacklogView() {
   const { projectKey } = useParams<{ projectKey?: string }>()
   const [searchParams] = useSearchParams()
   const projectParam = projectKey || searchParams.get('project') || searchParams.get('projectId') || ''
   const [showCompletedSprints, setShowCompletedSprints] = useState(false)
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+  const currentUser = useAuthStore((state) => state.user)
 
   const {
     sprints,
@@ -84,6 +88,14 @@ export function BacklogView() {
     dragDrop,
   } = useBacklogBoard(projectParam)
 
+  const isViewer = useMemo(() => {
+    if (!currentUser || members.length === 0) return false
+    const matched = members.find(
+      (m) => m.userId === currentUser.id || m.user?.id === currentUser.id,
+    )
+    return matched?.role?.name?.toUpperCase() === 'VIEWER'
+  }, [currentUser, members])
+
   const renderIssueIcon = (type?: { name: string; icon: string } | null) => (
     <WorkTypeIcon type={type} variant="badge" />
   )
@@ -128,7 +140,16 @@ export function BacklogView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+              onClick={() => setIsAiModalOpen(true)}
+              className="!border-indigo-200 !bg-indigo-50/70 hover:!bg-indigo-100/80 !text-indigo-700"
+            >
+              <span>AI Phân tích tài liệu</span>
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -429,6 +450,17 @@ export function BacklogView() {
           setIsCreateTaskModalOpen(false)
           loadData()
         }}
+      />
+
+      <AiDocumentAnalyzerModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        projectIdOrKey={projectParam}
+        members={members}
+        workTypes={workTypes}
+        sprints={sprints}
+        isViewer={isViewer}
+        onTasksCreated={loadData}
       />
 
       {selectedTaskId && (

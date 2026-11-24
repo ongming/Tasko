@@ -73,6 +73,19 @@ export class WorkspacesController {
   }
 
   /**
+   * DELETE /api/v1/workspaces/:wsId - Xóa không gian làm việc (chỉ chủ sở hữu)
+   */
+  @Delete(':wsId')
+  @RequirePermission('WORKSPACE_ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async remove(
+    @Param('wsId') wsId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.workspacesService.remove(wsId, userId);
+  }
+
+  /**
    * GET /api/v1/workspaces/:wsId/members - Lấy danh sách thành viên Workspace
    */
   @Get(':wsId/members')

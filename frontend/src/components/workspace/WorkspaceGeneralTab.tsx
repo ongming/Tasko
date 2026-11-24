@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Check,
   CheckCircle2,
@@ -9,6 +11,7 @@ import {
   Loader2,
   Save,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { workspaceService } from '@/services/workspaceService'
 import type { WorkspaceResponse } from '@/types/workspace'
@@ -16,19 +19,28 @@ import type { WorkspaceResponse } from '@/types/workspace'
 export interface WorkspaceGeneralTabProps {
   workspace: WorkspaceResponse
   canManage: boolean
+  isOwner?: boolean
+  remainingWorkspaces?: WorkspaceResponse[]
 }
 
 export const WorkspaceGeneralTab: React.FC<WorkspaceGeneralTabProps> = ({
   workspace,
   canManage,
+  isOwner = false,
+  remainingWorkspaces = [],
 }) => {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const [wsName, setWsName] = useState('')
   const [wsDescription, setWsDescription] = useState('')
   const [wsSuccess, setWsSuccess] = useState<string | null>(null)
   const [wsError, setWsError] = useState<string | null>(null)
   const [isCopiedSlug, setIsCopiedSlug] = useState(false)
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     setWsName(workspace.name || '')
@@ -50,6 +62,35 @@ export const WorkspaceGeneralTab: React.FC<WorkspaceGeneralTabProps> = ({
       setWsError(msg)
     },
   })
+
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: () => workspaceService.remove(workspace.id),
+    onSuccess: () => {
+      setIsDeleteModalOpen(false)
+      setDeleteError(null)
+      queryClient.invalidateQueries({ queryKey: ['my-workspaces'] })
+      queryClient.removeQueries({ queryKey: ['workspace', workspace.slug] })
+      queryClient.removeQueries({ queryKey: ['workspace-members', workspace.id] })
+      queryClient.removeQueries({ queryKey: ['projects', workspace.id] })
+      queryClient.removeQueries({ queryKey: ['projects', workspace.slug] })
+
+      const nextWorkspace = remainingWorkspaces[0]
+      if (nextWorkspace) {
+        navigate(`/${nextWorkspace.slug}/overview`, { replace: true })
+      } else {
+        navigate('/', { replace: true })
+      }
+    },
+    onError: (err: any) => {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể xóa không gian làm việc. Vui lòng thử lại sau.'
+      setDeleteError(msg)
+    },
+  })
+
+  const isConfirmMatched = confirmName.trim() === workspace.name
 
   const handleUpdateWorkspace = (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,6 +252,122 @@ export const WorkspaceGeneralTab: React.FC<WorkspaceGeneralTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Vùng nguy hiểm (Danger Zone) */}
+      <div className="bg-rose-50/50 rounded-2xl border border-rose-200 p-6 space-y-3">
+        <h2 className="text-sm font-bold text-rose-900 flex items-center gap-1.5">
+          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>Vùng nguy hiểm</span>
+        </h2>
+        <p className="text-xs text-rose-700 leading-relaxed">
+          Xóa không gian làm việc là hành động <strong>không thể hoàn tác</strong>. Toàn bộ dự án,
+          công việc, Sprint, danh sách thành viên và cấu hình liên quan thuộc{' '}
+          <strong>{workspace.name}</strong> sẽ bị xóa vĩnh viễn khỏi hệ thống.
+        </p>
+
+        {isOwner ? (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmName('')
+                setDeleteError(null)
+                setIsDeleteModalOpen(true)
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xóa không gian làm việc</span>
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs font-medium text-rose-600/80 bg-white/70 border border-rose-200/70 rounded-xl px-3.5 py-2.5">
+            Chỉ Chủ sở hữu Workspace mới có quyền xóa không gian làm việc này.
+          </p>
+        )}
+      </div>
+
+      {/* Modal Xác nhận xóa Workspace */}
+      {isDeleteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-workspace-modal-title"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3
+                  id="delete-workspace-modal-title"
+                  className="text-sm font-bold text-slate-900"
+                >
+                  Xác nhận xóa không gian làm việc
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Hành động này không thể hoàn tác sau khi thực hiện.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Để xác nhận xóa vĩnh viễn, vui lòng nhập chính xác tên không gian làm việc{' '}
+              <strong className="text-rose-600 px-1.5 py-0.5 bg-rose-50 rounded font-semibold">
+                {workspace.name}
+              </strong>{' '}
+              vào ô bên dưới:
+            </p>
+
+            <input
+              type="text"
+              placeholder={`Nhập "${workspace.name}" để xác nhận...`}
+              value={confirmName}
+              onChange={(e) => {
+                setConfirmName(e.target.value)
+                if (deleteError) setDeleteError(null)
+              }}
+              disabled={deleteWorkspaceMutation.isPending}
+              className="w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-hidden focus:border-rose-500 focus:ring-2 focus:ring-rose-100 disabled:bg-slate-50"
+            />
+
+            {deleteError && (
+              <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={deleteWorkspaceMutation.isPending}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteWorkspaceMutation.mutate()}
+                disabled={!isConfirmMatched || deleteWorkspaceMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deleteWorkspaceMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <span>Xóa vĩnh viễn Workspace</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

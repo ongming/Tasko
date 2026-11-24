@@ -96,4 +96,14 @@ describe('workspaceService - Unit Tests', () => {
     await workspaceService.removeMember(wsId, userId)
     expect(api.delete).toHaveBeenCalledWith('/workspaces/ws-123/members/user-456')
   })
+
+  it('gọi đúng endpoint DELETE /workspaces/:wsId khi xóa workspace', async () => {
+    const wsId = 'ws-123'
+    const mockRes = { success: true, message: 'Đã xóa không gian làm việc thành công' }
+    vi.mocked(api.delete).mockResolvedValue(mockRes as any)
+
+    const result = await workspaceService.remove(wsId)
+    expect(api.delete).toHaveBeenCalledWith('/workspaces/ws-123')
+    expect(result).toEqual(mockRes)
+  })
 })
