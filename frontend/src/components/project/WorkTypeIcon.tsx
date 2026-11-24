@@ -1,5 +1,5 @@
 import React from 'react'
-import { Bug, CheckSquare, Package } from 'lucide-react'
+import { Bookmark, Bug, CheckSquare, Package, Shield } from 'lucide-react'
 
 export interface WorkTypeIconProps {
   type?: { name?: string | null; icon?: string | null } | null
@@ -22,6 +22,8 @@ export const WorkTypeIcon: React.FC<WorkTypeIconProps> = ({
 
   const isModule = iconHint.includes('package') || nameHint.includes('module')
   const isBug = iconHint.includes('bug') || nameHint.includes('bug')
+  const isBookmark = iconHint.includes('bookmark') || nameHint.includes('story')
+  const isShield = iconHint.includes('shield')
 
   if (variant === 'badge') {
     if (isModule) {
@@ -44,6 +46,26 @@ export const WorkTypeIcon: React.FC<WorkTypeIconProps> = ({
         </span>
       )
     }
+    if (isBookmark) {
+      return (
+        <span
+          title="Story"
+          className="p-1 rounded-md bg-emerald-50 text-emerald-600 shrink-0 border border-emerald-100"
+        >
+          <Bookmark className={sizeClass} />
+        </span>
+      )
+    }
+    if (isShield) {
+      return (
+        <span
+          title="Bảo mật / Cải tiến"
+          className="p-1 rounded-md bg-amber-50 text-amber-600 shrink-0 border border-amber-100"
+        >
+          <Shield className={sizeClass} />
+        </span>
+      )
+    }
     return (
       <span
         title="Công việc (Task)"
@@ -56,6 +78,8 @@ export const WorkTypeIcon: React.FC<WorkTypeIconProps> = ({
 
   if (isModule) return <Package className={`${sizeClass} text-purple-600 shrink-0`} />
   if (isBug) return <Bug className={`${sizeClass} text-rose-600 shrink-0`} />
+  if (isBookmark) return <Bookmark className={`${sizeClass} text-emerald-600 shrink-0`} />
+  if (isShield) return <Shield className={`${sizeClass} text-amber-600 shrink-0`} />
   return <CheckSquare className={`${sizeClass} text-blue-600 shrink-0`} />
 }
 

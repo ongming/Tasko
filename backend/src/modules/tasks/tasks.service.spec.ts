@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { TasksService } from './tasks.service.js';
 import { Task, TaskPriority } from './entities/task.entity.js';
-import { Status } from '../projects/entities/status.entity.js';
+import { Status, StatusCategory } from '../projects/entities/status.entity.js';
 import { WorkType } from '../projects/entities/work-type.entity.js';
 import { Project } from '../projects/entities/project.entity.js';
 import { CustomField, CustomFieldType } from '../projects/entities/custom-field.entity.js';
@@ -313,6 +313,42 @@ describe('TasksService - Unit Tests', () => {
           toStatusId: 'status-review',
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('cho phép kéo ngược về trạng thái trước đó ngoài luồng quy trình nhưng trả về workflowWarning', async () => {
+      const mockTask = {
+        id: mockTaskId,
+        project_id: mockProjectId,
+        status_id: 'status-in-progress',
+        status: {
+          id: 'status-in-progress',
+          name: 'Đang làm',
+          category: StatusCategory.IN_PROGRESS,
+          position: 2000,
+        },
+        type: { id: 'wt-1', name: 'Task', workflowId: 'wf-strict-1' },
+      } as any;
+
+      const todoStatus = {
+        id: 'status-todo',
+        name: 'Cần làm',
+        category: StatusCategory.TODO,
+        position: 1000,
+        project_id: mockProjectId,
+      } as Status;
+
+      vi.mocked(taskRepo.findOne!)
+        .mockResolvedValueOnce(mockTask)
+        .mockResolvedValueOnce({ ...mockTask, status_id: 'status-todo', status: todoStatus });
+      vi.mocked(statusRepo.findOne!).mockResolvedValue(todoStatus);
+      vi.mocked(workflowTransitionRepo.findOne!).mockResolvedValue(null);
+
+      const result = await service.moveTask('user-1', mockTaskId, {
+        toStatusId: 'status-todo',
+      });
+
+      expect((result as any).workflowWarning).toContain('Cảnh báo');
+      expect(taskRepo.save).toHaveBeenCalled();
     });
 
     it('ném BadRequestException khi chuyển sang cột đích đã đạt giới hạn WIP limit', async () => {

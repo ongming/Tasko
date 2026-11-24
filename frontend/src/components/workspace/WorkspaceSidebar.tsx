@@ -48,6 +48,26 @@ export interface WorkspaceItem {
 // User mới tạo account: Mặc định chưa có Workspace nào
 const INITIAL_WORKSPACES: WorkspaceItem[] = []
 
+const SIDEBAR_WIDTH_STORAGE_KEY = 'tasko.sidebarWidth'
+const DEFAULT_SIDEBAR_WIDTH = 240
+const MIN_SIDEBAR_WIDTH = 200
+const MAX_SIDEBAR_WIDTH = 400
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, Math.round(width)))
+}
+
+function readSavedSidebarWidth(): number {
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+    if (!raw) return DEFAULT_SIDEBAR_WIDTH
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? clampSidebarWidth(parsed) : DEFAULT_SIDEBAR_WIDTH
+  } catch {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+}
+
 export interface WorkspaceSidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen?: (open: boolean) => void;
@@ -59,6 +79,68 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
   const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
   const user = useAuthStore((state) => state.user)
   const [avatarError, setAvatarError] = useState(false)
+
+  // Trạng thái kéo điều chỉnh độ rộng Sidebar (Desktop)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => readSavedSidebarWidth())
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartRef = useRef<{ startX: number; startWidth: number }>({
+    startX: 0,
+    startWidth: DEFAULT_SIDEBAR_WIDTH,
+  })
+  const latestWidthRef = useRef<number>(sidebarWidth)
+  latestWidthRef.current = sidebarWidth
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const prevCursor = document.body.style.cursor
+    const prevUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const delta = event.clientX - resizeStartRef.current.startX
+      const nextWidth = clampSidebarWidth(resizeStartRef.current.startWidth + delta)
+      latestWidthRef.current = nextWidth
+      setSidebarWidth(nextWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      try {
+        window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(latestWidthRef.current))
+      } catch {
+        // Ignore storage errors
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.body.style.cursor = prevCursor
+      document.body.style.userSelect = prevUserSelect
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
+
+  const handleStartResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    resizeStartRef.current = {
+      startX: event.clientX,
+      startWidth: sidebarWidth,
+    }
+    setIsResizing(true)
+  }
+
+  const handleResetSidebarWidth = () => {
+    setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)
+    try {
+      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(DEFAULT_SIDEBAR_WIDTH))
+    } catch {
+      // Ignore storage errors
+    }
+  }
 
   useEffect(() => {
     setAvatarError(false)
@@ -377,12 +459,14 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
         />
       )}
 
-      {/* Sidebar: Cột Flexbox tự nhiên trên Desktop, Drawer trượt trên Mobile */}
-      <aside className={`
-        fixed lg:static top-14 lg:top-auto bottom-0 lg:bottom-auto left-0 z-40 lg:z-auto
-        w-60 shrink-0 bg-white border-r border-slate-200/80 
+      {/* Sidebar: Cột Flexbox tự nhiên trên Desktop (có thể kéo chỉnh độ rộng), Drawer trượt trên Mobile */}
+      <aside
+        style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+        className={`
+        fixed lg:relative top-14 lg:top-auto bottom-0 lg:bottom-auto left-0 z-40 lg:z-auto
+        w-60 lg:w-[var(--sidebar-width)] shrink-0 bg-white border-r border-slate-200/80 
         flex flex-col py-3 shadow-xs h-[calc(100vh-3.5rem)] lg:h-full
-        transition-transform duration-200 ease-in-out
+        ${isResizing ? '' : 'transition-transform duration-200 ease-in-out'}
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex flex-col gap-3 overflow-y-auto px-3 flex-1">
@@ -690,6 +774,19 @@ export function WorkspaceSidebar({ isMobileOpen, setIsMobileOpen }: WorkspaceSid
             <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
           </NavLink>
         </div>
+
+        {/* Thanh nắm kéo điều chỉnh độ rộng Sidebar (chỉ hiển thị trên Desktop) */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Điều chỉnh độ rộng thanh bên"
+          title="Kéo để chỉnh độ rộng • Nhấp đúp để đặt lại mặc định"
+          onMouseDown={handleStartResize}
+          onDoubleClick={handleResetSidebarWidth}
+          className={`hidden lg:block absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-20 transition-colors ${
+            isResizing ? 'bg-indigo-500/70' : 'hover:bg-indigo-400/50'
+          }`}
+        />
       </aside>
 
       {/* Starred Flyout Popup (Chuẩn Jira Popover) */}

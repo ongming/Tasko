@@ -54,6 +54,8 @@ export function KanbanBoardView() {
     isLoading,
     errorMessage,
     setErrorMessage,
+    warningMessage,
+    setWarningMessage,
     quickAddColumnId,
     setQuickAddColumnId,
     quickTaskTitle,
@@ -105,6 +107,24 @@ export function KanbanBoardView() {
             onClick={() => setErrorMessage(null)}
             className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-100/60 transition-colors cursor-pointer"
             aria-label="Đóng cảnh báo"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Cảnh báo khi kéo ngược trạng thái ngoài luồng quy trình */}
+      {warningMessage && (
+        <div className="flex items-center justify-between gap-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-medium shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="truncate">{warningMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWarningMessage(null)}
+            className="p-1 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-100/60 transition-colors cursor-pointer"
+            aria-label="Đóng cảnh báo kéo ngược"
           >
             <X className="w-3.5 h-3.5" />
           </button>

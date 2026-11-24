@@ -11,6 +11,12 @@ import { WorkflowTransition } from '../projects/entities/workflow-transition.ent
 import { Workflow } from '../projects/entities/workflow.entity.js';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, TaskQueryDto } from './dto/task.dto.js';
 
+const STATUS_CATEGORY_ORDER: Record<StatusCategory, number> = {
+  [StatusCategory.TODO]: 0,
+  [StatusCategory.IN_PROGRESS]: 1,
+  [StatusCategory.DONE]: 2,
+};
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -46,14 +52,22 @@ export class TasksService {
     return this.projectRepository.findOne({ where: { id: identifier } });
   }
 
+  private isBackwardStatusMove(fromStatus?: Status | null, toStatus?: Status | null): boolean {
+    if (!fromStatus || !toStatus) return false;
+    const fromOrder = STATUS_CATEGORY_ORDER[fromStatus.category] ?? 1;
+    const toOrder = STATUS_CATEGORY_ORDER[toStatus.category] ?? 1;
+    if (toOrder !== fromOrder) {
+      return toOrder < fromOrder;
+    }
+    return (toStatus.position ?? 0) < (fromStatus.position ?? 0);
+  }
+
   private async validateWorkflowTransition(
     projectId: string,
-    fromStatusId: string,
-    toStatusId: string,
-    fromStatusName?: string,
-    toStatusName?: string,
+    fromStatus: Status | null | undefined,
+    toStatus: Status,
     workType?: WorkType | null,
-  ): Promise<void> {
+  ): Promise<{ workflowWarning?: string }> {
     let workflowId = workType?.workflowId || null;
 
     if (!workflowId && this.workflowRepository) {
@@ -64,21 +78,32 @@ export class TasksService {
       workflowId = projectWorkflow?.id || null;
     }
 
-    if (!workflowId) return;
+    if (!workflowId) return {};
+
+    const fromStatusId = fromStatus?.id;
+    if (!fromStatusId) return {};
 
     const transition = await this.workflowTransitionRepository.findOne({
       where: {
         workflowId,
         fromStatusId,
-        toStatusId,
+        toStatusId: toStatus.id,
       },
     });
 
     if (!transition) {
+      if (this.isBackwardStatusMove(fromStatus, toStatus)) {
+        return {
+          workflowWarning: `Cảnh báo: Đã chuyển ngược từ '${fromStatus?.name || 'Hiện tại'}' về '${toStatus.name}' (ngoài luồng quy trình).`,
+        };
+      }
+
       throw new BadRequestException(
-        `Không thể chuyển trạng thái từ '${fromStatusName || 'Hiện tại'}' sang '${toStatusName || 'Đích'}' theo quy trình của dự án`,
+        `Không thể chuyển trạng thái từ '${fromStatus?.name || 'Hiện tại'}' sang '${toStatus.name}' theo quy trình của dự án`,
       );
     }
+
+    return {};
   }
 
   async getTasks(identifier: string, query?: TaskQueryDto) {
@@ -423,6 +448,7 @@ export class TasksService {
     }
 
     // 1. Kiểm tra WorkflowTransition và WIP Limit nếu thay đổi statusId
+    let workflowWarning: string | undefined;
     if (dto.statusId !== undefined && dto.statusId !== task.status_id) {
       const toStatus = await this.statusRepository.findOne({
         where: { id: dto.statusId, project_id: task.project_id },
@@ -432,14 +458,13 @@ export class TasksService {
       }
 
       // Kiểm tra Workflow Transition (ưu tiên workflow của workType, fallback về workflow duy nhất của dự án)
-      await this.validateWorkflowTransition(
+      const validation = await this.validateWorkflowTransition(
         task.project_id,
-        task.status_id,
-        dto.statusId,
-        task.status?.name,
-        toStatus.name,
+        task.status || ({ id: task.status_id } as Status),
+        toStatus,
         task.type,
       );
+      workflowWarning = validation.workflowWarning;
 
       // Kiểm tra WIP Limit
       if (toStatus.wipLimit !== null && toStatus.wipLimit !== undefined) {
@@ -516,7 +541,8 @@ export class TasksService {
       }
     }
 
-    return this.getTaskById(task.id);
+    const updated = await this.getTaskById(task.id);
+    return workflowWarning ? { ...updated, workflowWarning } : updated;
   }
 
   async moveTask(
@@ -564,12 +590,10 @@ export class TasksService {
     }
 
     // Bước 1: Kiểm tra Workflow Transition (ưu tiên workflow của workType, fallback về workflow duy nhất của dự án)
-    await this.validateWorkflowTransition(
+    const { workflowWarning } = await this.validateWorkflowTransition(
       effectiveProjectId,
-      task.status_id,
-      targetStatusId,
-      task.status?.name,
-      toStatus.name,
+      task.status || ({ id: task.status_id } as Status),
+      toStatus,
       task.type,
     );
 
@@ -592,7 +616,8 @@ export class TasksService {
     if (dto.sprintId !== undefined) task.sprint_id = dto.sprintId;
 
     await this.taskRepository.save(task);
-    return this.getTaskById(task.id);
+    const updated = await this.getTaskById(task.id);
+    return workflowWarning ? { ...updated, workflowWarning } : updated;
   }
 
   async deleteTask(userId: string, taskId: string) {

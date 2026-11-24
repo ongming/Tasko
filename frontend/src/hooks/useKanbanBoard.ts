@@ -37,6 +37,7 @@ export function useKanbanBoard(projectParam: string) {
   const [selectedSprintId, setSelectedSprintId] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [warningMessage, setWarningMessage] = useState<string | null>(null)
 
   // Quick-add state
   const [quickAddColumnId, setQuickAddColumnId] = useState<string | null>(null)
@@ -270,10 +271,16 @@ export function useKanbanBoard(projectParam: string) {
 
       scheduleDebouncedRef.current(activeId, async () => {
         try {
-          await taskService.moveProjectTask(projectParam, activeId, {
+          const movedTask = await taskService.moveProjectTask(projectParam, activeId, {
             statusId: targetColId,
             position: calculatedPosition,
           })
+          if (movedTask?.workflowWarning) {
+            setWarningMessage(movedTask.workflowWarning)
+            setTimeout(() => setWarningMessage(null), 6000)
+          } else {
+            setWarningMessage(null)
+          }
         } catch (err: any) {
           console.error('Failed to persist task position:', err)
           setAllTasks(pristineTasks)
@@ -351,6 +358,8 @@ export function useKanbanBoard(projectParam: string) {
     isLoading,
     errorMessage,
     setErrorMessage,
+    warningMessage,
+    setWarningMessage,
     quickAddColumnId,
     setQuickAddColumnId,
     quickTaskTitle,

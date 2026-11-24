@@ -107,4 +107,35 @@ describe('useKanbanBoard - Custom Hook Tests', () => {
       position: 1000,
     })
   })
+
+  it('sets warningMessage without rollback when moveProjectTask returns workflowWarning', async () => {
+    vi.mocked(taskService.moveProjectTask).mockResolvedValue({
+      id: 't1',
+      statusId: 'st-done',
+      position: 1000,
+      workflowWarning: "Cảnh báo: Đã chuyển ngược từ 'Hoàn Thành' về 'Cần Làm' (ngoài luồng quy trình).",
+    } as any)
+
+    const { result } = renderHook(() => useKanbanBoard('KAN'))
+
+    await waitFor(() => {
+      expect(result.current.allTasks).toHaveLength(1)
+    })
+
+    act(() => {
+      result.current.dragDrop.handleDragStart({
+        active: { id: 't1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+      } as any)
+    })
+
+    await act(async () => {
+      await result.current.dragDrop.handleDragEnd({
+        active: { id: 't1', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+        over: { id: 'st-done', data: { current: {} }, rect: { initial: null, translated: null } } as any,
+      } as any)
+    })
+
+    expect(result.current.warningMessage).toContain('Cảnh báo')
+    expect(result.current.displayedColumns[1].tasks).toHaveLength(1)
+  })
 })

@@ -68,6 +68,7 @@ export interface TaskItem {
   startDate?: string | null;
   dueDate?: string | null;
   customFields?: TaskCustomFieldValue[];
+  workflowWarning?: string;
   createdAt: string;
   updatedAt: string;
 }

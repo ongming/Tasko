@@ -67,11 +67,14 @@ classDiagram
     class Project {
         +UUID id
         +UUID workspace_id
+        +UUID owner_id
         +String name
         +String key
-        +Integer task_counter
+        +String color
         +String description
-        +String icon_url
+        +String methodology
+        +DateTime start_date
+        +DateTime end_date
         +JSON settings
         +DateTime created_at
         +DateTime updated_at
@@ -102,17 +105,38 @@ classDiagram
         +String name
         +String category
         +String color
-        +String position
+        +Integer position
         +Boolean is_default
+        +Integer wip_limit
     }
 
     class WorkType {
         +UUID id
         +UUID project_id
+        +UUID workflow_id
         +String name
         +String icon
         +String color
         +Boolean is_default
+        +Boolean is_subtask
+    }
+
+    class Workflow {
+        +UUID id
+        +UUID project_id
+        +String name
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class WorkflowTransition {
+        +UUID id
+        +UUID workflow_id
+        +UUID from_status_id
+        +UUID to_status_id
+        +JSON conditions
+        +DateTime created_at
+        +DateTime updated_at
     }
 
     class CustomField {
@@ -246,9 +270,15 @@ classDiagram
     Project "1" --> "*" Sprint : manages
     Project "1" --> "*" Status : configures
     Project "1" --> "*" WorkType : defines
+    Project "1" --> "1" Workflow : configures
     Project "1" --> "*" CustomField : defines
     Project "1" --> "*" Label : owns
     Project "1" --> "*" Task : owns
+
+    Workflow "1" --> "*" WorkflowTransition : contains
+    Workflow "0..1" --> "*" WorkType : governs
+    Status "1" --> "*" WorkflowTransition : from_status
+    Status "1" --> "*" WorkflowTransition : to_status
 
     Status "1" --> "*" Task : groups
     WorkType "1" --> "*" Task : categorizes

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Edit2, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Bookmark, Bug, CheckSquare, Edit2, Package, Plus, Shield, Trash2, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
 import { Select } from '@/components/ui/Select'
@@ -196,11 +196,31 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                   value={wtFormIcon}
                   onChange={setWtFormIcon}
                   options={[
-                    { value: 'CheckSquare', label: 'CheckSquare (Task chuẩn)' },
-                    { value: 'Bug', label: 'Bug (Lỗi phần mềm)' },
-                    { value: 'Package', label: 'Package (Module / Gói việc)' },
-                    { value: 'Bookmark', label: 'Bookmark (Story)' },
-                    { value: 'Shield', label: 'Shield (Bảo mật / Cải tiến)' },
+                    {
+                      value: 'CheckSquare',
+                      label: 'Task chuẩn',
+                      icon: <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" />,
+                    },
+                    {
+                      value: 'Bug',
+                      label: 'Lỗi phần mềm',
+                      icon: <Bug className="w-4 h-4 text-rose-600 shrink-0" />,
+                    },
+                    {
+                      value: 'Package',
+                      label: 'Module / Gói việc',
+                      icon: <Package className="w-4 h-4 text-purple-600 shrink-0" />,
+                    },
+                    {
+                      value: 'Bookmark',
+                      label: 'Story',
+                      icon: <Bookmark className="w-4 h-4 text-emerald-600 shrink-0" />,
+                    },
+                    {
+                      value: 'Shield',
+                      label: 'Bảo mật / Cải tiến',
+                      icon: <Shield className="w-4 h-4 text-amber-600 shrink-0" />,
+                    },
                   ]}
                 />
               </div>
@@ -268,6 +288,7 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                     .map((w) => ({
                       value: w.id,
                       label: w.name,
+                      icon: <WorkTypeIcon type={w} sizeClass="w-3.5 h-3.5" />,
                     })),
                 ]}
               />

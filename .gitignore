@@ -42,7 +42,11 @@ desktop.ini
 docs/
 graphify-out/
 
-# Internal Test Suite Documentation
+# Internal Documentation & Diagrams
 TESTS.md
 AGENT.md
 AGENTS.md
+DESIGN.md
+PRODUCT.md
+*.mermaid
+*.docx
