@@ -258,6 +258,50 @@ describe('ProjectsService - Unit Tests', () => {
       const result = await service.create(mockUserId, dto);
       expect(result.color).toBe('bg-indigo-600');
     });
+
+    it('thêm các thành viên được chọn trong dto.members vào ProjectMember khi tạo dự án', async () => {
+      workspaceRepo.findOne = vi.fn().mockResolvedValue({ id: mockWorkspaceId });
+      memberRepo.findOne = vi.fn().mockResolvedValue({
+        workspace_id: mockWorkspaceId,
+        user_id: mockUserId,
+        role: WorkspaceRole.OWNER,
+      });
+      projectRepo.findOne = vi.fn().mockResolvedValue(null);
+
+      const savedExtraMembers: any[] = [];
+      mockQueryRunner.manager.find = vi.fn().mockImplementation(async (entity: any) => {
+        if (entity === User || entity?.name === 'User') {
+          return [{ id: 'user-2' }];
+        }
+        if (entity === Role || entity?.name === 'Role') {
+          return [
+            { id: 'role-owner', name: 'OWNER', scope: 'PROJECT' },
+            { id: 'role-member', name: 'MEMBER', scope: 'PROJECT' },
+          ];
+        }
+        return [];
+      });
+      mockQueryRunner.manager.save = vi.fn().mockImplementation(async (entity: any, payload: any) => {
+        if (Array.isArray(payload) && (entity === ProjectMember || entity?.name === 'ProjectMember')) {
+          savedExtraMembers.push(...payload);
+        }
+        if (Array.isArray(payload)) return payload;
+        return { ...payload, id: payload?.id || 'saved-id' };
+      });
+
+      await service.create(mockUserId, {
+        name: 'Team Project',
+        key: 'TEAM',
+        workspaceId: mockWorkspaceId,
+        members: [{ userId: 'user-2', roleId: 'role-member' }],
+      });
+
+      expect(savedExtraMembers).toHaveLength(1);
+      expect(savedExtraMembers[0]).toMatchObject({
+        user_id: 'user-2',
+        roleId: 'role-member',
+      });
+    });
   });
 
   // =========================================================

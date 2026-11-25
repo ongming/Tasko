@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { projectService } from '@/services/projectService'
 import { workspaceService } from '@/services/workspaceService'
+import { userService, type UserSearchItem } from '@/services/userService'
+import { useAuthStore } from '@/stores/authStore'
 import {
   BUSINESS_DOMAINS,
   METHOD_DETAILS,
@@ -16,8 +18,10 @@ import type {
   CustomWorkType,
   CreateProjectStep,
   CreateProjectState,
+  PendingProjectMember,
 } from '@/types/createProject'
 import type { ProjectTemplate } from '@/types/projectTemplate'
+import type { WorkspaceMemberItem, Role } from '@/types/member'
 
 /**
  * Custom Hook quản lý toàn bộ nghiệp vụ, trạng thái và tác vụ mạng cho trang Tạo dự án
@@ -70,7 +74,152 @@ export function useCreateProject() {
   const [workTypes, setWorkTypes] = useState<CustomWorkType[]>(DEFAULT_WORK_TYPES)
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
 
-  // 5. Trạng thái AI Assistant Modal
+  // 5. Trạng thái Thành viên dự án (nạp từ Workspace & tìm kiếm tùy chỉnh)
+  const currentUser = useAuthStore((s) => s.user)
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberItem[]>([])
+  const [projectRoles, setProjectRoles] = useState<Role[]>([])
+  const [pendingMembers, setPendingMembers] = useState<PendingProjectMember[]>([])
+  const [memberSearchQuery, setMemberSearchQuery] = useState('')
+  const [searchedUsers, setSearchedUsers] = useState<UserSearchItem[]>([])
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false)
+  const initializedWsMembersForRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!workspaceId) return
+    let cancelled = false
+
+    Promise.all([
+      workspaceService.getMembers?.(workspaceId).catch(() => []) ?? Promise.resolve([]),
+      projectService.getRoles?.('PROJECT').catch(() => []) ?? Promise.resolve([]),
+    ]).then(([wsMembers, roles]) => {
+      if (cancelled) return
+      const safeMembers = Array.isArray(wsMembers) ? wsMembers : []
+      const safeRoles = Array.isArray(roles) ? roles : []
+      setWorkspaceMembers(safeMembers)
+      setProjectRoles(safeRoles)
+
+      // Mặc định thêm sẵn toàn bộ thành viên hiện có trong Workspace (trừ người tạo) để có thể bỏ bớt nếu muốn
+      if (initializedWsMembersForRef.current !== workspaceId) {
+        initializedWsMembersForRef.current = workspaceId
+        const assignable = safeRoles.filter((r) => r.name !== 'OWNER')
+        const defaultRoleId =
+          assignable.find((r) => r.name === 'MEMBER')?.id || assignable[0]?.id || ''
+        setPendingMembers(
+          safeMembers
+            .filter((wm) => wm.userId !== currentUser?.id)
+            .map((wm) => ({
+              userId: wm.userId,
+              fullName: wm.user?.fullName || wm.user?.email || 'Thành viên',
+              email: wm.user?.email || '',
+              avatarUrl: wm.user?.avatarUrl,
+              roleId: defaultRoleId,
+            })),
+        )
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceId, currentUser?.id])
+
+  useEffect(() => {
+    const q = memberSearchQuery.trim()
+    if (!q) {
+      setSearchedUsers([])
+      setIsSearchingMembers(false)
+      return
+    }
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingMembers(true)
+        const users = (await userService.searchUsers?.(q).catch(() => [])) || []
+        if (!cancelled) {
+          setSearchedUsers(Array.isArray(users) ? users : [])
+        }
+      } finally {
+        if (!cancelled) setIsSearchingMembers(false)
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [memberSearchQuery])
+
+  const assignableRoles = useMemo(
+    () => projectRoles.filter((r) => r.name !== 'OWNER'),
+    [projectRoles],
+  )
+
+  const defaultMemberRoleId = useMemo(() => {
+    const memberRole = assignableRoles.find((r) => r.name === 'MEMBER')
+    return memberRole?.id || assignableRoles[0]?.id || ''
+  }, [assignableRoles])
+
+  const availableWorkspaceMembers = useMemo(() => {
+    const selectedIds = new Set(pendingMembers.map((m) => m.userId))
+    return workspaceMembers.filter(
+      (wm) => wm.userId !== currentUser?.id && !selectedIds.has(wm.userId),
+    )
+  }, [workspaceMembers, pendingMembers, currentUser?.id])
+
+  const addPendingMember = useCallback(
+    (member: {
+      userId: string
+      fullName: string
+      email: string
+      avatarUrl?: string | null
+      roleId?: string
+    }) => {
+      if (!member.userId || member.userId === currentUser?.id) return
+      setPendingMembers((prev) => {
+        if (prev.some((m) => m.userId === member.userId)) return prev
+        return [
+          ...prev,
+          {
+            userId: member.userId,
+            fullName: member.fullName,
+            email: member.email,
+            avatarUrl: member.avatarUrl,
+            roleId: member.roleId || defaultMemberRoleId,
+          },
+        ]
+      })
+    },
+    [currentUser?.id, defaultMemberRoleId],
+  )
+
+  const removePendingMember = useCallback((userId: string) => {
+    setPendingMembers((prev) => prev.filter((m) => m.userId !== userId))
+  }, [])
+
+  const updatePendingMemberRole = useCallback((userId: string, roleId: string) => {
+    setPendingMembers((prev) =>
+      prev.map((m) => (m.userId === userId ? { ...m, roleId } : m)),
+    )
+  }, [])
+
+  const addAllWorkspaceMembers = useCallback(() => {
+    setPendingMembers((prev) => {
+      const existingIds = new Set(prev.map((m) => m.userId))
+      const extras: PendingProjectMember[] = workspaceMembers
+        .filter((wm) => wm.userId !== currentUser?.id && !existingIds.has(wm.userId))
+        .map((wm) => ({
+          userId: wm.userId,
+          fullName: wm.user?.fullName || wm.user?.email || 'Thành viên',
+          email: wm.user?.email || '',
+          avatarUrl: wm.user?.avatarUrl,
+          roleId: defaultMemberRoleId,
+        }))
+      return extras.length > 0 ? [...prev, ...extras] : prev
+    })
+  }, [workspaceMembers, currentUser?.id, defaultMemberRoleId])
+
+  // 6. Trạng thái AI Assistant Modal
   const [isAiModalOpen, setIsAiModalOpen] = useState(false)
   const [aiUploadedFile, setAiUploadedFile] = useState<File | null>(null)
   const [aiPrompt, setAiPrompt] = useState('')
@@ -198,6 +347,10 @@ export function useCreateProject() {
 
   const updateWorkTypeIcon = useCallback((id: string, iconKey: string) => {
     setWorkTypes((prev) => prev.map((item) => (item.id === id ? { ...item, iconKey } : item)))
+  }, [])
+
+  const updateWorkTypeColor = useCallback((id: string, color: string) => {
+    setWorkTypes((prev) => prev.map((item) => (item.id === id ? { ...item, color } : item)))
   }, [])
 
   const addWorkType = useCallback(() => {
@@ -345,6 +498,14 @@ export function useCreateProject() {
             icon: wt.iconKey,
             color: wt.color,
           })),
+          ...(pendingMembers.length > 0
+            ? {
+                members: pendingMembers.map((m) => ({
+                  userId: m.userId,
+                  ...(m.roleId ? { roleId: m.roleId } : {}),
+                })),
+              }
+            : {}),
           settings: {
             template_id: selectedTemplate?.id || 'default',
             method_id: selectedMethod?.id || 'kanban',
@@ -402,6 +563,7 @@ export function useCreateProject() {
       workTypes,
       selectedTemplate,
       selectedMethod,
+      pendingMembers,
     ],
   )
 
@@ -430,6 +592,12 @@ export function useCreateProject() {
       workflow,
       workTypes,
       isAdvancedOpen,
+      availableWorkspaceMembers,
+      assignableRoles,
+      pendingMembers,
+      memberSearchQuery,
+      searchedUsers,
+      isSearchingMembers,
     },
     actions: {
       setStep,
@@ -451,10 +619,16 @@ export function useCreateProject() {
       removeWorkflowStage,
       updateWorkTypeLabel,
       updateWorkTypeIcon,
+      updateWorkTypeColor,
       addWorkType,
       removeWorkType,
       resetConfiguration,
       toggleAdvanced,
+      setMemberSearchQuery,
+      addPendingMember,
+      removePendingMember,
+      updatePendingMemberRole,
+      addAllWorkspaceMembers,
       setIsAiModalOpen,
       setAiPrompt,
       setAiUploadedFile,

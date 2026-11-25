@@ -40,6 +40,12 @@ export const CreateProjectPage: React.FC = () => {
     workflow,
     workTypes,
     isAdvancedOpen,
+    availableWorkspaceMembers,
+    assignableRoles,
+    pendingMembers,
+    memberSearchQuery,
+    searchedUsers,
+    isSearchingMembers,
   } = state
 
   return (
@@ -228,10 +234,22 @@ export const CreateProjectPage: React.FC = () => {
             onRemoveWorkflowStage={actions.removeWorkflowStage}
             onUpdateWorkTypeLabel={actions.updateWorkTypeLabel}
             onUpdateWorkTypeIcon={actions.updateWorkTypeIcon}
+            onUpdateWorkTypeColor={actions.updateWorkTypeColor}
             onAddWorkType={actions.addWorkType}
             onRemoveWorkType={actions.removeWorkType}
             onResetConfiguration={actions.resetConfiguration}
             onOpenAiModal={() => actions.setIsAiModalOpen(true)}
+            availableWorkspaceMembers={availableWorkspaceMembers}
+            assignableRoles={assignableRoles}
+            pendingMembers={pendingMembers}
+            memberSearchQuery={memberSearchQuery}
+            searchedUsers={searchedUsers}
+            isSearchingMembers={isSearchingMembers}
+            onMemberSearchChange={actions.setMemberSearchQuery}
+            onAddPendingMember={actions.addPendingMember}
+            onRemovePendingMember={actions.removePendingMember}
+            onUpdatePendingMemberRole={actions.updatePendingMemberRole}
+            onAddAllWorkspaceMembers={actions.addAllWorkspaceMembers}
             onBack={actions.backToStepTwo}
             onSubmit={actions.handleCreateSubmit}
           />

@@ -38,6 +38,14 @@ export interface CustomWorkType {
   color: string
 }
 
+export interface PendingProjectMember {
+  userId: string
+  fullName: string
+  email: string
+  avatarUrl?: string | null
+  roleId: string
+}
+
 export interface MethodDetails {
   features: string[]
   workflow: { label: string; color: string }[]

@@ -51,6 +51,10 @@ export interface CreateProjectPayload {
     icon?: string
     color?: string
   }>
+  members?: Array<{
+    userId: string
+    roleId?: string
+  }>
   settings?: Record<string, any>
 }
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Bookmark, Bug, CheckSquare, Edit2, Package, Plus, Shield, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Edit2, Plus, Trash2, X } from 'lucide-react'
 import { projectService } from '@/services/projectService'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
+import { WorkTypeIconPicker } from '@/components/project/WorkTypeIconPicker'
 import { Select } from '@/components/ui/Select'
 import type { ProjectWorkType, Workflow } from '@/types/projectConfig'
 
@@ -121,9 +122,7 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
               className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors gap-3"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0">
-                  <WorkTypeIcon type={wt} sizeClass="w-4 h-4" />
-                </div>
+                <WorkTypeIcon type={wt} sizeClass="w-4 h-4" variant="badge" />
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-800">{wt.name}</span>
                   {wt.isSubtask && (
@@ -180,49 +179,25 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Tên loại công việc</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Task, Bug, Story, Spike..."
-                  value={wtFormName}
-                  onChange={(e) => setWtFormName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Biểu tượng (Icon)</label>
-                <Select
-                  value={wtFormIcon}
-                  onChange={setWtFormIcon}
-                  options={[
-                    {
-                      value: 'CheckSquare',
-                      label: 'Task chuẩn',
-                      icon: <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" />,
-                    },
-                    {
-                      value: 'Bug',
-                      label: 'Lỗi phần mềm',
-                      icon: <Bug className="w-4 h-4 text-rose-600 shrink-0" />,
-                    },
-                    {
-                      value: 'Package',
-                      label: 'Module / Gói việc',
-                      icon: <Package className="w-4 h-4 text-purple-600 shrink-0" />,
-                    },
-                    {
-                      value: 'Bookmark',
-                      label: 'Story',
-                      icon: <Bookmark className="w-4 h-4 text-emerald-600 shrink-0" />,
-                    },
-                    {
-                      value: 'Shield',
-                      label: 'Bảo mật / Cải tiến',
-                      icon: <Shield className="w-4 h-4 text-amber-600 shrink-0" />,
-                    },
-                  ]}
-                />
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Biểu tượng &amp; Tên loại công việc
+                </label>
+                <div className="flex items-center gap-2">
+                  <WorkTypeIconPicker
+                    iconKey={wtFormIcon}
+                    color={wtFormColor}
+                    ariaLabel="Chọn biểu tượng cho loại công việc"
+                    onSelectIcon={setWtFormIcon}
+                    onSelectColor={setWtFormColor}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Task, Bug, Story, Spike..."
+                    value={wtFormName}
+                    onChange={(e) => setWtFormName(e.target.value)}
+                    className="flex-1 h-10 text-xs px-3 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

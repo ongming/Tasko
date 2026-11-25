@@ -6,7 +6,20 @@ import {
   Matches,
   IsUUID,
   IsOptional,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateProjectMemberItemDto {
+  @IsUUID('all', { message: 'userId thành viên không hợp lệ' })
+  @IsNotEmpty({ message: 'userId thành viên không được để trống' })
+  userId: string;
+
+  @IsUUID('all', { message: 'roleId không hợp lệ' })
+  @IsOptional()
+  roleId?: string;
+}
 
 export class CreateProjectDto {
   @IsString({ message: 'Tên dự án phải là chuỗi ký tự' })
@@ -48,6 +61,12 @@ export class CreateProjectDto {
     icon?: string;
     color?: string;
   }>;
+
+  @IsArray({ message: 'members phải là một mảng' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateProjectMemberItemDto)
+  @IsOptional()
+  members?: CreateProjectMemberItemDto[];
 
   @IsOptional()
   settings?: Record<string, any>;

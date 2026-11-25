@@ -176,6 +176,53 @@ export class ProjectsService {
       });
       await queryRunner.manager.save(ProjectMember, projectMember);
 
+      // 4.1b. Thêm các thành viên được chọn lúc tạo dự án (nếu có)
+      if (dto.members && dto.members.length > 0) {
+        const uniqueMemberMap = new Map<string, string | undefined>();
+        for (const item of dto.members) {
+          if (item.userId && item.userId !== userId && !uniqueMemberMap.has(item.userId)) {
+            uniqueMemberMap.set(item.userId, item.roleId);
+          }
+        }
+
+        if (uniqueMemberMap.size > 0) {
+          const candidateUserIds = Array.from(uniqueMemberMap.keys());
+          const [existingUsers, projectRoles] = await Promise.all([
+            queryRunner.manager.find(User, { where: { id: In(candidateUserIds) } }),
+            queryRunner.manager.find(Role, { where: { scope: RoleScope.PROJECT } }),
+          ]);
+
+          const validUserIds = new Set(existingUsers.map((u) => u.id));
+          const roleById = new Map(projectRoles.map((r) => [r.id, r]));
+          const defaultMemberRole =
+            projectRoles.find((r) => r.name === 'MEMBER') ||
+            projectRoles.find((r) => r.name !== 'OWNER') ||
+            null;
+
+          const extraMembers = candidateUserIds
+            .filter((uid) => validUserIds.has(uid))
+            .map((uid) => {
+              const requestedRoleId = uniqueMemberMap.get(uid);
+              const requestedRole = requestedRoleId ? roleById.get(requestedRoleId) : undefined;
+              const resolvedRole =
+                requestedRole && requestedRole.name !== 'OWNER' ? requestedRole : defaultMemberRole;
+              const legacyRole =
+                resolvedRole?.name === 'VIEWER' ? ProjectRole.VIEWER : ProjectRole.MEMBER;
+
+              return queryRunner.manager.create(ProjectMember, {
+                project_id: savedProject.id,
+                user_id: uid,
+                role: legacyRole,
+                roleId: resolvedRole ? resolvedRole.id : null,
+              });
+            });
+
+          if (extraMembers.length > 0) {
+            await queryRunner.manager.save(ProjectMember, extraMembers);
+          }
+        }
+      }
+
       // 4.2. Tự động sinh các Cột Status mặc định (To Do, In Progress, Done)
       const defaultWorkflow = [
         { label: 'To Do', category: StatusCategory.TODO, color: '#94a3b8' },
