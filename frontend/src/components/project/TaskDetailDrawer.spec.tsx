@@ -1,9 +1,28 @@
+import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TaskDetailDrawer } from './TaskDetailDrawer'
 import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
+import { commentService } from '@/services/commentService'
+
+vi.mock('@/services/commentService', () => ({
+  commentService: {
+    getComments: vi.fn(),
+    createComment: vi.fn(),
+    updateComment: vi.fn(),
+    deleteComment: vi.fn(),
+  },
+}))
+
+const renderWithQuery = (ui: React.ReactElement) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 vi.mock('@/services/taskService', () => ({
   taskService: {
@@ -111,10 +130,11 @@ describe('TaskDetailDrawer - Component Tests', () => {
     vi.mocked(sprintService.getSprints).mockResolvedValue([])
     vi.mocked(projectService.getCustomFields).mockResolvedValue(mockCustomFields as any)
     vi.mocked(taskService.getTaskById).mockResolvedValue(mockTask as any)
+    vi.mocked(commentService.getComments).mockResolvedValue([])
   })
 
   it('1. Render đầy đủ thông tin Task khi mở Drawer', async () => {
-    render(
+    renderWithQuery(
       <TaskDetailDrawer
         isOpen={true}
         onClose={onCloseMock}
@@ -137,7 +157,7 @@ describe('TaskDetailDrawer - Component Tests', () => {
   it('2. Thêm nhanh Subtask gọi createProjectTask', async () => {
     vi.mocked(taskService.createProjectTask).mockResolvedValue({ id: 'sub-new' } as any)
 
-    render(
+    renderWithQuery(
       <TaskDetailDrawer
         isOpen={true}
         onClose={onCloseMock}
@@ -168,7 +188,7 @@ describe('TaskDetailDrawer - Component Tests', () => {
   })
 
   it('3. Đóng Drawer khi nhấn nút X', async () => {
-    render(
+    renderWithQuery(
       <TaskDetailDrawer
         isOpen={true}
         onClose={onCloseMock}

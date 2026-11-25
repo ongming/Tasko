@@ -23,6 +23,7 @@ import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { Select } from '@/components/ui/Select'
+import { TaskCommentsSection } from '@/components/project/TaskCommentsSection'
 import { useAuthStore } from '@/stores/authStore'
 import type { TaskItem, TaskPriority } from '@/types/task'
 import type { ProjectStatus, ProjectWorkType, CustomField } from '@/types/projectConfig'
@@ -81,9 +82,14 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
 
-  // Xác định xem user hiện tại có phải là VIEWER không
+  // Xác định vai trò của user hiện tại trong dự án
   const currentMember = members.find((m) => m.userId === currentUser?.id)
-  const isViewer = currentMember?.role?.name?.toUpperCase() === 'VIEWER'
+  const currentRoleName = currentMember?.role?.name?.toUpperCase()
+  const isViewer = currentRoleName === 'VIEWER'
+  const canModerateComments =
+    currentRoleName === 'OWNER' ||
+    currentRoleName === 'ADMIN' ||
+    (!currentMember && Boolean(currentUser))
 
   // 1. Tải cấu hình Project
   useEffect(() => {
@@ -606,6 +612,16 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                     </button>
                   </form>
                 </div>
+              )}
+
+              {/* Phân hệ Bình luận (QLC-01) */}
+              {task?.id && (
+                <TaskCommentsSection
+                  projectId={projectIdOrKey}
+                  taskId={task.id}
+                  isViewer={isViewer}
+                  canModerateComments={canModerateComments}
+                />
               )}
             </div>
 

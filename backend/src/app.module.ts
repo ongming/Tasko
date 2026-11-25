@@ -15,6 +15,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AiDocumentModule } from './modules/ai-document/ai-document.module.js';
+import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -65,6 +66,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     // 10. Phân hệ AI Phân tích tài liệu (AiDocument)
     AiDocumentModule,
+
+    // 11. Phân hệ Cộng tác: Bình luận trong Task (Collaboration)
+    CollaborationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
