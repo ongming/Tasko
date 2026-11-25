@@ -23,6 +23,7 @@ import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { Select } from '@/components/ui/Select'
+import { TaskAttachmentsSection } from '@/components/project/TaskAttachmentsSection'
 import { TaskCommentsSection } from '@/components/project/TaskCommentsSection'
 import { useAuthStore } from '@/stores/authStore'
 import type { TaskItem, TaskPriority } from '@/types/task'
@@ -612,6 +613,16 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                     </button>
                   </form>
                 </div>
+              )}
+
+              {/* Phân hệ Tệp đính kèm (QLC-02) */}
+              {task?.id && (
+                <TaskAttachmentsSection
+                  projectId={projectIdOrKey}
+                  taskId={task.id}
+                  isViewer={isViewer}
+                  canModerateAttachments={canModerateComments}
+                />
               )}
 
               {/* Phân hệ Bình luận (QLC-01) */}

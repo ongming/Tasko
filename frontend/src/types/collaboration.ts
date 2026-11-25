@@ -23,3 +23,25 @@ export interface CreateCommentPayload {
 export interface UpdateCommentPayload {
   content: string
 }
+
+export type AttachmentResourceType = 'image' | 'video' | 'raw'
+
+export interface TaskAttachmentUploader {
+  id: string
+  fullName: string
+  avatarUrl: string | null
+}
+
+export interface TaskAttachmentItem {
+  id: string
+  taskId: string
+  userId: string | null
+  fileName: string
+  fileUrl: string
+  publicId: string
+  resourceType: AttachmentResourceType
+  mimeType: string
+  fileSize: number
+  uploader: TaskAttachmentUploader | null
+  createdAt: string
+}

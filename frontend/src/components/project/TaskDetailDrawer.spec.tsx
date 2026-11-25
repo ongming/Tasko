@@ -7,6 +7,7 @@ import { taskService } from '@/services/taskService'
 import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { commentService } from '@/services/commentService'
+import { attachmentService } from '@/services/attachmentService'
 
 vi.mock('@/services/commentService', () => ({
   commentService: {
@@ -15,6 +16,15 @@ vi.mock('@/services/commentService', () => ({
     updateComment: vi.fn(),
     deleteComment: vi.fn(),
   },
+}))
+
+vi.mock('@/services/attachmentService', () => ({
+  attachmentService: {
+    getAttachments: vi.fn(),
+    uploadAttachment: vi.fn(),
+    deleteAttachment: vi.fn(),
+  },
+  validateAttachmentFile: vi.fn(() => null),
 }))
 
 const renderWithQuery = (ui: React.ReactElement) => {
@@ -131,6 +141,7 @@ describe('TaskDetailDrawer - Component Tests', () => {
     vi.mocked(projectService.getCustomFields).mockResolvedValue(mockCustomFields as any)
     vi.mocked(taskService.getTaskById).mockResolvedValue(mockTask as any)
     vi.mocked(commentService.getComments).mockResolvedValue([])
+    vi.mocked(attachmentService.getAttachments).mockResolvedValue([])
   })
 
   it('1. Render đầy đủ thông tin Task khi mở Drawer', async () => {
