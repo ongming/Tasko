@@ -493,10 +493,11 @@ export function useCreateProject() {
             category: w.category || 'IN_PROGRESS',
             color: w.color,
           })),
-          workTypes: workTypes.map((wt) => ({
+          workTypes: workTypes.map((wt, idx) => ({
             label: wt.label,
             icon: wt.iconKey,
             color: wt.color,
+            isModule: idx === 0,
           })),
           ...(pendingMembers.length > 0
             ? {

@@ -11,6 +11,7 @@ import type {
   Workflow,
   WorkflowTransition,
   CustomField,
+  ProjectLabel,
   CreateStatusPayload,
   UpdateStatusPayload,
   CreateWorkTypePayload,
@@ -26,6 +27,7 @@ export type {
   Workflow,
   WorkflowTransition,
   CustomField,
+  ProjectLabel,
   CreateStatusPayload,
   UpdateStatusPayload,
   CreateWorkTypePayload,
@@ -234,6 +236,38 @@ export const projectService = {
   deleteCustomField: (projectId: string, fieldId: string) =>
     api.delete<{ success: boolean; message: string }>(
       `/projects/${encodeURIComponent(projectId)}/custom-fields/${encodeURIComponent(fieldId)}`,
+    ),
+
+  // ==========================================
+  // LABELS
+  // ==========================================
+  /**
+   * Lấy danh sách nhãn của dự án
+   */
+  getProjectLabels: (projectId: string) =>
+    api.get<ProjectLabel[]>(`/projects/${encodeURIComponent(projectId)}/labels`),
+
+  /**
+   * Tạo nhãn mới trong dự án
+   */
+  createProjectLabel: (projectId: string, payload: { name: string; color?: string }) =>
+    api.post<ProjectLabel>(`/projects/${encodeURIComponent(projectId)}/labels`, payload),
+
+  /**
+   * Cập nhật nhãn
+   */
+  updateProjectLabel: (projectId: string, labelId: string, payload: { name?: string; color?: string }) =>
+    api.patch<ProjectLabel>(
+      `/projects/${encodeURIComponent(projectId)}/labels/${encodeURIComponent(labelId)}`,
+      payload,
+    ),
+
+  /**
+   * Xóa nhãn
+   */
+  deleteProjectLabel: (projectId: string, labelId: string) =>
+    api.delete<{ success: boolean; message: string }>(
+      `/projects/${encodeURIComponent(projectId)}/labels/${encodeURIComponent(labelId)}`,
     ),
 
   // ==========================================

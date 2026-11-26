@@ -41,6 +41,8 @@ export function KanbanBoardView() {
     filteredTasks,
     members,
     workTypes,
+    labels,
+    modules,
     filters,
     setFilters,
     isScrum,
@@ -228,6 +230,8 @@ export function KanbanBoardView() {
         onFilterChange={setFilters}
         members={members}
         workTypes={workTypes}
+        labels={labels}
+        modules={modules}
         totalCount={totalTasksCount}
         filteredCount={filteredTasks.length}
       />

@@ -7,6 +7,8 @@ import { ProjectMember } from './entities/project-member.entity.js';
 import { Workflow } from './entities/workflow.entity.js';
 import { WorkflowTransition } from './entities/workflow-transition.entity.js';
 import { CustomField } from './entities/custom-field.entity.js';
+import { Label } from './entities/label.entity.js';
+import { TaskLabel } from './entities/task-label.entity.js';
 import { Task } from '../tasks/entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
@@ -25,6 +27,8 @@ import { ProjectsService } from './projects.service.js';
       Workflow,
       WorkflowTransition,
       CustomField,
+      Label,
+      TaskLabel,
       Task,
       Workspace,
       WorkspaceMember,

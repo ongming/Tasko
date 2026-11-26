@@ -115,21 +115,20 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
       </div>
 
       <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-        {workTypes.map((wt) => {
-          return (
+        {workTypes
+          .filter((wt) => wt.isModule)
+          .map((wt) => (
             <div
               key={wt.id}
-              className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors gap-3"
+              className="flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors gap-3"
             >
               <div className="flex items-center gap-3">
                 <WorkTypeIcon type={wt} sizeClass="w-4 h-4" variant="badge" />
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-800">{wt.name}</span>
-                  {wt.isSubtask && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                      Subtask
-                    </span>
-                  )}
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                    Cấp cha (Module)
+                  </span>
                 </div>
               </div>
 
@@ -142,22 +141,54 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeletingWorkType(wt)
-                    const other = workTypes.find((w) => w.id !== wt.id)
-                    setFallbackWorkTypeId(other?.id || '')
-                  }}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                  title="Xóa loại công việc"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
-          )
-        })}
+          ))}
+        {workTypes
+          .filter((wt) => !wt.isModule)
+          .map((wt) => {
+            return (
+              <div
+                key={wt.id}
+                className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  <WorkTypeIcon type={wt} sizeClass="w-4 h-4" variant="badge" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">{wt.name}</span>
+                    {wt.isSubtask && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                        Subtask
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkTypeModal(wt)}
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                    title="Chỉnh sửa loại công việc"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletingWorkType(wt)
+                      const other = workTypes.find((w) => w.id !== wt.id && !w.isModule)
+                      setFallbackWorkTypeId(other?.id || '')
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    title="Xóa loại công việc"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
       </div>
 
       {/* Modal Thêm / Sửa Work Type */}
@@ -200,18 +231,20 @@ export const WorkTypesSettingsTab: React.FC<WorkTypesSettingsTabProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="subtask-checkbox"
-                  checked={wtFormIsSubtask}
-                  onChange={(e) => setWtFormIsSubtask(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                />
-                <label htmlFor="subtask-checkbox" className="text-xs text-slate-700 cursor-pointer">
-                  Đây là loại công việc con (Subtask)
-                </label>
-              </div>
+              {!editingWorkType?.isModule && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="subtask-checkbox"
+                    checked={wtFormIsSubtask}
+                    onChange={(e) => setWtFormIsSubtask(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                  />
+                  <label htmlFor="subtask-checkbox" className="text-xs text-slate-700 cursor-pointer">
+                    Đây là loại công việc con (Subtask)
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

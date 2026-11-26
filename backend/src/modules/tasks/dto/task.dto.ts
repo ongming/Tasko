@@ -57,6 +57,10 @@ export class CreateTaskDto {
   @IsOptional()
   parentTaskId?: string;
 
+  @IsUUID()
+  @IsOptional()
+  moduleId?: string | null;
+
   @IsNumber()
   @IsOptional()
   estimatedHours?: number;
@@ -72,6 +76,11 @@ export class CreateTaskDto {
   @IsArray()
   @IsOptional()
   customFields?: TaskCustomFieldValueInput[];
+
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  labelIds?: string[];
 }
 
 export class UpdateTaskDto {
@@ -115,6 +124,10 @@ export class UpdateTaskDto {
   @IsOptional()
   parentTaskId?: string | null;
 
+  @IsUUID()
+  @IsOptional()
+  moduleId?: string | null;
+
   @IsNumber()
   @IsOptional()
   estimatedHours?: number | null;
@@ -130,6 +143,11 @@ export class UpdateTaskDto {
   @IsArray()
   @IsOptional()
   customFields?: TaskCustomFieldValueInput[];
+
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  labelIds?: string[];
 }
 
 export class MoveTaskDto {
@@ -169,6 +187,14 @@ export class TaskQueryDto {
   @IsUUID()
   @IsOptional()
   workTypeId?: string;
+
+  @IsString()
+  @IsOptional()
+  moduleId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  labelId?: string;
 
   @IsString()
   @IsOptional()

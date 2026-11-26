@@ -79,6 +79,47 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
         {task.title}
       </div>
 
+      {/* Module badge */}
+      {task.module && (
+        <div className="mt-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80 max-w-full truncate"
+            title={`Module: ${task.module.taskKey} · ${task.module.title}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+            <span className="truncate">{task.module.title}</span>
+          </span>
+        </div>
+      )}
+
+      {/* Labels */}
+      {task.labels && task.labels.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 mt-2">
+          {task.labels.slice(0, 3).map((label) => (
+            <span
+              key={label.id}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium border border-slate-200/80 max-w-[110px] truncate"
+              style={{
+                backgroundColor: `${label.color}15`,
+                color: label.color,
+              }}
+              title={label.name}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: label.color }}
+              />
+              <span className="truncate">{label.name}</span>
+            </span>
+          ))}
+          {task.labels.length > 3 && (
+            <span className="text-[10px] font-medium text-slate-500 px-1 py-0.5 rounded bg-slate-100">
+              +{task.labels.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Footer: Key, WorkType icon, Story Points, Assignee */}
       <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-400">
         <div className="flex items-center gap-1.5 min-w-0">

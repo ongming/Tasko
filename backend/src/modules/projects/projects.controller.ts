@@ -32,6 +32,8 @@ import {
   CreateCustomFieldDto,
   UpdateCustomFieldDto,
   UpdateProjectSettingsDto,
+  CreateLabelDto,
+  UpdateLabelDto,
 } from './dto/project-config.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RbacPermissionGuard } from '../../common/guards/rbac-permission.guard.js';
@@ -290,6 +292,53 @@ export class ProjectsController {
     @Param('id') id: string,
   ) {
     return this.projectsService.deleteCustomField(projectId, id);
+  }
+
+  /**
+   * GET /api/v1/projects/:projectId/labels - Lấy danh sách nhãn của dự án
+   */
+  @Get(':projectId/labels')
+  @RequirePermission('PROJECT_VIEW_ONLY')
+  async getLabels(@Param('projectId') projectId: string) {
+    return this.projectsService.getLabels(projectId);
+  }
+
+  /**
+   * POST /api/v1/projects/:projectId/labels - Tạo nhãn mới trong dự án
+   */
+  @Post(':projectId/labels')
+  @RequirePermission('TASK_WRITE')
+  @HttpCode(HttpStatus.CREATED)
+  async createLabel(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateLabelDto,
+  ) {
+    return this.projectsService.createLabel(projectId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/projects/:projectId/labels/:labelId - Cập nhật nhãn
+   */
+  @Patch(':projectId/labels/:labelId')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async updateLabel(
+    @Param('projectId') projectId: string,
+    @Param('labelId') labelId: string,
+    @Body() dto: UpdateLabelDto,
+  ) {
+    return this.projectsService.updateLabel(projectId, labelId, dto);
+  }
+
+  /**
+   * DELETE /api/v1/projects/:projectId/labels/:labelId - Xóa nhãn
+   */
+  @Delete(':projectId/labels/:labelId')
+  @RequirePermission('PROJECT_CONFIGURE')
+  async deleteLabel(
+    @Param('projectId') projectId: string,
+    @Param('labelId') labelId: string,
+  ) {
+    return this.projectsService.deleteLabel(projectId, labelId);
   }
 
   /**

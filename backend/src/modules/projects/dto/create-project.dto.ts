@@ -60,6 +60,7 @@ export class CreateProjectDto {
     label: string;
     icon?: string;
     color?: string;
+    isModule?: boolean;
   }>;
 
   @IsArray({ message: 'members phải là một mảng' })

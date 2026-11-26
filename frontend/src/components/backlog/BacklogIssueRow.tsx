@@ -99,6 +99,41 @@ export const BacklogIssueRow: React.FC<BacklogIssueRowProps> = ({
         <span className="text-xs sm:text-sm font-medium text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
           {issue.title}
         </span>
+        {issue.module && (
+          <span
+            className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80 max-w-[130px] truncate shrink-0"
+            title={`Module: ${issue.module.taskKey} · ${issue.module.title}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+            <span className="truncate">{issue.module.title}</span>
+          </span>
+        )}
+        {issue.labels && issue.labels.length > 0 && (
+          <div className="hidden md:flex items-center gap-1 shrink-0">
+            {issue.labels.slice(0, 2).map((label) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium border border-slate-200/80 max-w-[96px] truncate"
+                style={{
+                  backgroundColor: `${label.color}15`,
+                  color: label.color,
+                }}
+                title={label.name}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: label.color }}
+                />
+                <span className="truncate">{label.name}</span>
+              </span>
+            ))}
+            {issue.labels.length > 2 && (
+              <span className="text-[10px] font-medium text-slate-500 px-1 py-0.5 rounded bg-slate-100">
+                +{issue.labels.length - 2}
+              </span>
+            )}
+          </div>
+        )}
         {issue.subtasks && issue.subtasks.length > 0 && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
             {issue.subtasks.length} subtasks

@@ -5,7 +5,7 @@ import { projectService } from '@/services/projectService'
 import type { Sprint } from '@/types/sprint'
 import type { TaskItem, TaskFilterParams } from '@/types/task'
 import type { ProjectMember } from '@/types/member'
-import type { ProjectWorkType } from '@/types/projectConfig'
+import type { ProjectLabel, ProjectWorkType } from '@/types/projectConfig'
 import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { resolveDropPosition } from '@/utils/dragPosition'
 
@@ -17,6 +17,7 @@ export function useBacklogBoard(projectParam: string) {
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [workTypes, setWorkTypes] = useState<ProjectWorkType[]>([])
+  const [labels, setLabels] = useState<ProjectLabel[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [filters, setFilters] = useState<TaskFilterParams>({})
 
@@ -52,16 +53,19 @@ export function useBacklogBoard(projectParam: string) {
     if (!projectParam) return
     try {
       setIsLoading(true)
-      const [loadedSprints, loadedTasks, loadedMembers, loadedWorkTypes] = await Promise.all([
-        sprintService.getSprints(projectParam),
-        taskService.getProjectTasks(projectParam),
-        projectService.getProjectMembers(projectParam).catch(() => []),
-        projectService.getProjectWorkTypes(projectParam).catch(() => []),
-      ])
+      const [loadedSprints, loadedTasks, loadedMembers, loadedWorkTypes, loadedLabels] =
+        await Promise.all([
+          sprintService.getSprints(projectParam),
+          taskService.getProjectTasks(projectParam),
+          projectService.getProjectMembers(projectParam).catch(() => []),
+          projectService.getProjectWorkTypes(projectParam).catch(() => []),
+          projectService.getProjectLabels?.(projectParam).catch(() => []) ?? Promise.resolve([]),
+        ])
       setSprints(loadedSprints)
       setTasks(loadedTasks)
       setMembers(loadedMembers)
       setWorkTypes(loadedWorkTypes)
+      setLabels(loadedLabels)
 
       const initialExpanded: Record<string, boolean> = {}
       loadedSprints.forEach((s) => {
@@ -81,6 +85,7 @@ export function useBacklogBoard(projectParam: string) {
 
   const filterTask = useCallback(
     (task: TaskItem) => {
+      if (task.type?.isModule) return false
       if (filters.search?.trim()) {
         const q = filters.search.toLowerCase()
         const matchTitle = task.title.toLowerCase().includes(q)
@@ -98,10 +103,17 @@ export function useBacklogBoard(projectParam: string) {
 
       if (filters.priority && task.priority !== filters.priority) return false
       if (filters.workTypeId && task.typeId !== filters.workTypeId) return false
+      if (filters.moduleId && task.moduleId !== filters.moduleId) return false
+      if (filters.labelId && !task.labels?.some((lb) => lb.id === filters.labelId)) return false
 
       return true
     },
     [filters],
+  )
+
+  const modules = useMemo(
+    () => tasks.filter((t) => Boolean(t.type?.isModule)),
+    [tasks],
   )
 
   const filteredTasks = useMemo(() => tasks.filter(filterTask), [tasks, filterTask])
@@ -365,6 +377,8 @@ export function useBacklogBoard(projectParam: string) {
     tasks,
     members,
     workTypes,
+    labels,
+    modules,
     isLoading,
     filters,
     setFilters,

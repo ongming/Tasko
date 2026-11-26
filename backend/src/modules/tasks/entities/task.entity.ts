@@ -16,6 +16,7 @@ import { Sprint } from '../../sprints/entities/sprint.entity.js';
 import { Status } from '../../projects/entities/status.entity.js';
 import { WorkType } from '../../projects/entities/work-type.entity.js';
 import { User } from '../../auth/entities/user.entity.js';
+import { TaskLabel } from '../../projects/entities/task-label.entity.js';
 
 export enum TaskPriority {
   LOW = 'LOW',
@@ -104,6 +105,19 @@ export class Task {
 
   @OneToMany(() => Task, (t) => t.parentTask)
   subtasks: Relation<Task>[];
+
+  @Column({ name: 'module_id', type: 'uuid', nullable: true })
+  module_id: string | null;
+
+  @ManyToOne(() => Task, (t) => t.moduleTasks, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'module_id' })
+  moduleTask: Relation<Task> | null;
+
+  @OneToMany(() => Task, (t) => t.moduleTask)
+  moduleTasks: Relation<Task>[];
+
+  @OneToMany(() => TaskLabel, (tl) => tl.task)
+  taskLabels: Relation<TaskLabel[]>;
 
   @Column({ name: 'estimated_hours', type: 'numeric', precision: 5, scale: 2, nullable: true })
   estimated_hours: number | null;

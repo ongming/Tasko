@@ -6,7 +6,7 @@ import type { Sprint } from '@/types/sprint'
 import type { TaskItem, TaskFilterParams } from '@/types/task'
 import type { Project } from '@/types/workspace'
 import type { ProjectMember } from '@/types/member'
-import type { ProjectWorkType } from '@/types/projectConfig'
+import type { ProjectLabel, ProjectWorkType } from '@/types/projectConfig'
 import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { resolveDropPosition } from '@/utils/dragPosition'
 import { isScrumProject } from '@/utils/projectMethod'
@@ -33,6 +33,7 @@ export function useKanbanBoard(projectParam: string) {
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [workTypes, setWorkTypes] = useState<ProjectWorkType[]>([])
+  const [labels, setLabels] = useState<ProjectLabel[]>([])
   const [filters, setFilters] = useState<TaskFilterParams>({})
   const [selectedSprintId, setSelectedSprintId] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
@@ -71,18 +72,21 @@ export function useKanbanBoard(projectParam: string) {
     if (!projectParam) return
     try {
       setIsLoading(true)
-      const [projData, statuses, loadedSprints, loadedMembers, loadedWorkTypes] = await Promise.all([
-        projectService.getProjectById(projectParam).catch(() => null),
-        projectService.getProjectStatuses(projectParam).catch(() => []),
-        sprintService.getSprints(projectParam).catch(() => []),
-        projectService.getProjectMembers(projectParam).catch(() => []),
-        projectService.getProjectWorkTypes(projectParam).catch(() => []),
-      ])
+      const [projData, statuses, loadedSprints, loadedMembers, loadedWorkTypes, loadedLabels] =
+        await Promise.all([
+          projectService.getProjectById(projectParam).catch(() => null),
+          projectService.getProjectStatuses(projectParam).catch(() => []),
+          sprintService.getSprints(projectParam).catch(() => []),
+          projectService.getProjectMembers(projectParam).catch(() => []),
+          projectService.getProjectWorkTypes(projectParam).catch(() => []),
+          projectService.getProjectLabels?.(projectParam).catch(() => []) ?? Promise.resolve([]),
+        ])
 
       if (projData) setProject(projData)
       setSprints(loadedSprints)
       setMembers(loadedMembers)
       setWorkTypes(loadedWorkTypes)
+      setLabels(loadedLabels)
 
       const started = loadedSprints.filter((s) => s.status === 'ACTIVE' || s.status === 'COMPLETED')
       const activeSprint = started.find((s) => s.status === 'ACTIVE')
@@ -159,6 +163,7 @@ export function useKanbanBoard(projectParam: string) {
   // 3. Lọc tasks
   const filterTask = useCallback(
     (task: TaskItem) => {
+      if (task.type?.isModule) return false
       if (filters.search?.trim()) {
         const q = filters.search.toLowerCase()
         const matchTitle = task.title.toLowerCase().includes(q)
@@ -176,10 +181,17 @@ export function useKanbanBoard(projectParam: string) {
 
       if (filters.priority && task.priority !== filters.priority) return false
       if (filters.workTypeId && task.typeId !== filters.workTypeId) return false
+      if (filters.moduleId && task.moduleId !== filters.moduleId) return false
+      if (filters.labelId && !task.labels?.some((lb) => lb.id === filters.labelId)) return false
 
       return true
     },
     [filters],
+  )
+
+  const modules = useMemo(
+    () => allTasks.filter((t) => Boolean(t.type?.isModule)),
+    [allTasks],
   )
 
   const filteredTasks = useMemo(() => allTasks.filter(filterTask), [allTasks, filterTask])
@@ -344,6 +356,8 @@ export function useKanbanBoard(projectParam: string) {
     filteredTasks,
     members,
     workTypes,
+    labels,
+    modules,
     filters,
     setFilters,
     isScrum,

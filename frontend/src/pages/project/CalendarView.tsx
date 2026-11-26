@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
+  CalendarOff,
   Loader2,
 } from 'lucide-react'
 import { taskService } from '@/services/taskService'
@@ -21,8 +22,37 @@ import { TaskDetailDrawer } from '@/components/project/TaskDetailDrawer'
 import { WorkTypeIcon } from '@/components/project/WorkTypeIcon'
 import { formatLocalDateKey } from '@/utils/dateFormat'
 
+type CalendarPillRole = 'start-only' | 'due-only' | 'start' | 'middle' | 'end'
+
+interface CalendarCellEntry {
+  task: TaskItem
+  role: CalendarPillRole
+  isDraggable: boolean
+}
+
+function toDateKey(value?: string | null): string | null {
+  if (!value) return null
+  return value.split('T')[0] || null
+}
+
+function diffDateKeys(fromKey: string, toKey: string): number {
+  const [fy, fm, fd] = fromKey.split('-').map(Number)
+  const [ty, tm, td] = toKey.split('-').map(Number)
+  const fromUtc = Date.UTC(fy, fm - 1, fd)
+  const toUtc = Date.UTC(ty, tm - 1, td)
+  return Math.round((toUtc - fromUtc) / (24 * 60 * 60 * 1000))
+}
+
+function shiftDateKey(dateKey: string, deltaDays: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays))
+  return dt.toISOString().split('T')[0]
+}
+
 interface CalendarTaskPillProps {
   task: TaskItem
+  role?: CalendarPillRole
+  isDraggable?: boolean
   renderWorkTypeIcon: (type?: { name: string; icon: string } | null) => React.ReactNode
   onClickTask?: (taskId: string) => void
   isOverlay?: boolean
@@ -30,13 +60,15 @@ interface CalendarTaskPillProps {
 
 function CalendarTaskPill({
   task,
+  role = 'due-only',
+  isDraggable = true,
   renderWorkTypeIcon,
   onClickTask,
   isOverlay = false,
 }: CalendarTaskPillProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
-    disabled: isOverlay,
+    disabled: isOverlay || !isDraggable,
   })
 
   const style: React.CSSProperties = {
@@ -57,17 +89,35 @@ function CalendarTaskPill({
     )
   }
 
+  const roleStyle =
+    role === 'middle'
+      ? 'bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/70'
+      : role === 'start' || role === 'start-only'
+        ? 'bg-slate-50 hover:bg-indigo-50/80 border-slate-200/80 border-l-2 border-l-indigo-500'
+        : 'bg-slate-50 hover:bg-indigo-50/80 border-slate-200/80 border-r-2 border-r-rose-400'
+
+  const roleHint =
+    role === 'start-only'
+      ? 'Ngày bắt đầu'
+      : role === 'start'
+        ? 'Bắt đầu khoảng thời gian'
+        : role === 'middle'
+          ? 'Đang trong khoảng thời gian'
+          : 'Hạn hoàn thành'
+
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
+      ref={isDraggable ? setNodeRef : undefined}
+      style={isDraggable ? style : undefined}
+      {...(isDraggable ? attributes : {})}
+      {...(isDraggable ? listeners : {})}
       onClick={() => onClickTask?.(task.id)}
-      className={`px-1.5 py-1 rounded bg-slate-50 hover:bg-indigo-50/80 border border-slate-200/70 hover:border-indigo-200 text-left transition-all cursor-pointer active:cursor-grabbing group flex items-center gap-1 shadow-2xs select-none ${
+      className={`px-1.5 py-1 rounded border text-left transition-all cursor-pointer ${
+        isDraggable ? 'active:cursor-grabbing' : ''
+      } group flex items-center gap-1 shadow-2xs select-none ${roleStyle} ${
         isDragging ? 'opacity-30 border-dashed border-indigo-400' : ''
       }`}
-      title={`${task.taskKey}: ${task.title}`}
+      title={`${task.taskKey}: ${task.title} (${roleHint})`}
     >
       {renderWorkTypeIcon(task.type)}
       <span className="font-mono text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 shrink-0">
@@ -85,7 +135,9 @@ interface CalendarDayCellProps {
   dayNumber: number
   isCurrentMonth: boolean
   isToday: boolean
-  dayTasks: TaskItem[]
+  entries: CalendarCellEntry[]
+  isExpanded: boolean
+  onToggleExpand: (dateKey: string) => void
   renderWorkTypeIcon: (type?: { name: string; icon: string } | null) => React.ReactNode
   onClickTask: (taskId: string) => void
 }
@@ -95,7 +147,9 @@ function CalendarDayCell({
   dayNumber,
   isCurrentMonth,
   isToday,
-  dayTasks,
+  entries,
+  isExpanded,
+  onToggleExpand,
   renderWorkTypeIcon,
   onClickTask,
 }: CalendarDayCellProps) {
@@ -103,10 +157,14 @@ function CalendarDayCell({
     id: dateKey,
   })
 
+  const MAX_VISIBLE = 3
+  const visibleEntries = isExpanded ? entries : entries.slice(0, MAX_VISIBLE)
+  const hiddenCount = entries.length - MAX_VISIBLE
+
   return (
     <div
       ref={setNodeRef}
-      className={`p-1.5 sm:p-2 min-h-[105px] flex flex-col transition-colors ${
+      className={`p-1.5 sm:p-2 min-h-[108px] flex flex-col transition-colors ${
         isOver
           ? 'bg-indigo-50/70 ring-2 ring-inset ring-indigo-300'
           : isCurrentMonth
@@ -114,7 +172,7 @@ function CalendarDayCell({
             : 'bg-slate-50/40 text-slate-300'
       }`}
     >
-      {/* Ngày & Badge hôm nay */}
+      {/* Ngày & Badge số lượng */}
       <div className="flex items-center justify-between mb-1.5 select-none">
         <span
           className={`text-xs font-semibold inline-flex items-center justify-center ${
@@ -128,23 +186,34 @@ function CalendarDayCell({
           {dayNumber}
         </span>
 
-        {dayTasks.length > 0 && (
+        {entries.length > 0 && (
           <span className="text-[10px] font-bold px-1 rounded bg-indigo-50 text-indigo-600">
-            {dayTasks.length}
+            {entries.length}
           </span>
         )}
       </div>
 
       {/* Danh sách Thẻ công việc trong ngày */}
-      <div className="flex flex-col gap-1 overflow-y-auto max-h-[120px] scrollbar-none">
-        {dayTasks.map((t) => (
+      <div className="flex flex-col gap-1">
+        {visibleEntries.map((entry) => (
           <CalendarTaskPill
-            key={t.id}
-            task={t}
+            key={`${entry.task.id}-${dateKey}`}
+            task={entry.task}
+            role={entry.role}
+            isDraggable={entry.isDraggable}
             renderWorkTypeIcon={renderWorkTypeIcon}
             onClickTask={onClickTask}
           />
         ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => onToggleExpand(dateKey)}
+            className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 text-left px-1 py-0.5 rounded hover:bg-indigo-50/70 transition-colors cursor-pointer"
+          >
+            {isExpanded ? 'Thu gọn' : `+${hiddenCount} khác`}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -158,6 +227,8 @@ export function CalendarView() {
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null)
+  const [showUnscheduled, setShowUnscheduled] = useState(true)
   const previousTasksRef = useRef<TaskItem[]>([])
   const scheduleDebouncedRef = useRef<
     (key: string, action: () => Promise<void> | void, delayMs?: number) => void
@@ -272,29 +343,66 @@ export function CalendarView() {
     return cells
   }, [year, month])
 
-  // Gom tasks theo ngày hạn chót ("YYYY-MM-DD")
+  // Gom tasks theo dải ngày startDate -> dueDate trên lưới lịch đang xem
   const tasksByDate = useMemo(() => {
-    const map = new Map<string, TaskItem[]>()
+    const map = new Map<string, CalendarCellEntry[]>()
+    const visibleKeys = new Set(calendarCells.map((c) => c.dateKey))
 
-    tasks.forEach((task) => {
-      if (!task.dueDate) return
-      // Trích xuất YYYY-MM-DD từ dueDate (ví dụ "2026-05-20T00:00:00.000Z")
-      const dateKey = task.dueDate.split('T')[0]
+    const pushEntry = (dateKey: string, entry: CalendarCellEntry) => {
       if (!map.has(dateKey)) {
         map.set(dateKey, [])
       }
-      map.get(dateKey)!.push(task)
+      map.get(dateKey)!.push(entry)
+    }
+
+    tasks.forEach((task) => {
+      const startKey = toDateKey(task.startDate)
+      const dueKey = toDateKey(task.dueDate)
+      if (!startKey && !dueKey) return
+
+      if (startKey && dueKey) {
+        if (startKey >= dueKey) {
+          if (visibleKeys.has(dueKey)) {
+            pushEntry(dueKey, { task, role: 'due-only', isDraggable: true })
+          }
+          return
+        }
+
+        const isEndVisible = visibleKeys.has(dueKey)
+        let assignedAnchor = false
+        calendarCells.forEach((cell) => {
+          if (cell.dateKey < startKey || cell.dateKey > dueKey) return
+          const role: CalendarPillRole =
+            cell.dateKey === startKey ? 'start' : cell.dateKey === dueKey ? 'end' : 'middle'
+          const isDraggable = isEndVisible
+            ? role === 'end'
+            : !assignedAnchor
+          if (isDraggable) assignedAnchor = true
+          pushEntry(cell.dateKey, { task, role, isDraggable })
+        })
+        return
+      }
+
+      if (dueKey && visibleKeys.has(dueKey)) {
+        pushEntry(dueKey, { task, role: 'due-only', isDraggable: true })
+      } else if (startKey && visibleKeys.has(startKey)) {
+        pushEntry(startKey, { task, role: 'start-only', isDraggable: true })
+      }
     })
 
     return map
+  }, [tasks, calendarCells])
+
+  const unscheduledTasks = useMemo(() => {
+    return tasks.filter((t) => !toDateKey(t.startDate) && !toDateKey(t.dueDate))
   }, [tasks])
 
   const renderWorkTypeIcon = (type?: { name: string; icon: string } | null) => (
     <WorkTypeIcon type={type} sizeClass="w-3 h-3" />
   )
 
-  const tasksWithDueDateCount = useMemo(() => {
-    return tasks.filter((t) => !!t.dueDate).length
+  const scheduledTasksCount = useMemo(() => {
+    return tasks.filter((t) => Boolean(toDateKey(t.startDate) || toDateKey(t.dueDate))).length
   }, [tasks])
 
   const handleStartDrag = useCallback(() => {
@@ -305,26 +413,47 @@ export function CalendarView() {
     (activeId: string, overId: string, activeTaskItem: TaskItem) => {
       // overId là dateKey dạng "YYYY-MM-DD"
       if (!/^\d{4}-\d{2}-\d{2}$/.test(overId)) return
-      const currentDateKey = activeTaskItem.dueDate ? activeTaskItem.dueDate.split('T')[0] : null
-      if (currentDateKey === overId) return
+
+      const startKey = toDateKey(activeTaskItem.startDate)
+      const dueKey = toDateKey(activeTaskItem.dueDate)
+      const anchorKey = dueKey || startKey
+
+      if (anchorKey === overId) return
 
       const pristineTasks = previousTasksRef.current
-      const newDueDate = `${overId}T00:00:00.000Z`
+      let nextStartDate = activeTaskItem.startDate ?? null
+      let nextDueDate = activeTaskItem.dueDate ?? null
+      const payload: { startDate?: string; dueDate?: string } = {}
+
+      if (startKey && dueKey) {
+        const delta = diffDateKeys(dueKey, overId)
+        const shiftedStart = shiftDateKey(startKey, delta)
+        nextStartDate = `${shiftedStart}T00:00:00.000Z`
+        nextDueDate = `${overId}T00:00:00.000Z`
+        payload.startDate = nextStartDate
+        payload.dueDate = nextDueDate
+      } else if (startKey && !dueKey) {
+        nextStartDate = `${overId}T00:00:00.000Z`
+        payload.startDate = nextStartDate
+      } else {
+        nextDueDate = `${overId}T00:00:00.000Z`
+        payload.dueDate = nextDueDate
+      }
 
       // Optimistic Update tức thì trên Lịch
       setTasks((prev) =>
-        prev.map((t) => (t.id === activeId ? { ...t, dueDate: newDueDate } : t)),
+        prev.map((t) =>
+          t.id === activeId ? { ...t, startDate: nextStartDate, dueDate: nextDueDate } : t,
+        ),
       )
 
-      // Debounce 600ms mới gọi API cập nhật dueDate
+      // Debounce 600ms mới gọi API cập nhật ngày
       scheduleDebouncedRef.current(activeId, async () => {
         if (!projectParam) return
         try {
-          await taskService.updateProjectTask(projectParam, activeId, {
-            dueDate: newDueDate,
-          })
+          await taskService.updateProjectTask(projectParam, activeId, payload)
         } catch (err) {
-          console.error('Failed to persist calendar task dueDate:', err)
+          console.error('Failed to persist calendar task dates:', err)
           setTasks(pristineTasks)
         }
       })
@@ -387,12 +516,28 @@ export function CalendarView() {
           </button>
         </div>
 
-        {/* Bên phải: Tổng số việc có hạn chót */}
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
-          <span>
-            <strong className="text-slate-800 font-semibold">{tasksWithDueDateCount}</strong> / {tasks.length} công việc có hạn chót
-          </span>
+        {/* Bên phải: Tổng số việc đã lên lịch & nút bật/tắt khu Chưa lên lịch */}
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              <strong className="text-slate-800 font-semibold">{scheduledTasksCount}</strong> / {tasks.length} công việc đã lên lịch
+            </span>
+          </div>
+          {unscheduledTasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowUnscheduled((prev) => !prev)}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${
+                showUnscheduled
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                  : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <CalendarOff className="w-3.5 h-3.5" />
+              <span>Chưa lên lịch ({unscheduledTasks.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -403,7 +548,7 @@ export function CalendarView() {
         </div>
       )}
 
-      {/* 2. Lưới Lịch Công việc phẳng chuẩn Impeccable (hỗ trợ kéo thả đổi ngày hạn chót) */}
+      {/* 2. Lưới Lịch Công việc phẳng chuẩn Impeccable + Khu Chưa lên lịch */}
       {!isLoading && (
         <DndContext
           sensors={sensors}
@@ -412,35 +557,66 @@ export function CalendarView() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
-            {/* Header 7 Ngày trong tuần */}
-            <div className="grid grid-cols-7 border-b border-slate-200/80 bg-slate-50/70 text-center py-2 text-xs font-bold text-slate-600 select-none">
-              {weekDays.map((day) => (
-                <div key={day}>{day}</div>
-              ))}
+          <div className="flex flex-col lg:flex-row gap-4 items-start">
+            <div className="flex-1 min-w-0 w-full bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+              {/* Header 7 Ngày trong tuần */}
+              <div className="grid grid-cols-7 border-b border-slate-200/80 bg-slate-50/70 text-center py-2 text-xs font-bold text-slate-600 select-none">
+                {weekDays.map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
+
+              {/* Lưới các ô Ngày */}
+              <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 min-h-[580px]">
+                {calendarCells.map((cell) => {
+                  const entries = tasksByDate.get(cell.dateKey) || []
+
+                  return (
+                    <CalendarDayCell
+                      key={cell.dateKey}
+                      dateKey={cell.dateKey}
+                      dayNumber={cell.dayNumber}
+                      isCurrentMonth={cell.isCurrentMonth}
+                      isToday={cell.isToday}
+                      entries={entries}
+                      isExpanded={expandedDayKey === cell.dateKey}
+                      onToggleExpand={(key) =>
+                        setExpandedDayKey((prev) => (prev === key ? null : key))
+                      }
+                      renderWorkTypeIcon={renderWorkTypeIcon}
+                      onClickTask={(taskId) => {
+                        if (!shouldIgnoreClick()) setSelectedTaskId(taskId)
+                      }}
+                    />
+                  )
+                })}
+              </div>
             </div>
 
-            {/* Lưới các ô Ngày */}
-            <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 min-h-[580px]">
-              {calendarCells.map((cell) => {
-                const dayTasks = tasksByDate.get(cell.dateKey) || []
-
-                return (
-                  <CalendarDayCell
-                    key={cell.dateKey}
-                    dateKey={cell.dateKey}
-                    dayNumber={cell.dayNumber}
-                    isCurrentMonth={cell.isCurrentMonth}
-                    isToday={cell.isToday}
-                    dayTasks={dayTasks}
-                    renderWorkTypeIcon={renderWorkTypeIcon}
-                    onClickTask={(taskId) => {
-                      if (!shouldIgnoreClick()) setSelectedTaskId(taskId)
-                    }}
-                  />
-                )
-              })}
-            </div>
+            {showUnscheduled && unscheduledTasks.length > 0 && (
+              <aside className="w-full lg:w-64 shrink-0 bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 h-fit self-start">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-800">
+                    Chưa lên lịch ({unscheduledTasks.length})
+                  </span>
+                  <span className="text-[10px] text-slate-400">Kéo vào lịch</span>
+                </div>
+                <div className="flex flex-col gap-1.5 max-h-[520px] overflow-y-auto">
+                  {unscheduledTasks.map((task) => (
+                    <CalendarTaskPill
+                      key={task.id}
+                      task={task}
+                      role="due-only"
+                      isDraggable={true}
+                      renderWorkTypeIcon={renderWorkTypeIcon}
+                      onClickTask={(taskId) => {
+                        if (!shouldIgnoreClick()) setSelectedTaskId(taskId)
+                      }}
+                    />
+                  ))}
+                </div>
+              </aside>
+            )}
           </div>
 
           <DragOverlay>

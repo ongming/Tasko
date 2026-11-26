@@ -8,6 +8,8 @@ import { Project } from '../projects/entities/project.entity.js';
 import { CustomField } from '../projects/entities/custom-field.entity.js';
 import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
 import { Workflow } from '../projects/entities/workflow.entity.js';
+import { Label } from '../projects/entities/label.entity.js';
+import { TaskLabel } from '../projects/entities/task-label.entity.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksService } from './tasks.service.js';
 
@@ -22,6 +24,8 @@ import { TasksService } from './tasks.service.js';
       CustomField,
       WorkflowTransition,
       Workflow,
+      Label,
+      TaskLabel,
     ]),
   ],
   controllers: [TasksController],

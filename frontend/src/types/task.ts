@@ -1,3 +1,5 @@
+import type { ProjectLabel } from './projectConfig';
+
 export interface Assignee {
   name: string;
   bg: string;
@@ -51,7 +53,7 @@ export interface TaskItem {
   title: string;
   description?: string | null;
   typeId?: string | null;
-  type?: { id: string; name: string; icon: string; color: string } | null;
+  type?: { id: string; name: string; icon: string; color: string; isModule?: boolean } | null;
   statusId: string;
   status?: { id: string; name: string; category: 'TODO' | 'IN_PROGRESS' | 'DONE'; color: string } | null;
   storyPoints?: number | null;
@@ -63,11 +65,15 @@ export interface TaskItem {
   position: number;
   parentTaskId?: string | null;
   parentTask?: { id: string; taskKey: string; title: string } | null;
+  moduleId?: string | null;
+  module?: { id: string; taskKey: string; title: string } | null;
+  moduleTasks?: TaskItem[];
   subtasks?: TaskItem[];
   estimatedHours?: number | null;
   startDate?: string | null;
   dueDate?: string | null;
   customFields?: TaskCustomFieldValue[];
+  labels?: ProjectLabel[];
   workflowWarning?: string;
   createdAt: string;
   updatedAt: string;
@@ -87,10 +93,12 @@ export interface CreateTaskPayload {
   status?: string;
   tag?: string;
   parentTaskId?: string | null;
+  moduleId?: string | null;
   estimatedHours?: number | null;
   startDate?: string | null;
   dueDate?: string | null;
   customFields?: Array<{ customFieldId: string; value: any }>;
+  labelIds?: string[];
 }
 
 export interface UpdateTaskPayload {
@@ -104,10 +112,12 @@ export interface UpdateTaskPayload {
   assigneeId?: string | null;
   position?: number;
   parentTaskId?: string | null;
+  moduleId?: string | null;
   estimatedHours?: number | null;
   startDate?: string | null;
   dueDate?: string | null;
   customFields?: Array<{ customFieldId: string; value: any }>;
+  labelIds?: string[];
 }
 
 export interface MoveTaskPayload {
@@ -122,6 +132,8 @@ export interface TaskFilterParams {
   isBacklog?: boolean;
   statusId?: string;
   workTypeId?: string;
+  moduleId?: string;
+  labelId?: string;
   assigneeId?: string;
   priority?: TaskPriority | string;
   sortBy?: 'position' | 'dueDate' | 'priority' | 'createdAt' | string;

@@ -31,6 +31,15 @@ export interface CustomField {
   updatedAt?: string
 }
 
+export interface ProjectLabel {
+  id: string
+  projectId?: string
+  name: string
+  color: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface CustomFieldValue {
   id: string
   taskId: string
@@ -58,6 +67,7 @@ export interface ProjectWorkType {
   color: string
   is_default: boolean
   isSubtask?: boolean
+  isModule?: boolean
   workflowId?: string | null
   workflow?: Workflow | null
 }

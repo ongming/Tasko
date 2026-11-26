@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   ConflictException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
@@ -14,6 +15,7 @@ import { ProjectMember, ProjectRole } from './entities/project-member.entity.js'
 import { Workflow } from './entities/workflow.entity.js';
 import { WorkflowTransition } from './entities/workflow-transition.entity.js';
 import { CustomField, CustomFieldType } from './entities/custom-field.entity.js';
+import { Label } from './entities/label.entity.js';
 import { Task } from '../tasks/entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
@@ -40,6 +42,8 @@ import {
   CreateCustomFieldDto,
   UpdateCustomFieldDto,
   UpdateProjectSettingsDto,
+  CreateLabelDto,
+  UpdateLabelDto,
 } from './dto/project-config.dto.js';
 
 @Injectable()
@@ -82,6 +86,10 @@ export class ProjectsService {
     private readonly roleRepository: Repository<Role>,
 
     private readonly dataSource: DataSource,
+
+    @Optional()
+    @InjectRepository(Label)
+    private readonly labelRepository?: Repository<Label>,
   ) {}
 
   /**
@@ -303,13 +311,21 @@ export class ProjectsService {
 
       // 4.5. Tự động sinh các Loại công việc (WorkType) và gán workflowId của Default Workflow
       const defaultWorkTypes = [
-        { label: 'Task', icon: 'CheckSquare', color: 'bg-blue-100 text-blue-700' },
-        { label: 'Bug', icon: 'Bug', color: 'bg-rose-100 text-rose-700' },
-        { label: 'Story', icon: 'BookOpen', color: 'bg-purple-100 text-purple-700' },
+        { label: 'Module', icon: 'Package', color: 'bg-purple-100 text-purple-700', isModule: true },
+        { label: 'Task', icon: 'CheckSquare', color: 'bg-blue-100 text-blue-700', isModule: false },
+        { label: 'Bug', icon: 'Bug', color: 'bg-rose-100 text-rose-700', isModule: false },
       ];
 
       const workTypesToCreate =
-        dto.workTypes && dto.workTypes.length > 0 ? dto.workTypes : defaultWorkTypes;
+        dto.workTypes && dto.workTypes.length > 0
+          ? dto.workTypes.map((wt, index) => ({
+              ...wt,
+              isModule: wt.isModule ?? index === 0,
+            }))
+          : defaultWorkTypes;
+
+      const firstStandardIdx = workTypesToCreate.findIndex((wt) => !wt.isModule);
+      const defaultIdx = firstStandardIdx >= 0 ? firstStandardIdx : 0;
 
       const workTypeEntities = workTypesToCreate.map((wt, index) =>
         queryRunner.manager.create(WorkType, {
@@ -317,7 +333,8 @@ export class ProjectsService {
           name: wt.label,
           icon: wt.icon || 'CheckSquare',
           color: wt.color || 'bg-blue-100 text-blue-700',
-          is_default: index === 0,
+          is_default: index === defaultIdx,
+          isModule: Boolean(wt.isModule),
           workflowId: savedWorkflow.id,
         }),
       );
@@ -409,11 +426,24 @@ export class ProjectsService {
       throw new NotFoundException('Dự án không tồn tại!');
     }
 
-    return this.workTypeRepository.find({
+    const list = await this.workTypeRepository.find({
       where: { project_id: project.id },
       relations: { workflow: true },
       order: { created_at: 'ASC' },
     });
+
+    if (list.length > 0 && !list.some((wt) => wt.isModule)) {
+      const legacyModule = list.find((wt) => {
+        const lower = wt.name.trim().toLowerCase();
+        return lower === 'module' || lower === 'epic';
+      });
+      if (legacyModule) {
+        legacyModule.isModule = true;
+        await this.workTypeRepository.save(legacyModule);
+      }
+    }
+
+    return list;
   }
 
   /**
@@ -715,6 +745,7 @@ export class ProjectsService {
       icon: dto.icon || 'CheckSquare',
       color: dto.color || 'bg-blue-100 text-blue-700',
       isSubtask: dto.isSubtask ?? false,
+      isModule: false,
       workflowId: resolvedWorkflowId,
     });
 
@@ -732,6 +763,9 @@ export class ProjectsService {
     });
     if (!wt) {
       throw new NotFoundException('Loại công việc không tồn tại!');
+    }
+    if (wt.isModule) {
+      throw new BadRequestException('Không thể xóa loại công việc Module (cấp cha mặc định của dự án)!');
     }
 
     if (dto.workflowId) {
@@ -767,6 +801,9 @@ export class ProjectsService {
     });
     if (!wt) {
       throw new NotFoundException('Loại công việc không tồn tại!');
+    }
+    if (wt.isModule) {
+      throw new BadRequestException('Không thể xóa loại công việc Module (cấp cha mặc định của dự án)!');
     }
 
     const taskCount = await this.taskRepository.count({
@@ -1213,6 +1250,118 @@ export class ProjectsService {
 
     await this.customFieldRepository.remove(cf);
     return { success: true, message: 'Xóa trường tùy chỉnh thành công!' };
+  }
+
+  // ==========================================
+  // 14b. QUẢN LÝ NHÃN (LABELS)
+  // ==========================================
+  async getLabels(identifier: string): Promise<Label[]> {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+    if (!this.labelRepository) return [];
+
+    return this.labelRepository.find({
+      where: { projectId: project.id },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async createLabel(identifier: string, dto: CreateLabelDto): Promise<Label> {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+    if (!this.labelRepository) {
+      throw new BadRequestException('Chưa khởi tạo kho lưu trữ nhãn!');
+    }
+
+    const normalizedName = dto.name.trim();
+    if (!normalizedName) {
+      throw new BadRequestException('Tên nhãn không được để trống!');
+    }
+
+    const existingLabels = await this.labelRepository.find({
+      where: { projectId: project.id },
+    });
+    const duplicated = existingLabels.find(
+      (l) => l.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
+    if (duplicated) {
+      throw new ConflictException(`Nhãn '${normalizedName}' đã tồn tại trong dự án!`);
+    }
+
+    const label = this.labelRepository.create({
+      projectId: project.id,
+      name: normalizedName,
+      color: dto.color?.trim() || '#6366f1',
+    });
+
+    return this.labelRepository.save(label);
+  }
+
+  async updateLabel(identifier: string, labelId: string, dto: UpdateLabelDto): Promise<Label> {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+    if (!this.labelRepository) {
+      throw new BadRequestException('Chưa khởi tạo kho lưu trữ nhãn!');
+    }
+
+    const label = await this.labelRepository.findOne({
+      where: { id: labelId, projectId: project.id },
+    });
+    if (!label) {
+      throw new NotFoundException('Nhãn không tồn tại trong dự án!');
+    }
+
+    if (dto.name !== undefined) {
+      const normalizedName = dto.name.trim();
+      if (!normalizedName) {
+        throw new BadRequestException('Tên nhãn không được để trống!');
+      }
+      const existingLabels = await this.labelRepository.find({
+        where: { projectId: project.id },
+      });
+      const duplicated = existingLabels.find(
+        (l) => l.id !== label.id && l.name.toLowerCase() === normalizedName.toLowerCase(),
+      );
+      if (duplicated) {
+        throw new ConflictException(`Nhãn '${normalizedName}' đã tồn tại trong dự án!`);
+      }
+      label.name = normalizedName;
+    }
+
+    if (dto.color !== undefined) {
+      label.color = dto.color.trim() || '#6366f1';
+    }
+
+    return this.labelRepository.save(label);
+  }
+
+  async deleteLabel(
+    identifier: string,
+    labelId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const project = await this.findProjectEntity(identifier);
+    if (!project) {
+      throw new NotFoundException('Dự án không tồn tại!');
+    }
+    if (!this.labelRepository) {
+      throw new BadRequestException('Chưa khởi tạo kho lưu trữ nhãn!');
+    }
+
+    const label = await this.labelRepository.findOne({
+      where: { id: labelId, projectId: project.id },
+    });
+    if (!label) {
+      throw new NotFoundException('Nhãn không tồn tại trong dự án!');
+    }
+
+    await this.labelRepository.remove(label);
+    return { success: true, message: 'Xóa nhãn thành công!' };
   }
 
   // ==========================================

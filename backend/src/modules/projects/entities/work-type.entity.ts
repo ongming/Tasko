@@ -40,6 +40,9 @@ export class WorkType {
   @Column({ name: 'is_subtask', type: 'boolean', default: false })
   isSubtask: boolean;
 
+  @Column({ name: 'is_module', type: 'boolean', default: false })
+  isModule: boolean;
+
   @Column({ name: 'workflow_id', type: 'uuid', nullable: true })
   workflowId: string | null;
 

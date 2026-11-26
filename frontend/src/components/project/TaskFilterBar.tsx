@@ -11,15 +11,17 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { Select } from '@/components/ui/Select'
-import type { TaskFilterParams, TaskPriority } from '@/types/task'
+import type { TaskFilterParams, TaskItem, TaskPriority } from '@/types/task'
 import type { ProjectMember } from '@/types/member'
-import type { ProjectWorkType } from '@/types/projectConfig'
+import type { ProjectLabel, ProjectWorkType } from '@/types/projectConfig'
 
 interface TaskFilterBarProps {
   filters: TaskFilterParams
   onFilterChange: (filters: TaskFilterParams) => void
   members?: ProjectMember[]
   workTypes?: ProjectWorkType[]
+  labels?: ProjectLabel[]
+  modules?: TaskItem[]
   totalCount?: number
   filteredCount?: number
 }
@@ -29,6 +31,8 @@ export const TaskFilterBar: React.FC<TaskFilterBarProps> = ({
   onFilterChange,
   members = [],
   workTypes = [],
+  labels = [],
+  modules = [],
   totalCount = 0,
   filteredCount = 0,
 }) => {
@@ -54,7 +58,9 @@ export const TaskFilterBar: React.FC<TaskFilterBarProps> = ({
     (filters.search && filters.search.trim()) ||
       filters.assigneeId ||
       filters.priority ||
-      filters.workTypeId,
+      filters.workTypeId ||
+      filters.moduleId ||
+      filters.labelId,
   )
 
   const isMyTasksActive = filters.assigneeId === currentUser?.id
@@ -195,6 +201,38 @@ export const TaskFilterBar: React.FC<TaskFilterBarProps> = ({
               ...workTypes.map((wt) => ({
                 value: wt.id,
                 label: wt.name,
+              })),
+            ]}
+          />
+        )}
+
+        {/* Bộ lọc Module */}
+        {modules.length > 0 && (
+          <Select
+            className="w-auto min-w-[140px] h-8 text-xs font-medium bg-white border-slate-200 shadow-2xs"
+            value={filters.moduleId || ''}
+            onChange={(val) => onFilterChange({ ...filters, moduleId: val || undefined })}
+            options={[
+              { value: '', label: 'Module: Tất cả' },
+              ...modules.map((m) => ({
+                value: m.id,
+                label: `${m.taskKey} · ${m.title}`,
+              })),
+            ]}
+          />
+        )}
+
+        {/* Bộ lọc Nhãn */}
+        {labels.length > 0 && (
+          <Select
+            className="w-auto min-w-[130px] h-8 text-xs font-medium bg-white border-slate-200 shadow-2xs"
+            value={filters.labelId || ''}
+            onChange={(val) => onFilterChange({ ...filters, labelId: val || undefined })}
+            options={[
+              { value: '', label: 'Nhãn: Tất cả' },
+              ...labels.map((lb) => ({
+                value: lb.id,
+                label: lb.name,
               })),
             ]}
           />

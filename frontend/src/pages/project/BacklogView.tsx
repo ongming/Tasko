@@ -32,6 +32,8 @@ export function BacklogView() {
     tasks,
     members,
     workTypes,
+    labels,
+    modules,
     isLoading,
     filters,
     setFilters,
@@ -177,6 +179,8 @@ export function BacklogView() {
           onFilterChange={setFilters}
           members={members}
           workTypes={workTypes}
+          labels={labels}
+          modules={modules}
           totalCount={tasks.length}
           filteredCount={filteredTasks.length}
         />

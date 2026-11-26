@@ -18,6 +18,7 @@ import { ProjectMember, ProjectRole } from './entities/project-member.entity.js'
 import { Workflow } from './entities/workflow.entity.js';
 import { WorkflowTransition } from './entities/workflow-transition.entity.js';
 import { CustomField, CustomFieldType } from './entities/custom-field.entity.js';
+import { Label } from './entities/label.entity.js';
 import { Task } from '../tasks/entities/task.entity.js';
 import { Workspace } from '../workspaces/entities/workspace.entity.js';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
@@ -40,6 +41,7 @@ describe('ProjectsService - Unit Tests', () => {
   let workflowRepo: Partial<Repository<Workflow>>;
   let workflowTransitionRepo: Partial<Repository<WorkflowTransition>>;
   let customFieldRepo: Partial<Repository<CustomField>>;
+  let labelRepo: Partial<Repository<Label>>;
   let taskRepo: Partial<Repository<Task>>;
   let mockQueryRunner: any;
 
@@ -137,6 +139,14 @@ describe('ProjectsService - Unit Tests', () => {
       remove: vi.fn(),
     };
 
+    labelRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn(),
+      create: vi.fn((data: any) => ({ ...data, id: 'label-mock-id' } as Label)),
+      save: vi.fn(async (data: any) => ({ ...data, id: data.id || 'label-mock-id' })),
+      remove: vi.fn(),
+    };
+
     taskRepo = {
       count: vi.fn().mockResolvedValue(0),
       update: vi.fn().mockResolvedValue(undefined),
@@ -185,6 +195,7 @@ describe('ProjectsService - Unit Tests', () => {
         { provide: getRepositoryToken(Workflow), useValue: workflowRepo },
         { provide: getRepositoryToken(WorkflowTransition), useValue: workflowTransitionRepo },
         { provide: getRepositoryToken(CustomField), useValue: customFieldRepo },
+        { provide: getRepositoryToken(Label), useValue: labelRepo },
         { provide: getRepositoryToken(Task), useValue: taskRepo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(WorkspaceMember), useValue: memberRepo },
@@ -799,6 +810,64 @@ describe('ProjectsService - Unit Tests', () => {
 
       expect(result.methodology).toBe(ProjectMethodology.SCRUM);
       expect(result.settings?.views).toContain('backlog');
+    });
+  });
+
+  describe('Labels CRUD', () => {
+    it('tạo nhãn mới thành công khi tên chưa tồn tại', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      labelRepo.findOne = vi.fn().mockResolvedValue(null);
+      labelRepo.save = vi.fn().mockResolvedValue({
+        id: 'label-1',
+        projectId: 'proj-1',
+        name: 'Frontend',
+        color: '#4f46e5',
+      } as Label);
+
+      const result = await service.createLabel('proj-1', {
+        name: '  Frontend  ',
+        color: '#4f46e5',
+      });
+
+      expect(result.name).toBe('Frontend');
+      expect(result.color).toBe('#4f46e5');
+    });
+
+    it('ném ConflictException khi tạo nhãn trùng tên trong dự án', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      labelRepo.find = vi.fn().mockResolvedValue([{ id: 'label-1', name: 'Frontend' } as Label]);
+
+      await expect(
+        service.createLabel('proj-1', { name: 'frontend', color: '#4f46e5' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('xóa nhãn thành công và ném NotFoundException khi không tồn tại', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      labelRepo.findOne = vi.fn().mockResolvedValue({ id: 'label-1', projectId: 'proj-1' } as Label);
+
+      const res = await service.deleteLabel('proj-1', 'label-1');
+      expect(res.success).toBe(true);
+      expect(labelRepo.remove).toHaveBeenCalled();
+
+      labelRepo.findOne = vi.fn().mockResolvedValue(null);
+      await expect(service.deleteLabel('proj-1', 'missing')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('WorkType Module protection', () => {
+    it('chặn xóa loại công việc có isModule = true', async () => {
+      projectRepo.findOne = vi.fn().mockResolvedValue({ id: 'proj-1' });
+      workTypeRepo.findOne = vi.fn().mockResolvedValue({
+        id: 'wt-mod',
+        project_id: 'proj-1',
+        name: 'Module',
+        isModule: true,
+      } as WorkType);
+
+      await expect(service.deleteWorkType('proj-1', 'wt-mod')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

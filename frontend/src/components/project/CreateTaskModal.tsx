@@ -18,6 +18,7 @@ import { projectService } from '@/services/projectService'
 import { sprintService } from '@/services/sprintService'
 import { isScrumProject } from '@/utils/projectMethod'
 import { Select } from '@/components/ui/Select'
+import { CreateModuleModal } from '@/components/project/CreateModuleModal'
 import type { TaskItem, TaskPriority } from '@/types/task'
 import type { ProjectStatus, ProjectWorkType, CustomField } from '@/types/projectConfig'
 import type { ProjectMember } from '@/types/member'
@@ -43,6 +44,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [workTypeId, setWorkTypeId] = useState('')
+  const [moduleId, setModuleId] = useState('')
   const [statusId, setStatusId] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM')
   const [assigneeId, setAssigneeId] = useState('')
@@ -56,6 +58,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   // Cấu hình dự án
   const [statuses, setStatuses] = useState<ProjectStatus[]>([])
   const [workTypes, setWorkTypes] = useState<ProjectWorkType[]>([])
+  const [moduleItems, setModuleItems] = useState<TaskItem[]>([])
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [customFields, setCustomFields] = useState<CustomField[]>([])
@@ -64,6 +67,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isCreateModuleModalOpen, setIsCreateModuleModalOpen] = useState(false)
 
   useEffect(() => {
     if (!isOpen || !projectIdOrKey) return
@@ -71,7 +75,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     const fetchConfig = async () => {
       try {
         setIsLoading(true)
-        const [projData, loadedStatuses, loadedTypes, loadedMembers, loadedSprints, loadedCfs] =
+        const [projData, loadedStatuses, loadedTypes, loadedMembers, loadedSprints, loadedCfs, loadedTasks] =
           await Promise.all([
             projectService.getProjectById(projectIdOrKey).catch(() => null),
             projectService.getProjectStatuses(projectIdOrKey).catch(() => []),
@@ -79,11 +83,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             projectService.getProjectMembers(projectIdOrKey).catch(() => []),
             sprintService.getSprints(projectIdOrKey).catch(() => []),
             projectService.getCustomFields(projectIdOrKey).catch(() => []),
+            taskService.getProjectTasks(projectIdOrKey).catch(() => []),
           ])
 
         setIsScrum(Boolean(initialSprintId) || isScrumProject(projData))
         setStatuses(loadedStatuses)
         setWorkTypes(loadedTypes)
+        setModuleItems(loadedTasks.filter((t) => Boolean(t.type?.isModule)))
         setMembers(loadedMembers)
         setSprints(loadedSprints)
         setCustomFields(loadedCfs)
@@ -93,8 +99,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           setStatusId(initialStatusId || loadedStatuses[0].id)
         }
         if (loadedTypes.length > 0) {
-          setWorkTypeId(loadedTypes[0].id)
+          const defaultNonModule = loadedTypes.find((wt) => !wt.isModule)
+          setWorkTypeId(defaultNonModule?.id || loadedTypes[0].id)
         }
+        setModuleId('')
         setSprintId(initialSprintId ?? null)
       } catch (err) {
         console.error('Failed to load project config for create task modal:', err)
@@ -139,10 +147,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         .filter(([_, v]) => v !== undefined && v !== null && v !== '')
         .map(([customFieldId, value]) => ({ customFieldId, value }))
 
+      const selectedType = workTypes.find((wt) => wt.id === workTypeId)
       const payload = {
         title: title.trim(),
         description: description.trim() || undefined,
         typeId: workTypeId || undefined,
+        moduleId: !selectedType?.isModule && moduleId ? moduleId : undefined,
         statusId: statusId || undefined,
         priority,
         assigneeId: assigneeId || undefined,
@@ -273,11 +283,44 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 </label>
                 <Select
                   value={workTypeId}
-                  onChange={setWorkTypeId}
-                  options={workTypes.map((wt) => ({
-                    value: wt.id,
-                    label: `${wt.name}${wt.isSubtask ? ' (Subtask)' : ''}`,
-                  }))}
+                  onChange={(val) => {
+                    setWorkTypeId(val)
+                  }}
+                  options={workTypes
+                    .filter((wt) => !wt.isModule)
+                    .map((wt) => ({
+                      value: wt.id,
+                      label: `${wt.name}${wt.isSubtask ? ' (Subtask)' : ''}`,
+                    }))}
+                />
+              </div>
+
+              {/* Thuộc Module */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600">
+                    Thuộc Module
+                  </label>
+                  {workTypes.some((wt) => wt.isModule) && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateModuleModalOpen(true)}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                    >
+                      + Tạo Module
+                    </button>
+                  )}
+                </div>
+                <Select
+                  value={moduleId}
+                  onChange={setModuleId}
+                  options={[
+                    { value: '', label: 'Không thuộc Module nào' },
+                    ...moduleItems.map((m) => ({
+                      value: m.id,
+                      label: `${m.taskKey} · ${m.title}`,
+                    })),
+                  ]}
                 />
               </div>
 
@@ -514,6 +557,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </form>
         )}
       </div>
+
+      <CreateModuleModal
+        isOpen={isCreateModuleModalOpen}
+        onClose={() => setIsCreateModuleModalOpen(false)}
+        projectIdOrKey={projectIdOrKey}
+        moduleWorkTypeId={workTypes.find((wt) => wt.isModule)?.id}
+        onModuleCreated={(created) => {
+          setModuleItems((prev) => [...prev, created])
+          setModuleId(created.id)
+        }}
+      />
     </div>
   )
 }

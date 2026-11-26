@@ -13,6 +13,8 @@ import { CustomField, CustomFieldType } from '../projects/entities/custom-field.
 import { CustomFieldValue } from './entities/custom-field-value.entity.js';
 import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
 import { Workflow } from '../projects/entities/workflow.entity.js';
+import { Label } from '../projects/entities/label.entity.js';
+import { TaskLabel } from '../projects/entities/task-label.entity.js';
 
 describe('TasksService - Unit Tests', () => {
   let service: TasksService;
@@ -24,6 +26,8 @@ describe('TasksService - Unit Tests', () => {
   let customFieldValueRepo: Partial<Repository<CustomFieldValue>>;
   let workflowTransitionRepo: Partial<Repository<WorkflowTransition>>;
   let workflowRepo: Partial<Repository<Workflow>>;
+  let labelRepo: Partial<Repository<Label>>;
+  let taskLabelRepo: Partial<Repository<TaskLabel>>;
 
   const mockProjectId = 'project-uuid-111';
   const mockTaskId = 'task-uuid-333';
@@ -90,6 +94,17 @@ describe('TasksService - Unit Tests', () => {
       findOne: vi.fn().mockResolvedValue(null),
     };
 
+    labelRepo = {
+      find: vi.fn().mockResolvedValue([]),
+    };
+
+    taskLabelRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
+      create: vi.fn((data: any) => ({ ...data, id: 'tl-mock-id' })),
+      save: vi.fn(async (data: any) => data),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TasksService,
@@ -101,6 +116,8 @@ describe('TasksService - Unit Tests', () => {
         { provide: getRepositoryToken(CustomFieldValue), useValue: customFieldValueRepo },
         { provide: getRepositoryToken(WorkflowTransition), useValue: workflowTransitionRepo },
         { provide: getRepositoryToken(Workflow), useValue: workflowRepo },
+        { provide: getRepositoryToken(Label), useValue: labelRepo },
+        { provide: getRepositoryToken(TaskLabel), useValue: taskLabelRepo },
       ],
     }).compile();
 
@@ -500,6 +517,101 @@ describe('TasksService - Unit Tests', () => {
     it('ném NotFoundException khi task không tồn tại', async () => {
       vi.mocked(taskRepo.findOne!).mockResolvedValue(null);
       await expect(service.deleteTask('user-1', 'non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('Labels on Task', () => {
+    it('gắn nhãn hợp lệ cho task khi tạo mới và trả về danh sách labels', async () => {
+      vi.mocked(taskRepo.count!).mockResolvedValue(0);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({ id: 'status-1', name: 'Backlog', is_default: true } as Status);
+      vi.mocked(workTypeRepo.findOne!).mockResolvedValue(null);
+      vi.mocked(labelRepo.find!).mockResolvedValue([
+        { id: 'label-1', projectId: mockProjectId, name: 'Frontend', color: '#4f46e5' } as Label,
+      ]);
+      vi.mocked(taskLabelRepo.find!).mockResolvedValueOnce([
+        { label: { id: 'label-1', name: 'Frontend', color: '#4f46e5' } } as any,
+      ]);
+      vi.mocked(taskRepo.create!).mockReturnValue({
+        id: mockTaskId,
+        project_id: mockProjectId,
+        task_key: 'PROJ-1',
+        title: 'Task có nhãn',
+        priority: TaskPriority.MEDIUM,
+        status_id: 'status-1',
+      } as Task);
+      vi.mocked(taskRepo.save!).mockResolvedValue({ id: mockTaskId } as Task);
+      vi.mocked(taskRepo.findOne!).mockResolvedValue({
+        id: mockTaskId,
+        project_id: mockProjectId,
+        task_key: 'PROJ-1',
+        title: 'Task có nhãn',
+        status: { id: 'status-1', name: 'Backlog', category: 'TODO', color: '#ccc' },
+        type: null,
+        assignee: null,
+        reporter: null,
+        priority: TaskPriority.MEDIUM,
+        position: 1000,
+        taskLabels: [
+          { label: { id: 'label-1', name: 'Frontend', color: '#4f46e5' } },
+        ],
+      } as any);
+
+      const result = await service.createTask('user-1', mockProjectId, {
+        title: 'Task có nhãn',
+        labelIds: ['label-1'],
+      });
+
+      expect(taskLabelRepo.delete).toHaveBeenCalledWith({ taskId: mockTaskId });
+      expect(taskLabelRepo.save).toHaveBeenCalled();
+      expect(result.labels).toEqual([{ id: 'label-1', name: 'Frontend', color: '#4f46e5' }]);
+    });
+
+    it('lọc danh sách task theo labelId trong getTasks', async () => {
+      await service.getTasks(mockProjectId, { labelId: 'label-1' });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('EXISTS'),
+        { labelId: 'label-1' },
+      );
+    });
+  });
+
+  describe('Module hierarchy rules', () => {
+    it('chặn chuyển đổi qua lại giữa Module và Task thường khi updateTask', async () => {
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce({
+        id: mockTaskId,
+        project_id: mockProjectId,
+        type_id: 'wt-task',
+        type: { id: 'wt-task', name: 'Task', isModule: false },
+      } as any);
+      vi.mocked(workTypeRepo.findOne!).mockResolvedValueOnce({
+        id: 'wt-module',
+        project_id: mockProjectId,
+        name: 'Module',
+        isModule: true,
+      } as any);
+
+      await expect(
+        service.updateTask('user-1', mockTaskId, { typeId: 'wt-module' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('chặn gán moduleId trỏ tới một task không phải Module', async () => {
+      vi.mocked(taskRepo.count!).mockResolvedValue(0);
+      vi.mocked(statusRepo.findOne!).mockResolvedValue({ id: 'status-1', name: 'To Do', is_default: true } as Status);
+      vi.mocked(workTypeRepo.findOne!).mockResolvedValue({ id: 'wt-task', isModule: false } as WorkType);
+      vi.mocked(taskRepo.findOne!).mockResolvedValueOnce({
+        id: 'not-a-module',
+        project_id: mockProjectId,
+        type: { id: 'wt-task', isModule: false },
+      } as any);
+
+      await expect(
+        service.createTask('user-1', mockProjectId, {
+          title: 'Task con',
+          typeId: 'wt-task',
+          moduleId: 'not-a-module',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

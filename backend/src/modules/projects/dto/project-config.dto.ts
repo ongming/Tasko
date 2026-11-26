@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsArray,
   Min,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -232,4 +233,31 @@ export class UpdateProjectSettingsDto {
 
   @IsOptional()
   settings?: Record<string, any>;
+}
+
+// ==========================================
+// 6. LABELS DTO
+// ==========================================
+export class CreateLabelDto {
+  @IsString({ message: 'Tên nhãn phải là chuỗi ký tự' })
+  @IsNotEmpty({ message: 'Tên nhãn không được để trống' })
+  @MaxLength(60, { message: 'Tên nhãn tối đa 60 ký tự' })
+  name: string;
+
+  @IsString({ message: 'Mã màu phải là chuỗi ký tự' })
+  @IsOptional()
+  @MaxLength(30, { message: 'Mã màu tối đa 30 ký tự' })
+  color?: string;
+}
+
+export class UpdateLabelDto {
+  @IsString({ message: 'Tên nhãn phải là chuỗi ký tự' })
+  @IsOptional()
+  @MaxLength(60, { message: 'Tên nhãn tối đa 60 ký tự' })
+  name?: string;
+
+  @IsString({ message: 'Mã màu phải là chuỗi ký tự' })
+  @IsOptional()
+  @MaxLength(30, { message: 'Mã màu tối đa 30 ký tự' })
+  color?: string;
 }

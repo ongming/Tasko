@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Task, TaskPriority } from './entities/task.entity.js';
 import { Status, StatusCategory } from '../projects/entities/status.entity.js';
 import { WorkType } from '../projects/entities/work-type.entity.js';
@@ -9,6 +9,8 @@ import { CustomField } from '../projects/entities/custom-field.entity.js';
 import { CustomFieldValue } from './entities/custom-field-value.entity.js';
 import { WorkflowTransition } from '../projects/entities/workflow-transition.entity.js';
 import { Workflow } from '../projects/entities/workflow.entity.js';
+import { Label } from '../projects/entities/label.entity.js';
+import { TaskLabel } from '../projects/entities/task-label.entity.js';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, TaskQueryDto } from './dto/task.dto.js';
 
 const STATUS_CATEGORY_ORDER: Record<StatusCategory, number> = {
@@ -37,6 +39,12 @@ export class TasksService {
     @Optional()
     @InjectRepository(Workflow)
     private readonly workflowRepository?: Repository<Workflow>,
+    @Optional()
+    @InjectRepository(Label)
+    private readonly labelRepository?: Repository<Label>,
+    @Optional()
+    @InjectRepository(TaskLabel)
+    private readonly taskLabelRepository?: Repository<TaskLabel>,
   ) {}
 
   private isUuid(val: string): boolean {
@@ -106,6 +114,28 @@ export class TasksService {
     return {};
   }
 
+  private async syncTaskLabels(taskId: string, projectId: string, labelIds: string[]): Promise<void> {
+    if (!this.taskLabelRepository || !this.labelRepository) return;
+
+    const uniqueIds = Array.from(new Set(labelIds.filter(Boolean)));
+    if (uniqueIds.length > 0) {
+      const validLabels = await this.labelRepository.find({
+        where: { id: In(uniqueIds), projectId },
+      });
+      if (validLabels.length !== uniqueIds.length) {
+        throw new BadRequestException('Một hoặc nhiều nhãn không thuộc về dự án này!');
+      }
+    }
+
+    await this.taskLabelRepository.delete({ taskId });
+    if (uniqueIds.length > 0) {
+      const rows = uniqueIds.map((labelId) =>
+        this.taskLabelRepository!.create({ taskId, labelId }),
+      );
+      await this.taskLabelRepository.save(rows);
+    }
+  }
+
   async getTasks(identifier: string, query?: TaskQueryDto) {
     const project = await this.findProjectEntity(identifier);
     if (!project) {
@@ -120,6 +150,7 @@ export class TasksService {
       .leftJoinAndSelect('task.reporter', 'reporter')
       .leftJoinAndSelect('task.sprint', 'sprint')
       .leftJoinAndSelect('task.parentTask', 'parentTask')
+      .leftJoinAndSelect('task.moduleTask', 'moduleTask')
       .where('task.project_id = :projectId', { projectId: project.id });
 
     // 1. Tìm kiếm (Search theo title hoặc task_key)
@@ -152,6 +183,15 @@ export class TasksService {
       qb.andWhere('task.type_id = :workTypeId', { workTypeId: query.workTypeId });
     }
 
+    // 4b. Lọc theo moduleId
+    if (query?.moduleId) {
+      if (query.moduleId === 'none' || query.moduleId === 'null') {
+        qb.andWhere('task.module_id IS NULL');
+      } else {
+        qb.andWhere('task.module_id = :moduleId', { moduleId: query.moduleId });
+      }
+    }
+
     // 5. Lọc theo assigneeId
     if (query?.assigneeId) {
       if (query.assigneeId === 'unassigned') {
@@ -164,6 +204,14 @@ export class TasksService {
     // 6. Lọc theo priority
     if (query?.priority) {
       qb.andWhere('task.priority = :priority', { priority: query.priority });
+    }
+
+    // 6b. Lọc theo labelId
+    if (query?.labelId) {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM task_labels tl WHERE tl.task_id = task.id AND tl.label_id = :labelId)',
+        { labelId: query.labelId },
+      );
     }
 
     // 7. Sắp xếp (Sort)
@@ -217,6 +265,26 @@ export class TasksService {
       cfMap.set(cfv.taskId, arr);
     }
 
+    // Lấy danh sách labels cho từng task
+    const labelMap = new Map<string, Array<{ id: string; name: string; color: string }>>();
+    if (taskIds.length > 0 && this.taskLabelRepository) {
+      const taskLabelRows = await this.taskLabelRepository
+        .createQueryBuilder('tl')
+        .leftJoinAndSelect('tl.label', 'lbl')
+        .where('tl.task_id IN (:...taskIds)', { taskIds })
+        .getMany();
+      for (const row of taskLabelRows) {
+        if (!row.label) continue;
+        const arr = labelMap.get(row.taskId) || [];
+        arr.push({
+          id: row.label.id,
+          name: row.label.name,
+          color: row.label.color,
+        });
+        labelMap.set(row.taskId, arr);
+      }
+    }
+
     return tasks.map((t) => ({
       id: t.id,
       projectId: t.project_id,
@@ -226,7 +294,15 @@ export class TasksService {
       title: t.title,
       description: t.description,
       typeId: t.type_id,
-      type: t.type ? { id: t.type.id, name: t.type.name, icon: t.type.icon, color: t.type.color } : null,
+      type: t.type
+        ? {
+            id: t.type.id,
+            name: t.type.name,
+            icon: t.type.icon,
+            color: t.type.color,
+            isModule: Boolean(t.type.isModule),
+          }
+        : null,
       statusId: t.status_id,
       status: t.status ? { id: t.status.id, name: t.status.name, category: t.status.category, color: t.status.color } : null,
       storyPoints: t.story_points,
@@ -238,10 +314,15 @@ export class TasksService {
       position: t.position,
       parentTaskId: t.parent_task_id,
       parentTask: t.parentTask ? { id: t.parentTask.id, taskKey: t.parentTask.task_key, title: t.parentTask.title } : null,
+      moduleId: t.module_id,
+      module: t.moduleTask
+        ? { id: t.moduleTask.id, taskKey: t.moduleTask.task_key, title: t.moduleTask.title }
+        : null,
       estimatedHours: t.estimated_hours ? Number(t.estimated_hours) : null,
       startDate: t.start_date,
       dueDate: t.due_date,
       customFields: cfMap.get(t.id) || [],
+      labels: labelMap.get(t.id) || [],
       createdAt: t.created_at,
       updatedAt: t.updated_at,
     }));
@@ -306,8 +387,16 @@ export class TasksService {
     }
 
     let typeId = dto.typeId;
+    let resolvedType: WorkType | null = null;
     if (!typeId) {
-      const defaultType =
+      resolvedType =
+        (await this.workTypeRepository.findOne({
+          where: { project_id: project.id, is_default: true, isModule: false },
+        })) ||
+        (await this.workTypeRepository.findOne({
+          where: { project_id: project.id, isModule: false },
+          order: { created_at: 'ASC' },
+        })) ||
         (await this.workTypeRepository.findOne({
           where: { project_id: project.id, is_default: true },
         })) ||
@@ -315,8 +404,29 @@ export class TasksService {
           where: { project_id: project.id },
           order: { created_at: 'ASC' },
         }));
-      if (defaultType) {
-        typeId = defaultType.id;
+      if (resolvedType) {
+        typeId = resolvedType.id;
+      }
+    } else {
+      resolvedType = await this.workTypeRepository.findOne({
+        where: { id: typeId, project_id: project.id },
+      });
+    }
+
+    if (resolvedType?.isModule && dto.parentTaskId) {
+      throw new BadRequestException('Module không thể là công việc con (Subtask)!');
+    }
+
+    if (dto.moduleId) {
+      if (resolvedType?.isModule) {
+        throw new BadRequestException('Một Module không thể thuộc về một Module khác!');
+      }
+      const moduleTarget = await this.taskRepository.findOne({
+        where: { id: dto.moduleId },
+        relations: { type: true },
+      });
+      if (!moduleTarget || moduleTarget.project_id !== project.id || !moduleTarget.type?.isModule) {
+        throw new BadRequestException('Module được chọn không hợp lệ trong dự án này!');
       }
     }
 
@@ -334,6 +444,7 @@ export class TasksService {
       reporter_id: userId,
       position: dto.position ?? (count + 1) * 1000,
       parent_task_id: dto.parentTaskId || null,
+      module_id: dto.moduleId || null,
       estimated_hours: dto.estimatedHours ?? null,
       start_date: dto.startDate ? new Date(dto.startDate) : null,
       due_date: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -351,6 +462,10 @@ export class TasksService {
         }),
       );
       await this.customFieldValueRepository.save(cfEntities);
+    }
+
+    if (dto.labelIds !== undefined) {
+      await this.syncTaskLabels(saved.id, project.id, dto.labelIds);
     }
 
     return this.getTaskById(saved.id);
@@ -371,6 +486,12 @@ export class TasksService {
           type: true,
           assignee: true,
         },
+        moduleTask: true,
+        moduleTasks: {
+          status: true,
+          type: true,
+          assignee: true,
+        },
       },
     });
     if (!t) {
@@ -382,6 +503,21 @@ export class TasksService {
       relations: { customField: true },
     });
 
+    const taskLabelRows = this.taskLabelRepository
+      ? await this.taskLabelRepository.find({
+          where: { taskId: t.id },
+          relations: { label: true },
+        })
+      : [];
+
+    const labels = taskLabelRows
+      .filter((row) => Boolean(row.label))
+      .map((row) => ({
+        id: row.label.id,
+        name: row.label.name,
+        color: row.label.color,
+      }));
+
     return {
       id: t.id,
       projectId: t.project_id,
@@ -391,7 +527,15 @@ export class TasksService {
       title: t.title,
       description: t.description,
       typeId: t.type_id,
-      type: t.type ? { id: t.type.id, name: t.type.name, icon: t.type.icon, color: t.type.color } : null,
+      type: t.type
+        ? {
+            id: t.type.id,
+            name: t.type.name,
+            icon: t.type.icon,
+            color: t.type.color,
+            isModule: Boolean(t.type.isModule),
+          }
+        : null,
       statusId: t.status_id,
       status: t.status ? { id: t.status.id, name: t.status.name, category: t.status.category, color: t.status.color } : null,
       storyPoints: t.story_points,
@@ -403,6 +547,40 @@ export class TasksService {
       position: t.position,
       parentTaskId: t.parent_task_id,
       parentTask: t.parentTask ? { id: t.parentTask.id, taskKey: t.parentTask.task_key, title: t.parentTask.title } : null,
+      moduleId: t.module_id,
+      module: t.moduleTask
+        ? { id: t.moduleTask.id, taskKey: t.moduleTask.task_key, title: t.moduleTask.title }
+        : null,
+      moduleTasks: (t.moduleTasks || []).map((mt) => ({
+        id: mt.id,
+        projectId: mt.project_id,
+        taskKey: mt.task_key,
+        title: mt.title,
+        statusId: mt.status_id,
+        status: mt.status
+          ? { id: mt.status.id, name: mt.status.name, category: mt.status.category, color: mt.status.color }
+          : null,
+        typeId: mt.type_id,
+        type: mt.type
+          ? {
+              id: mt.type.id,
+              name: mt.type.name,
+              icon: mt.type.icon,
+              color: mt.type.color,
+              isModule: Boolean(mt.type.isModule),
+            }
+          : null,
+        assigneeId: mt.assignee_id,
+        assignee: mt.assignee
+          ? { id: mt.assignee.id, name: mt.assignee.full_name, avatarUrl: mt.assignee.avatar_url }
+          : null,
+        priority: mt.priority,
+        storyPoints: mt.story_points,
+        position: mt.position,
+        dueDate: mt.due_date,
+        createdAt: mt.created_at,
+        updatedAt: mt.updated_at,
+      })),
       subtasks: (t.subtasks || []).map((sub) => ({
         id: sub.id,
         projectId: sub.project_id,
@@ -433,6 +611,7 @@ export class TasksService {
         isRequired: cfv.customField?.isRequired,
         value: cfv.value,
       })),
+      labels,
       createdAt: t.created_at,
       updatedAt: t.updated_at,
     };
@@ -504,10 +683,38 @@ export class TasksService {
       task.parent_task_id = dto.parentTaskId;
     }
 
+    if (dto.moduleId !== undefined) {
+      if (dto.moduleId === task.id) {
+        throw new BadRequestException('Công việc không thể tự thuộc về chính nó!');
+      }
+      if (dto.moduleId) {
+        if (task.type?.isModule) {
+          throw new BadRequestException('Một Module không thể thuộc về một Module khác!');
+        }
+        const moduleTarget = await this.taskRepository.findOne({
+          where: { id: dto.moduleId },
+          relations: { type: true },
+        });
+        if (!moduleTarget || moduleTarget.project_id !== task.project_id || !moduleTarget.type?.isModule) {
+          throw new BadRequestException('Module được chọn không hợp lệ trong dự án này!');
+        }
+      }
+      task.module_id = dto.moduleId;
+    }
+
     if (dto.title !== undefined) task.title = dto.title.trim();
     if (dto.description !== undefined) task.description = dto.description ? dto.description.trim() : null;
     if (dto.sprintId !== undefined) task.sprint_id = dto.sprintId;
-    if (dto.typeId !== undefined) {
+    if (dto.typeId !== undefined && dto.typeId !== task.type_id) {
+      const targetType = await this.workTypeRepository.findOne({
+        where: { id: dto.typeId, project_id: task.project_id },
+      });
+      if (!targetType) {
+        throw new BadRequestException('Loại công việc không tồn tại trong dự án này!');
+      }
+      if (Boolean(task.type?.isModule) !== Boolean(targetType.isModule)) {
+        throw new BadRequestException('Không thể chuyển đổi qua lại giữa Module và loại công việc thường!');
+      }
       task.type_id = dto.typeId;
       delete (task as Partial<Task>).type;
     }
@@ -539,6 +746,10 @@ export class TasksService {
           await this.customFieldValueRepository.save(newCf);
         }
       }
+    }
+
+    if (dto.labelIds !== undefined) {
+      await this.syncTaskLabels(task.id, task.project_id, dto.labelIds);
     }
 
     const updated = await this.getTaskById(task.id);
