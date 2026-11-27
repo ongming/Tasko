@@ -12,6 +12,8 @@ import { Workflow } from '../projects/entities/workflow.entity.js';
 import { Label } from '../projects/entities/label.entity.js';
 import { TaskLabel } from '../projects/entities/task-label.entity.js';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, TaskQueryDto } from './dto/task.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '../notifications/entities/notification.entity.js';
 
 const STATUS_CATEGORY_ORDER: Record<StatusCategory, number> = {
   [StatusCategory.TODO]: 0,
@@ -45,6 +47,8 @@ export class TasksService {
     @Optional()
     @InjectRepository(TaskLabel)
     private readonly taskLabelRepository?: Repository<TaskLabel>,
+    @Optional()
+    private readonly notificationsService?: NotificationsService,
   ) {}
 
   private isUuid(val: string): boolean {
@@ -468,6 +472,23 @@ export class TasksService {
       await this.syncTaskLabels(saved.id, project.id, dto.labelIds);
     }
 
+    if (this.notificationsService && saved.assignee_id && saved.assignee_id !== userId) {
+      this.notificationsService
+        .createNotification({
+          userId: saved.assignee_id,
+          type: NotificationType.ASSIGNED,
+          title: `Được giao việc: ${saved.task_key}`,
+          message: `Bạn vừa được giao công việc "${saved.title}".`,
+          data: {
+            projectId: project.id,
+            projectKey: project.key,
+            taskId: saved.id,
+            taskKey: saved.task_key,
+          },
+        })
+        .catch(() => undefined);
+    }
+
     return this.getTaskById(saved.id);
   }
 
@@ -626,6 +647,9 @@ export class TasksService {
       throw new NotFoundException('Công việc không tồn tại!');
     }
 
+    const previousAssigneeId = task.assignee_id;
+    const previousStatusCategory = task.status?.category;
+
     // 1. Kiểm tra WorkflowTransition và WIP Limit nếu thay đổi statusId
     let workflowWarning: string | undefined;
     if (dto.statusId !== undefined && dto.statusId !== task.status_id) {
@@ -728,6 +752,28 @@ export class TasksService {
 
     await this.taskRepository.save(task);
 
+    if (
+      this.notificationsService &&
+      task.status?.category === StatusCategory.DONE &&
+      previousStatusCategory !== StatusCategory.DONE &&
+      task.reporter_id &&
+      task.reporter_id !== userId
+    ) {
+      this.notificationsService
+        .createNotification({
+          userId: task.reporter_id,
+          type: NotificationType.STATUS_CHANGED,
+          title: `Hoàn thành: ${task.task_key}`,
+          message: `Công việc "${task.title}" đã được chuyển sang trạng thái Hoàn thành.`,
+          data: {
+            projectId: task.project_id,
+            taskId: task.id,
+            taskKey: task.task_key,
+          },
+        })
+        .catch(() => undefined);
+    }
+
     // 3. Cập nhật CustomFieldValues nếu có
     if (dto.customFields && dto.customFields.length > 0) {
       for (const cf of dto.customFields) {
@@ -781,6 +827,9 @@ export class TasksService {
       throw new NotFoundException('Công việc không tồn tại!');
     }
 
+    const previousAssigneeId = task.assignee_id;
+    const previousStatusCategory = task.status?.category;
+
     const effectiveProjectId = task.project_id;
     const targetStatusId = dto.toStatusId || dto.statusId;
 
@@ -827,6 +876,28 @@ export class TasksService {
     if (dto.sprintId !== undefined) task.sprint_id = dto.sprintId;
 
     await this.taskRepository.save(task);
+
+    if (
+      this.notificationsService &&
+      task.status?.category === StatusCategory.DONE &&
+      previousStatusCategory !== StatusCategory.DONE &&
+      task.reporter_id &&
+      task.reporter_id !== userId
+    ) {
+      this.notificationsService
+        .createNotification({
+          userId: task.reporter_id,
+          type: NotificationType.STATUS_CHANGED,
+          title: `Hoàn thành: ${task.task_key}`,
+          message: `Công việc "${task.title}" đã được chuyển sang trạng thái Hoàn thành.`,
+          data: {
+            projectId: task.project_id,
+            taskId: task.id,
+            taskKey: task.task_key,
+          },
+        })
+        .catch(() => undefined);
+    }
     const updated = await this.getTaskById(task.id);
     return workflowWarning ? { ...updated, workflowWarning } : updated;
   }
@@ -839,6 +910,9 @@ export class TasksService {
     if (!task) {
       throw new NotFoundException('Công việc không tồn tại!');
     }
+
+    const previousAssigneeId = task.assignee_id;
+    const previousStatusCategory = task.status?.category;
 
     // Xóa mềm cả subtasks con trong Transaction
     const hasTransaction = Boolean(this.taskRepository.manager?.transaction);

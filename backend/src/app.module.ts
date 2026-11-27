@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -16,6 +17,7 @@ import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AiDocumentModule } from './modules/ai-document/ai-document.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -27,6 +29,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       envFilePath: '.env',
       load: [databaseConfig, jwtConfig, cloudinaryConfig],
     }),
+    ScheduleModule.forRoot(),
 
     // 2. Cấu hình kết nối PostgreSQL qua TypeORM (đọc từ file config riêng biệt)
     TypeOrmModule.forRootAsync({
@@ -69,6 +72,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     // 11. Phân hệ Cộng tác: Bình luận trong Task (Collaboration)
     CollaborationModule,
+
+    // 12. Phân hệ Thông báo & Nhắc hạn định kỳ (Notifications)
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

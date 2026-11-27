@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { 
   Search, 
-  Bell, 
   Settings, 
   Menu, 
   LogOut,
@@ -12,6 +11,7 @@ import {
 import Logo from '@/components/Logo'
 import { useAuthStore } from '@/stores/authStore'
 import { authService } from '@/services/authService'
+import { NotificationBell } from './NotificationBell'
 
 export interface WorkspaceTopbarProps {
   onToggleMobileSidebar?: () => void;
@@ -126,15 +126,7 @@ export function WorkspaceTopbar({ onToggleMobileSidebar }: WorkspaceTopbarProps)
       {/* 3. Right: Notifications, Settings, Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Notifications */}
-        <button
-          type="button"
-          className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-          title="Thông báo"
-          aria-label="Xem thông báo"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
-        </button>
+        <NotificationBell />
 
         {/* Settings */}
         <Link

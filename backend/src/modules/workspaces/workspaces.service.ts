@@ -111,6 +111,21 @@ export class WorkspacesService {
       order: { joined_at: 'DESC' },
     });
 
+    const countMap = new Map<string, number>();
+    const wsIds = memberships.map((m) => m.workspace.id);
+    if (wsIds.length > 0 && typeof this.memberRepo.createQueryBuilder === 'function') {
+      const rows = await this.memberRepo
+        .createQueryBuilder('wm')
+        .select('wm.workspace_id', 'workspaceId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('wm.workspace_id IN (:...wsIds)', { wsIds })
+        .groupBy('wm.workspace_id')
+        .getRawMany<{ workspaceId: string; cnt: string }>();
+      for (const r of rows) {
+        countMap.set(r.workspaceId, Number(r.cnt) || 1);
+      }
+    }
+
     return memberships.map((m) => ({
       id: m.workspace.id,
       name: m.workspace.name,
@@ -118,6 +133,7 @@ export class WorkspacesService {
       description: m.workspace.description,
       role: m.role,
       ownerId: m.workspace.owner_id,
+      memberCount: countMap.get(m.workspace.id) ?? 1,
       createdAt: m.workspace.created_at,
       updatedAt: m.workspace.updated_at,
     }));

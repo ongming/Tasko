@@ -166,4 +166,81 @@ export class MailService implements IMailService {
       }
     }
   }
+
+  /**
+   * Gửi email tổng hợp nhắc nhở các công việc sắp hết hạn vào ngày mai
+   */
+  async sendDueSoonDigestEmail(
+    to: string,
+    name: string,
+    tasks: Array<{
+      taskKey: string;
+      title: string;
+      projectName: string;
+      dueDateLabel: string;
+      url?: string;
+    }>,
+  ): Promise<void> {
+    if (!tasks || tasks.length === 0) return;
+
+    this.logger.log(`\n===============================================================`);
+    this.logger.log(` [TASKO - NHẮC HẠN CÔNG VIỆC CHO]: ${to} (${tasks.length} task)`);
+    tasks.forEach((t) => this.logger.log(`  - [${t.taskKey}] ${t.title} (${t.dueDateLabel})`));
+    this.logger.log(`===============================================================\n`);
+
+    const itemsHtml = tasks
+      .map(
+        (t) => `
+          <li style="margin-bottom: 10px; padding: 10px 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="font-size: 13px; color: #0f172a; font-weight: 600;">
+              <span style="font-family: monospace; color: #4f46e5;">${t.taskKey}</span> · ${t.title}
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+              Dự án: <strong>${t.projectName}</strong> · Hạn chót: <strong style="color: #d97706;">${t.dueDateLabel}</strong>
+              ${t.url ? ` · <a href="${t.url}" style="color: #4f46e5; text-decoration: none; font-weight: 600;">Mở công việc →</a>` : ''}
+            </div>
+          </li>
+        `,
+      )
+      .join('');
+
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px 24px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 20px; text-align: center;">
+          <h1 style="color: #0f172a; font-size: 24px; font-weight: 800; margin: 0;">Tasko</h1>
+          <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Nhắc nhở công việc sắp đến hạn</p>
+        </div>
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+          <h2 style="color: #1e293b; font-size: 16px; font-weight: 600; margin-top: 0;">Xin chào ${name},</h2>
+          <p style="color: #475569; font-size: 14px; line-height: 1.6; margin-bottom: 14px;">
+            Bạn có <strong>${tasks.length} công việc</strong> đến hạn hôm nay hoặc ngày mai. Hãy kiểm tra và cập nhật tiến độ nhé:
+          </p>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            ${itemsHtml}
+          </ul>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
+          © 2026 Tasko. Email nhắc hạn tự động.
+        </p>
+      </div>
+    `;
+
+    if (this.transporter) {
+      const from = this.configService.get<string>(
+        'SMTP_FROM',
+        '"Tasko Team" <tasko3636@gmail.com>',
+      );
+      try {
+        await this.transporter.sendMail({
+          from,
+          to,
+          subject: `[Tasko] Bạn có ${tasks.length} công việc đến hạn hôm nay / ngày mai`,
+          html: htmlContent,
+        });
+        this.logger.log(`Đã gửi email nhắc hạn qua Brevo SMTP tới: ${to}`);
+      } catch (error: any) {
+        this.logger.error(`Lỗi gửi email nhắc hạn qua Brevo SMTP: ${error.message}`);
+      }
+    }
+  }
 }

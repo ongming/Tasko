@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,8 @@ import { ProjectMember, ProjectRole } from '../projects/entities/project-member.
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity.js';
 import { WorkspaceRole } from '../workspaces/enums/workspace-role.enum.js';
 import { CreateTaskCommentDto, UpdateTaskCommentDto } from './dto/task-comment.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '../notifications/entities/notification.entity.js';
 
 export interface TaskCommentAuthorResponse {
   id: string;
@@ -45,6 +48,8 @@ export class CommentsService {
     private readonly projectMemberRepository: Repository<ProjectMember>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @Optional()
+    private readonly notificationsService?: NotificationsService,
   ) {}
 
   private isUuid(val: string): boolean {
@@ -168,7 +173,7 @@ export class CommentsService {
     userId: string,
     dto: CreateTaskCommentDto,
   ): Promise<TaskCommentResponse> {
-    const { task } = await this.resolveTaskInProject(projectIdOrKey, taskId);
+    const { project, task } = await this.resolveTaskInProject(projectIdOrKey, taskId);
     const trimmedContent = dto.content?.trim();
 
     if (!trimmedContent) {
@@ -187,6 +192,30 @@ export class CommentsService {
       where: { id: saved.id },
       relations: { user: true },
     });
+
+    if (this.notificationsService) {
+      const recipients = new Set<string>();
+      if (task.assignee_id && task.assignee_id !== userId) recipients.add(task.assignee_id);
+      if (task.reporter_id && task.reporter_id !== userId) recipients.add(task.reporter_id);
+
+      const authorName = withAuthor?.user?.full_name || 'Thành viên';
+      for (const recipientId of recipients) {
+        this.notificationsService
+          .createNotification({
+            userId: recipientId,
+            type: NotificationType.COMMENTED,
+            title: `Bình luận mới ở ${task.task_key}`,
+            message: `${authorName} đã bình luận trong "${task.title}": ${trimmedContent.slice(0, 80)}`,
+            data: {
+              projectId: project.id,
+              projectKey: project.key,
+              taskId: task.id,
+              taskKey: task.task_key,
+            },
+          })
+          .catch(() => undefined);
+      }
+    }
 
     return this.formatComment(withAuthor ?? saved);
   }
